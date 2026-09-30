@@ -1,0 +1,36 @@
+{
+  "formatVersion": 1,
+  "upstreamRevision": "42939c6a2cf31aa76f44ffc033015ad12fece9f5",
+  "modules": [
+    {
+      "path": "roblox/map/HexCoord.luau",
+      "sourcePath": "src/map/HexCoord.luau",
+      "sourceSha256": "a673a33f14b24dd5ce7f6f9571d499516242b756b9a41e5064d993ec71b6742a",
+      "generatedSha256": "9e92e0693a728a0552196b6a99b8fbed14a78c790c574378bc7c704f23c495bb"
+    },
+    {
+      "path": "roblox/map/HexMath.luau",
+      "sourcePath": "src/map/HexMath.luau",
+      "sourceSha256": "b89c7345567eae10a9762d56e4c3ee64720ffd74fb1c391b06f65548dad30892",
+      "generatedSha256": "0c2f587c7e1c9afd1f5d70cc68d2e4db7d91cbeb526cf1e8cd64d960201d037c"
+    },
+    {
+      "path": "roblox/models/Counter.luau",
+      "sourcePath": "src/models/Counter.luau",
+      "sourceSha256": "b10dda1f60b6d4674936e196c818bb51b8a02f794d3d125d71c8aef6ef3270da",
+      "generatedSha256": "8a46e23d73387d0495c8a7d0c17310abd0e5e598b9a686bcbccc228b8bf45dbf"
+    },
+    {
+      "path": "roblox/models/stats/Stat.luau",
+      "sourcePath": "src/models/stats/Stat.luau",
+      "sourceSha256": "c910c2048396e74badc95fb7028d5965d6971dabcdcffb7d7a15951003a687a8",
+      "generatedSha256": "028d943ae66a4cced767b31b7643c672389897fd01d46b5990fdd24d3c4c210a"
+    },
+    {
+      "path": "roblox/models/stats/Stats.luau",
+      "sourcePath": "src/models/stats/Stats.luau",
+      "sourceSha256": "ea9b52ab13111266781ea37f08e9d0f417a6afebab1b4b3625a8b5d98832694f",
+      "generatedSha256": "83206f27cea533d7d3fd816c75b4038d815af7ce5e7a22343b9aa3345822eccd"
+    }
+  ]
+}

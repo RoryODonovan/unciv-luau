@@ -1,0 +1,8 @@
+{
+  "repository": "https://github.com/yairm210/Unciv",
+  "revision": "42939c6a2cf31aa76f44ffc033015ad12fece9f5",
+  "fetchedAt": "2026-10-01",
+  "license": "MPL-2.0",
+  "toolchains": {"luau": "0.740", "node": "22"},
+  "scope": "Selected reusable core modules; no upstream media or complete rules data are distributed."
+}

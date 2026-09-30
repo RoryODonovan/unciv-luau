@@ -53,5 +53,4 @@ npm run check
 
 Verification requires the root licence, attribution file, upstream lock and inventory. Every public Luau module must carry an MPL-2.0 SPDX header, upstream Kotlin path and pinned revision, and must be named in a JSON provenance fragment. Tests also require SPDX headers. Metadata must parse and inventory revision/counts must agree. Obvious Roblox host/service references, tracked private/secrets files and place files are rejected. This is a hygiene gate, not a secret scanner or legal opinion; review remains necessary. Assets require a path-specific licence record before inclusion.
 
-CI downloads the official Linux Luau release 0.740 and uses Node 22. No Roblox authentication or private scripts are needed. The fixed version matches the local toolchain and upstream-lock toolchain metadata; version updates must be coordinated. Release URLs are version pinned, but the workflow does not yet pin a binary checksum.
-
+CI downloads the official Linux Luau release 0.740 and uses Node 22. No Roblox authentication or private scripts are needed. The fixed version matches the local toolchain and upstream-lock toolchain metadata; version updates must be coordinated. Release URLs and the official Linux ZIP SHA-256 digest are pinned. CI also verifies that the checked-in Roblox-form modules reproduce exactly from src/.

@@ -17,6 +17,7 @@ jobs:
           LUAU_VERSION: '0.740'
         run: |
           curl --fail --location --retry 3 "https://github.com/luau-lang/luau/releases/download/${LUAU_VERSION}/luau-ubuntu.zip" -o "$RUNNER_TEMP/luau.zip"
+          echo "7d4035db01816f977f6e4c42e3d5e8ef4235d95e9afe63a3c38905b42dde60f2  $RUNNER_TEMP/luau.zip" | sha256sum --check
           mkdir -p "$RUNNER_TEMP/luau"
           unzip "$RUNNER_TEMP/luau.zip" -d "$RUNNER_TEMP/luau"
           chmod +x "$RUNNER_TEMP/luau/luau" "$RUNNER_TEMP/luau/luau-analyze"
@@ -24,3 +25,7 @@ jobs:
       - run: npm run test:tooling
       - run: npm run check
 
+
+      - run: node tools/roblox-export.mjs --check
+
+      - run: npm run test:export

@@ -1,0 +1,40 @@
+{
+  "revision": "42939c6a2cf31aa76f44ffc033015ad12fece9f5",
+  "modules": [
+    {
+      "module": "src/map/HexCoord.luau",
+      "status": "partial-tested",
+      "upstreamSha256": "d35df749a3e1e90afe4618042c166a937ff1a46099370a85d7ab396c9c0e94c3",
+      "license": "MPL-2.0",
+      "upstream": "core/src/com/unciv/logic/map/HexMath.kt"
+    },
+    {
+      "module": "src/map/HexMath.luau",
+      "status": "partial-tested",
+      "upstreamSha256": "d35df749a3e1e90afe4618042c166a937ff1a46099370a85d7ab396c9c0e94c3",
+      "license": "MPL-2.0",
+      "upstream": "core/src/com/unciv/logic/map/HexMath.kt"
+    },
+    {
+      "module": "src/models/stats/Stat.luau",
+      "status": "partial-tested",
+      "upstreamSha256": "f5072a004e9806361763a32bb1dc3bd469486362f9c092d70ac64e0a90d52ff0",
+      "license": "MPL-2.0",
+      "upstream": "core/src/com/unciv/models/stats/Stat.kt"
+    },
+    {
+      "module": "src/models/stats/Stats.luau",
+      "status": "partial-tested",
+      "upstreamSha256": "7bcea5d9b2092f9f49206deb8e3e5b84b77e4492fe102f1fb82c0511cba723dc",
+      "license": "MPL-2.0",
+      "upstream": "core/src/com/unciv/models/stats/Stats.kt"
+    },
+    {
+      "module": "src/models/Counter.luau",
+      "status": "partial-tested",
+      "upstreamSha256": "423f67af037810ff3f77258b17e8ac94de635adeed6ae03cd320127c9336e100",
+      "license": "MPL-2.0",
+      "upstream": "core/src/com/unciv/models/Counter.kt"
+    }
+  ]
+}

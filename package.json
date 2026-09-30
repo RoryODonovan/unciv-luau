@@ -14,6 +14,9 @@
     "analyze": "node tools/check.mjs analyze",
     "test": "node tools/check.mjs test",
     "inventory": "node tools/inventory.mjs",
-    "test:tooling": "node tools/check.test.mjs"
+    "test:tooling": "node tools/check.test.mjs",
+    "export:roblox": "node tools/roblox-export.mjs",
+    "check:roblox": "node tools/roblox-export.mjs --check",
+    "test:export": "node tools/roblox-export.test.mjs"
   }
 }
