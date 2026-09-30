@@ -1,6 +1,10 @@
+--!strict
 -- Generated module-only Roblox form. Source: src/map/HexCoord.luau
 -- Source SHA-256: a673a33f14b24dd5ce7f6f9571d499516242b756b9a41e5064d993ec71b6742a
 -- Reproduce with tools/roblox-export.mjs; preserve MPL notices below.
+-- Covered source: https://github.com/RoryODonovan/unciv-luau
+-- This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
+-- Obtain a copy at https://mozilla.org/MPL/2.0/.
 --!strict
 -- SPDX-License-Identifier: MPL-2.0
 -- Derived from Unciv by Yair Morgenstern and contributors.

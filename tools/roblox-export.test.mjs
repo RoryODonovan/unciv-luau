@@ -19,3 +19,7 @@ assert.throws(() => rewrite("require('./Missing')"), /Unknown\/outside/);
 assert.throws(() => rewrite("require('../../private/Secrets')"), /Unknown\/outside/);
 assert.throws(() => rewrite('local text = [=[unterminated'), /Unterminated/);
 console.log('Roblox exporter regression checks passed');
+assert.equal(rewrite('require ("./HexCoord")'), 'require(script.Parent.HexCoord)');
+for (const source of ['require "./HexCoord"', 'require(("./HexCoord"))', 'require("@self/X")', 'local loader = require']) assert.throws(() => rewrite(source), /Unsupported require/);
+assert.throws(() => rewrite('local text = `value {require("./HexCoord")}`'), /Interpolated strings/);
+assert.throws(() => rewriteImports('require("./Name")', 'map/HexMath.luau', ['map/Name.luau']), /Reserved Roblox/);

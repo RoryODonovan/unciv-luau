@@ -1,6 +1,10 @@
+--!strict
 -- Generated module-only Roblox form. Source: src/models/stats/Stat.luau
 -- Source SHA-256: c910c2048396e74badc95fb7028d5965d6971dabcdcffb7d7a15951003a687a8
 -- Reproduce with tools/roblox-export.mjs; preserve MPL notices below.
+-- Covered source: https://github.com/RoryODonovan/unciv-luau
+-- This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
+-- Obtain a copy at https://mozilla.org/MPL/2.0/.
 --!strict
 -- SPDX-License-Identifier: MPL-2.0
 -- Derived from Unciv core/src/com/unciv/models/stats/Stat.kt
