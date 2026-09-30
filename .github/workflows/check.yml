@@ -1,0 +1,26 @@
+name: Public module checks
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install official pinned Luau CLI
+        env:
+          LUAU_VERSION: '0.740'
+        run: |
+          curl --fail --location --retry 3 "https://github.com/luau-lang/luau/releases/download/${LUAU_VERSION}/luau-ubuntu.zip" -o "$RUNNER_TEMP/luau.zip"
+          mkdir -p "$RUNNER_TEMP/luau"
+          unzip "$RUNNER_TEMP/luau.zip" -d "$RUNNER_TEMP/luau"
+          chmod +x "$RUNNER_TEMP/luau/luau" "$RUNNER_TEMP/luau/luau-analyze"
+          echo "$RUNNER_TEMP/luau" >> "$GITHUB_PATH"
+      - run: npm run test:tooling
+      - run: npm run check
+
