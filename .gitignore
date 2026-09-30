@@ -1,0 +1,8 @@
+.tools/
+build/
+coverage/
+*.rbxl
+*.rbxlx
+*.rbxm
+.env
+.env.*
