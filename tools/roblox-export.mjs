@@ -74,7 +74,7 @@ export function exportModules({check = false} = {}) {
   for (const modulePath of modulePaths) {
     const source = read(path.join(sourceRoot, modulePath));
     const sourceSha256 = hash(source);
-    const generated = `-- Generated module-only Roblox form. Source: src/${modulePath}\n-- Source SHA-256: ${sourceSha256}\n-- Reproduce with tools/roblox-export.mjs; preserve MPL notices below.\n` + rewriteImports(source, modulePath, modulePaths);
+    const generated = `-- Generated module-only Roblox form. Source: src/${modulePath}\n-- Source SHA-256: ${sourceSha256}\n-- Reproduce with tools/roblox-export.mjs; preserve MPL notices below.\n` + rewriteImports(source, modulePath, modulePaths).replace(/\n+$/, '\n');
     outputs.set(modulePath, generated);
     manifest.modules.push({path: `roblox/${modulePath}`, sourcePath: `src/${modulePath}`, sourceSha256, generatedSha256: hash(generated)});
   }
@@ -105,4 +105,3 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   try { exportModules({check: process.argv.includes('--check')}); }
   catch (error) { console.error(error.message); process.exitCode = 1; }
 }
-

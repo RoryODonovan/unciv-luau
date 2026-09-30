@@ -77,4 +77,3 @@ function HexCoord.fromString(value: string): Coord
 end
 
 return table.freeze(HexCoord)
-
