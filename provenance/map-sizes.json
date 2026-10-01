@@ -12,13 +12,16 @@
   "supported": {
     "MapSizes": [
       "presets",
-      "get"
+      "get",
+      "spherePresets",
+      "getSphere"
     ]
   },
   "differences": [
     "Only names and radii of the five upstream predefined sizes are adapted; tileCount is the corresponding complete hexagon.",
     "Unknown names return nil instead of upstream safeValueOf Tiny fallback.",
-    "Records and ordered presets array are immutable Luau values."
+    "Records and ordered presets array are immutable Luau values.",
+    "Six original synthetic sphere frequencies and tile counts are added separately; these are not adapted upstream sphere rules. See sphere-original.json."
   ],
   "omitted": [
     "rectangular widths/heights",

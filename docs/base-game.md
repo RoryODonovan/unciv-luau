@@ -4,6 +4,8 @@
 
 ## Public API
 
+The optional [whole-sphere mode](sphere.md) uses `mapShape="Sphere", frequency=1..22`, graph distance and complete globe coverage. Sphere state/snapshots omit planar coordinates and radius; deterministic public geometry is regenerated from frequency. Sphere saves use explicit version 2; all hex behavior and version-1 saves described below remain supported.
+
 ```luau
 local BaseGame = require("./src/simulation/BaseGame")
 local state = BaseGame.new(42, {humanPlayers=2, radius=4, difficulty="Normal", maxTurns=120})

@@ -1,6 +1,6 @@
 --!strict
 -- Generated module-only Roblox form. Source: src/simulation/BaseSave.luau
--- Source SHA-256: 8b55e589bbf9d95bd6f9e9e7abe0b4f34b324baeb9857921aa83d0412ae52188
+-- Source SHA-256: bcd2b13597da0e01cc83260ef7f4f1e910acee188659ee157462fdf95acfe85e
 -- Reproduce with tools/roblox-export.mjs; preserve MPL notices below.
 -- Covered source: https://github.com/RoryODonovan/unciv-luau
 -- This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
@@ -8,7 +8,7 @@
 --!strict
 -- SPDX-License-Identifier: MPL-2.0
 -- Provenance-Kind: original
--- Original exact bounded version-1 base-game trust boundary; validates before copying.
+-- Original exact bounded hex version-1 / sphere version-2 trust boundary; validates before copying.
 local Rules=require(script.Parent.BaseRules)
 local HexMath=require(script.Parent.Parent.map.HexMath)
 local BaseSave={}
@@ -75,10 +75,13 @@ local function improvement(tile: any,kind: string): boolean
     return tile.resource~=nil and table.find(rule.resources,tile.resource)~=nil
 end
 function BaseSave.valid(saved: any): boolean
-    if not plainTree(saved) or not object(saved,"format version state") or saved.format~="unciv-luau-base" or saved.version~=1 then return false end
+    if not plainTree(saved) or not object(saved,"format version state") or saved.format~="unciv-luau-base" or (saved.version~=1 and saved.version~=2) then return false end
     local s=saved.state
-    if not object(s,"seed radius difficulty humanPlayers forest maxTurns turn revision activePlayerId phase winner reason victoryType tiles units cities players diplomacy trades events nextEvent nextUnit nextCity nextTrade log") then return false end
-    if not integer(s.seed,-9007199254740991,9007199254740991) or not integer(s.radius,Rules.minRadius,Rules.maxRadius) or not integer(s.maxTurns,20,500) or not integer(s.turn,1,s.maxTurns) or not integer(s.revision,0,1000000000) then return false end
+    if type(s)~="table" then return false end
+    local sphere=saved.version==2
+    if sphere and (s.mapShape~="Sphere" or not integer(s.frequency,1,22) or s.radius~=nil) then return false end
+    if not object(s,if sphere then "seed mapShape frequency difficulty humanPlayers forest maxTurns turn revision activePlayerId phase winner reason victoryType tiles units cities players diplomacy trades events nextEvent nextUnit nextCity nextTrade log" else "seed radius difficulty humanPlayers forest maxTurns turn revision activePlayerId phase winner reason victoryType tiles units cities players diplomacy trades events nextEvent nextUnit nextCity nextTrade log") then return false end
+    if not integer(s.seed,-9007199254740991,9007199254740991) or (not sphere and not integer(s.radius,Rules.minRadius,Rules.maxRadius)) or not integer(s.maxTurns,20,500) or not integer(s.turn,1,s.maxTurns) or not integer(s.revision,0,1000000000) then return false end
     if not owner(s.humanPlayers) or not owner(s.activePlayerId) or type(s.forest)~="boolean" or (s.phase=="Playing" and s.humanPlayers==1 and s.activePlayerId~=1) then return false end
     if s.difficulty~="Easy" and s.difficulty~="Normal" and s.difficulty~="Hard" then return false end
     if not id(s.nextUnit) or not id(s.nextCity) or not id(s.nextTrade) or not integer(s.nextEvent,1,1000000000) then return false end
@@ -86,10 +89,11 @@ function BaseSave.valid(saved: any): boolean
     elseif s.phase=="Finished" then
         if not owner(s.winner) or not text(s.reason,256) or (s.victoryType~="Science" and s.victoryType~="Culture" and s.victoryType~="Domination" and s.victoryType~="Score") then return false end
     else return false end
-    if not array(s.tiles,Rules.maxTiles) or #s.tiles~=1+3*s.radius*(s.radius+1) or not array(s.units,Rules.maxUnits) or not array(s.cities,Rules.maxCities) or not array(s.players,2) or #s.players~=2 then return false end
+    if not array(s.tiles,Rules.maxTiles) or #s.tiles~=(if sphere then 10*s.frequency*s.frequency+2 else 1+3*s.radius*(s.radius+1)) or not array(s.units,Rules.maxUnits) or not array(s.cities,Rules.maxCities) or not array(s.players,2) or #s.players~=2 then return false end
     local coordinates,tiles={},{}
     for index,tile in s.tiles do
-        if not object(tile,"id x y terrain resource ownerId improvement road") or tile.id~=index or not integer(tile.x,-s.radius,s.radius) or not integer(tile.y,-s.radius,s.radius) or HexMath.getDistanceXY(0,0,tile.x,tile.y)>s.radius then return false end
+        if not object(tile,if sphere then "id terrain resource ownerId improvement road" else "id x y terrain resource ownerId improvement road") or tile.id~=index then return false end
+        if not sphere and (not integer(tile.x,-s.radius,s.radius) or not integer(tile.y,-s.radius,s.radius) or HexMath.getDistanceXY(0,0,tile.x,tile.y)>s.radius) then return false end
         if type(tile.terrain)~="string" or not Rules.terrains[tile.terrain] or (tile.resource~=nil and (type(tile.resource)~="string" or not Rules.resources[tile.resource])) then return false end
         if tile.resource~=nil then
             local resource=Rules.resources[tile.resource]
@@ -98,8 +102,11 @@ function BaseSave.valid(saved: any): boolean
         if tile.ownerId~=nil and not owner(tile.ownerId) then return false end
         if tile.road~=nil and (type(tile.road)~="boolean" or (tile.road and not Rules.terrains[tile.terrain].passable)) then return false end
         if tile.improvement~=nil and (type(tile.improvement)~="string" or not improvement(tile,tile.improvement)) then return false end
-        local coordinate=tostring(tile.x)..":"..tostring(tile.y)
-        if coordinates[coordinate] then return false end; coordinates[coordinate]=true; tiles[index]=tile
+        if not sphere then
+            local coordinate=tostring(tile.x)..":"..tostring(tile.y)
+            if coordinates[coordinate] then return false end; coordinates[coordinate]=true
+        end
+        tiles[index]=tile
     end
     for index,p in s.players do
         if not object(p,"id human gold science culture happiness technologies policies research explored resources income") or p.id~=index or p.human~=(index<=s.humanPlayers) then return false end
@@ -184,7 +191,7 @@ local function copy(value: any): any
     local result={}; for key,child in value do result[key]=copy(child) end; return result
 end
 function BaseSave.serialize(state: any): any
-    local saved={format="unciv-luau-base",version=1,state=state}
+    local saved={format="unciv-luau-base",version=if state.mapShape=="Sphere" then 2 else 1,state=state}
     assert(BaseSave.valid(saved),"cannot serialize invalid base state")
     return copy(saved)
 end

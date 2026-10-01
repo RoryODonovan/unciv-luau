@@ -17,8 +17,14 @@
     {
       "path": "roblox/map/MapSizes.luau",
       "sourcePath": "src/map/MapSizes.luau",
-      "sourceSha256": "81a56f325100709fef5b9e3250b8425f2c2d26e1e629ca55745cf84285f40236",
-      "generatedSha256": "c6ead990df2c79de22e9a1e338cdeb61ddeb70638b99440c0971e8b98d61d8fb"
+      "sourceSha256": "70863c0d61f3f35850e8801ad34ba39675e8ad40adb38b295acba6dd41b679b5",
+      "generatedSha256": "184ef350313ad51928d77fe011c997fa3b5b3a4f0e53dc5667ae5d7f4a9cdbd0"
+    },
+    {
+      "path": "roblox/map/SphereTopology.luau",
+      "sourcePath": "src/map/SphereTopology.luau",
+      "sourceSha256": "4b71d3c4a6b0ccdebf126d30fd601086c7d14fd556365abfc96ced10b7d8be9c",
+      "generatedSha256": "8a6bc91bb3f69baf9c419bcc6a95b635eb0d4d1b1626eb487718046157a531cd"
     },
     {
       "path": "roblox/models/Counter.luau",
@@ -41,8 +47,8 @@
     {
       "path": "roblox/simulation/BaseGame.luau",
       "sourcePath": "src/simulation/BaseGame.luau",
-      "sourceSha256": "5e072cfcd04820cf23976665688be495c182d332e625e79f34b9eb00c567791c",
-      "generatedSha256": "b1a8a73f0a5b16ed8aae0a766e4b3af76eb4ae9a253da564a8212a7bf3095861"
+      "sourceSha256": "1f88bddc451c0babe4915f5169489171274b2b59abc0449e289fc4b9381298e0",
+      "generatedSha256": "06a7d5251d0f58a8130ddfef33d8b75d33894d914c5abc7b4d39bfd93988f2a2"
     },
     {
       "path": "roblox/simulation/BaseRules.luau",
@@ -53,8 +59,8 @@
     {
       "path": "roblox/simulation/BaseSave.luau",
       "sourcePath": "src/simulation/BaseSave.luau",
-      "sourceSha256": "8b55e589bbf9d95bd6f9e9e7abe0b4f34b324baeb9857921aa83d0412ae52188",
-      "generatedSha256": "ff8ae8301ff3e7c93762cd2d2420cb5f5f8836686998b3f437ba889a2ef45226"
+      "sourceSha256": "bcd2b13597da0e01cc83260ef7f4f1e910acee188659ee157462fdf95acfe85e",
+      "generatedSha256": "a7570d6966e9f35181f0f5544fa6248f45150a5ec9024a44835aebb81afa3aa2"
     },
     {
       "path": "roblox/simulation/Game.luau",
@@ -83,8 +89,8 @@
     {
       "path": "roblox/simulation/WorldMap.luau",
       "sourcePath": "src/simulation/WorldMap.luau",
-      "sourceSha256": "d1344195e056f8ae3619057372a149c6472b612f099bf5305cc30d81deb017f5",
-      "generatedSha256": "e5fe9fbd189e9d00547b231eee9e822a656842dd1fa6c7c425e2a71d4ebc4a32"
+      "sourceSha256": "2d556c0b9adeed21a2de6af35cfe2d1cbbba0944a68634900cd33201e34ace97",
+      "generatedSha256": "8cce8880d4986d4a13bb2790e53073483fe3c729b2526a8263a599fb72810682"
     }
   ]
 }

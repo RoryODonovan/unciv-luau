@@ -1,6 +1,6 @@
 --!strict
 -- Generated module-only Roblox form. Source: src/simulation/BaseGame.luau
--- Source SHA-256: 5e072cfcd04820cf23976665688be495c182d332e625e79f34b9eb00c567791c
+-- Source SHA-256: 1f88bddc451c0babe4915f5169489171274b2b59abc0449e289fc4b9381298e0
 -- Reproduce with tools/roblox-export.mjs; preserve MPL notices below.
 -- Covered source: https://github.com/RoryODonovan/unciv-luau
 -- This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
@@ -12,7 +12,7 @@
 local Rules = require(script.Parent.BaseRules)
 local WorldMap = require(script.Parent.WorldMap)
 local Save = require(script.Parent.BaseSave)
-export type Options = {humanPlayers: number?, radius: number?, difficulty: string?, forest: boolean?, maxTurns: number?}
+export type Options = {humanPlayers: number?, radius: number?, mapShape: string?, frequency: number?, difficulty: string?, forest: boolean?, maxTurns: number?}
 export type Command = {kind: "MoveUnit" | "RangedAttack", unitId: number, tileId: number}
     | {kind: "FoundCity" | "FortifyUnit" | "UpgradeUnit", unitId: number}
     | {kind: "BuildImprovement", unitId: number, improvement: string}
@@ -22,7 +22,7 @@ export type Command = {kind: "MoveUnit" | "RangedAttack", unitId: number, tileId
     | {kind: "DeclareWar" | "OfferPeace" | "AcceptPeace", targetId: number}
     | {kind: "ProposeTrade", targetId: number, giveGold: number, receiveGold: number}
     | {kind: "AcceptTrade" | "CancelTrade", tradeId: number} | {kind: "EndTurn"}
-export type Tile = {id: number, x: number, y: number, terrain: string, resource: string?, ownerId: number?, improvement: string?, road: boolean?}
+export type Tile = {id: number, x: number?, y: number?, terrain: string, resource: string?, ownerId: number?, improvement: string?, road: boolean?}
 export type Unit = {id: number, ownerId: number, kind: string, tileId: number, hp: number, moves: number, fortified: boolean, level: number, work: {improvement: string, remaining: number}?}
 export type City = {id: number, ownerId: number, originalOwnerId: number, capital: boolean, tileId: number, name: string, population: number, food: number, production: number, queue: string, hp: number, buildings: {string}, focus: string}
 export type Research = {id: string, progress: number, cost: number}
@@ -30,13 +30,13 @@ export type Player = {id: number, human: boolean, gold: number, science: number,
 export type Event = {id: number, kind: string, message: string, tileId: number?, unitId: number?, ownerId: number?, amount: number?, public: boolean?}
 export type Diplomacy = {status: string, peaceOfferBy: number?, peaceUntil: number}
 export type Trade = {id: number, fromId: number, toId: number, giveGold: number, receiveGold: number, expires: number}
-export type TileView = {id: number, x: number, y: number, visible: boolean, explored: boolean, terrain: string?, resource: string?, ownerId: number?, improvement: string?, road: boolean?, food: number?, production: number?, gold: number?}
+export type TileView = {id: number, x: number?, y: number?, visible: boolean, explored: boolean, terrain: string?, resource: string?, ownerId: number?, improvement: string?, road: boolean?, food: number?, production: number?, gold: number?}
 export type CityView = {id: number, ownerId: number, originalOwnerId: number, capital: boolean, tileId: number, name: string, population: number, hp: number, food: number?, production: number?, queue: string?, buildings: {string}?, focus: string?}
 export type Statistics = {cities: number, units: number, population: number, technologies: number, policies: number}
 export type Technology = Rules.Technology
 export type Policy = Rules.Policy
-export type State = {seed: number, radius: number, difficulty: string, humanPlayers: number, forest: boolean, maxTurns: number, turn: number, revision: number, activePlayerId: number, phase: string, winner: number?, reason: string?, victoryType: string?, tiles: {Tile}, units: {Unit}, cities: {City}, players: {Player}, diplomacy: Diplomacy, trades: {Trade}, events: {Event}, nextEvent: number, nextUnit: number, nextCity: number, nextTrade: number, log: {string}}
-export type View = {seed: number?, radius: number, difficulty: string, humanPlayers: number, turn: number, revision: number, activePlayerId: number, actorId: number, canAct: boolean, phase: string, winner: number?, reason: string?, victoryType: string?, gold: number, science: number, culture: number, happiness: number, research: Research?, technologies: {string}, policies: {string}, resources: {[string]: number}, income: {food: number, production: number, gold: number, science: number, culture: number, maintenance: number}, tiles: {TileView}, units: {Unit}, cities: {CityView}, events: {Event}, log: {string}, legalMoves: {[string]: {number}}, availableProduction: {string}, availableProductionByCity: {[string]: {string}}, availablePurchasesByCity: {[string]: {string}}, availableResearch: {Technology}, availablePolicies: {Policy}, availableImprovements: {[string]: {string}}, productionCosts: {[string]: number}, purchaseCosts: {[string]: number}, scores: {number}, statistics: {Statistics}, diplomacy: Diplomacy, trades: {Trade}, objectives: {string}}
+export type State = {seed: number, radius: number?, mapShape: string?, frequency: number?, difficulty: string, humanPlayers: number, forest: boolean, maxTurns: number, turn: number, revision: number, activePlayerId: number, phase: string, winner: number?, reason: string?, victoryType: string?, tiles: {Tile}, units: {Unit}, cities: {City}, players: {Player}, diplomacy: Diplomacy, trades: {Trade}, events: {Event}, nextEvent: number, nextUnit: number, nextCity: number, nextTrade: number, log: {string}}
+export type View = {seed: number?, radius: number?, mapShape: string?, frequency: number?, difficulty: string, humanPlayers: number, turn: number, revision: number, activePlayerId: number, actorId: number, canAct: boolean, phase: string, winner: number?, reason: string?, victoryType: string?, gold: number, science: number, culture: number, happiness: number, research: Research?, technologies: {string}, policies: {string}, resources: {[string]: number}, income: {food: number, production: number, gold: number, science: number, culture: number, maintenance: number}, tiles: {TileView}, units: {Unit}, cities: {CityView}, events: {Event}, log: {string}, legalMoves: {[string]: {number}}, availableProduction: {string}, availableProductionByCity: {[string]: {string}}, availablePurchasesByCity: {[string]: {string}}, availableResearch: {Technology}, availablePolicies: {Policy}, availableImprovements: {[string]: {string}}, productionCosts: {[string]: number}, purchaseCosts: {[string]: number}, scores: {number}, statistics: {Statistics}, diplomacy: Diplomacy, trades: {Trade}, objectives: {string}}
 local BaseGame = {}
 local R: any = Rules
 local W: any = WorldMap
@@ -48,21 +48,17 @@ local function copy(value: any): any
 end
 local function mapFor(s: any): any
     if topology[s] then return topology[s] end
-    local map = W.fromTiles(s.tiles, s.radius)
+    local map = if s.mapShape=="Sphere" then W.fromSphereTiles(s.tiles,s.frequency) else W.fromTiles(s.tiles,s.radius)
     topology[s] = map
     return map
 end
 local function distance(s: any, a: number, b: number): number return W.distance(mapFor(s), a, b) end
 local function nearby(s: any, tileId: number, radius: number): {number}
-    local map=mapFor(s); map.nearby=map.nearby or {}; map.nearby[radius]=map.nearby[radius] or {}
-    if map.nearby[radius][tileId] then return map.nearby[radius][tileId] end
-    local set={[tileId]=true}; local frontier={tileId}
-    for _=1,radius do
-        local nextFrontier={}
-        for _, current in frontier do for _, id in map.neighbors[current] do if not set[id] then set[id]=true; table.insert(nextFrontier,id) end end end
-        frontier=nextFrontier
-    end
-    local ids={}; for id in set do table.insert(ids,id) end; table.sort(ids); map.nearby[radius][tileId]=ids; return ids
+    local map=mapFor(s); map.nearby=map.nearby or {}; map.nearbyOrder=map.nearbyOrder or {}
+    local key=tostring(tileId)..":"..tostring(radius)
+    if map.nearby[key] then return map.nearby[key] end
+    if #map.nearbyOrder==64 then map.nearby[table.remove(map.nearbyOrder,1)]=nil end
+    local ids=W.range(map,tileId,radius); map.nearby[key]=ids; table.insert(map.nearbyOrder,key); return ids
 end
 local function has(list: any, id: string): boolean return table.find(list, id) ~= nil end
 local function unitById(s: any, id: number): any for _, unit in s.units do if unit.id == id then return unit end end; return nil end
@@ -211,7 +207,7 @@ local function attackable(s: any, unit: any, target: number, seen: any, occupanc
     local units,cities=occupancyUnits,occupancyCities; if not units or not cities then units,cities=occupants(s) end
     local enemy=units[target] or cities[target]
     if not enemy or enemy.ownerId==unit.ownerId then return false end
-    return distance(s,unit.tileId,target)<=math.max(1,R.units[unit.kind].range or 1)
+    return W.inRange(mapFor(s),unit.tileId,target,math.max(1,R.units[unit.kind].range or 1))
 end
 local function attackTargets(s: any, unit: any, seen: any, units: any, cities: any): {number}
     if unit.moves<=0 or R.units[unit.kind].strength<=0 or s.diplomacy.status~="War" then return {} end
@@ -372,7 +368,7 @@ end
 local function foundAllowed(s: any, unit: any): boolean
     if #s.cities>=R.maxCities or unit.kind~="Settler" or unit.moves<=0 or not R.terrains[s.tiles[unit.tileId].terrain].passable then return false end
     local t=s.tiles[unit.tileId]; if t.ownerId and t.ownerId~=unit.ownerId then return false end
-    for _, c in s.cities do if distance(s,c.tileId,unit.tileId)<3 then return false end end
+    for _, c in s.cities do if W.inRange(mapFor(s),c.tileId,unit.tileId,2) then return false end end
     return true
 end
 local function ai(s: any, owner: number)
@@ -418,7 +414,7 @@ local function ai(s: any, owner: number)
             local rank=0
             for _, neighbor in mapFor(s).neighbors[tileId] do if not discovered[neighbor] then rank += 10 end end
             if s.diplomacy.status=="War" then for _, c in s.cities do if c.ownerId~=owner and seen[c.tileId] then rank += 30-distance(s,tileId,c.tileId)*5 end end end
-            if u.kind=="Settler" then for _, c in s.cities do if c.ownerId==owner or seen[c.tileId] then rank += math.min(4,distance(s,tileId,c.tileId))*4 end end end
+            if u.kind=="Settler" then for _, c in s.cities do if c.ownerId==owner or seen[c.tileId] then rank += W.cappedDistance(mapFor(s),tileId,c.tileId,4)*4 end end end
             rank += (tileId+s.turn)%3
             if rank>bestRank or (rank==bestRank and (not best or tileId<best)) then best=tileId; bestRank=rank end
         end
@@ -459,12 +455,16 @@ function BaseGame.new(seed: number?, options: Options?): State
     assert(humans==1 or humans==2,"humanPlayers must be 1 or 2")
     assert(difficulty=="Easy" or difficulty=="Normal" or difficulty=="Hard","unknown difficulty")
     assert(turns%1==0 and turns>=20 and turns<=500,"maxTurns must be 20 to 500")
-    local map=W.generate(supplied,radius)
+    assert(o.mapShape==nil or o.mapShape=="Hex" or o.mapShape=="Sphere","unknown map shape")
+    assert(o.mapShape=="Sphere" or o.frequency==nil,"frequency requires Sphere")
+    local map=if o.mapShape=="Sphere" then W.generateSphere(supplied,o.frequency or 2) else W.generate(supplied,radius)
     local s: any={seed=supplied,radius=radius,difficulty=difficulty,humanPlayers=humans,forest=o.forest==true,maxTurns=turns,turn=1,revision=0,activePlayerId=1,phase="Playing",tiles=map.tiles,units={},cities={},players={},diplomacy={status="Peace",peaceUntil=0},trades={},events={},nextEvent=1,nextUnit=1,nextCity=1,nextTrade=1,log={}}
+    if o.mapShape=="Sphere" then s.mapShape="Sphere"; s.frequency=map.frequency; s.radius=nil end
     topology[s]=map
     for owner=1,2 do table.insert(s.players,{id=owner,human=owner<=humans,gold=30,science=0,culture=0,happiness=9,technologies={},policies={},explored={},resources={},income={food=0,production=0,gold=0,science=0,culture=0,maintenance=0}}) end
     local starts={0,0}
-    for _, tile in s.tiles do if tile.x==-(radius-1) and tile.y==0 then starts[1]=tile.id elseif tile.x==radius-1 and tile.y==0 then starts[2]=tile.id end end
+    if s.mapShape=="Sphere" then starts=W.sphereStarts(s.frequency)
+    else for _, tile in s.tiles do if tile.x==-(radius-1) and tile.y==0 then starts[1]=tile.id elseif tile.x==radius-1 and tile.y==0 then starts[2]=tile.id end end end
     for owner=1,2 do
         local start=starts[owner]; assert(start>0,"missing starting tile"); s.tiles[start].terrain="Plains"
         if owner==2 and humans==1 then addCity(s,owner,start) else addUnit(s,owner,"Settler",start) end
@@ -621,10 +621,10 @@ function BaseGame.snapshot(state: State, actorId: number): View
     local score,stats=scores(s)
     -- Rival economy, research and score are private even after meeting that civilization.
     score[3-actorId]=0; stats[3-actorId]={cities=0,units=0,population=0,technologies=0,policies=0}
-    return {seed=if s.humanPlayers==1 or s.phase=="Finished" then s.seed else nil,radius=s.radius,difficulty=s.difficulty,humanPlayers=s.humanPlayers,turn=s.turn,revision=s.revision,activePlayerId=s.activePlayerId,actorId=actorId,canAct=canAct,phase=s.phase,winner=s.winner,reason=s.reason,victoryType=s.victoryType,gold=p.gold,science=p.science,culture=p.culture,happiness=p.happiness,research=copy(p.research),technologies=copy(p.technologies),policies=copy(p.policies),resources=copy(resourceInventory(s,actorId)),income=copy(p.income),tiles=tiles,units=units,cities=cities,events=events,log={},legalMoves=legal,availableProduction=production,availableProductionByCity=productionByCity,availablePurchasesByCity=purchasesByCity,availableResearch=research,availablePolicies=policies,availableImprovements=improvements,productionCosts=copy(R.productionCosts),purchaseCosts=copy(R.purchaseCosts),scores=score,statistics=stats,diplomacy=copy(s.diplomacy),trades=copy(s.trades),objectives={"Found cities, develop resources and maintain happiness.","Control both original capitals for domination.","Build SpaceProject after Rocketry for science victory.","Adopt six policies for culture victory.","Highest score wins at the round limit; ties favor civilization 1."}}
+    return {seed=if s.humanPlayers==1 or s.phase=="Finished" then s.seed else nil,radius=s.radius,mapShape=s.mapShape,frequency=s.frequency,difficulty=s.difficulty,humanPlayers=s.humanPlayers,turn=s.turn,revision=s.revision,activePlayerId=s.activePlayerId,actorId=actorId,canAct=canAct,phase=s.phase,winner=s.winner,reason=s.reason,victoryType=s.victoryType,gold=p.gold,science=p.science,culture=p.culture,happiness=p.happiness,research=copy(p.research),technologies=copy(p.technologies),policies=copy(p.policies),resources=copy(resourceInventory(s,actorId)),income=copy(p.income),tiles=tiles,units=units,cities=cities,events=events,log={},legalMoves=legal,availableProduction=production,availableProductionByCity=productionByCity,availablePurchasesByCity=purchasesByCity,availableResearch=research,availablePolicies=policies,availableImprovements=improvements,productionCosts=copy(R.productionCosts),purchaseCosts=copy(R.purchaseCosts),scores=score,statistics=stats,diplomacy=copy(s.diplomacy),trades=copy(s.trades),objectives={"Found cities, develop resources and maintain happiness.","Control both original capitals for domination.","Build SpaceProject after Rocketry for science victory.","Adopt six policies for culture victory.","Highest score wins at the round limit; ties favor civilization 1."}}
 end
 function BaseGame.serialize(state: State): any
-    local saved={format="unciv-luau-base",version=1,state=state}
+    local saved={format="unciv-luau-base",version=if state.mapShape=="Sphere" then 2 else 1,state=state}
     assert(Save.valid(saved),"cannot serialize an invalid base-game state"); return copy(saved)
 end
 function BaseGame.restore(saved: any): (State?,string?)

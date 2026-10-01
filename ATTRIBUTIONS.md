@@ -17,3 +17,5 @@ This is an independent adaptation and is not endorsed by the Unciv project, Robl
 Simulation Mechanics partially extracts BattleDamage.kt and city/managers/CityPopulationManager.kt at the pinned upstream revision; see provenance/simulation-mechanics.json. Game.luau and Rules.luau are original MPL-2.0 synthetic prototype code, not upstream gameplay conversions; see provenance/simulation-original.json and docs/simulation.md.
 
 MapSizes.luau adapts the five predefined names/radii from core/src/com/unciv/logic/map/MapSize.kt at the pinned revision; see provenance/map-sizes.json. The surrounding land map generation and simulation remain original bounded implementations.
+
+SphereTopology.luau, its tests and the six synthetic sphere frequencies are original MPL-2.0 additions, with no copied upstream implementation or media. See provenance/sphere-original.json and docs/sphere.md. The generated Roblox module retains covered-source notices and remains available alongside its source.

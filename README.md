@@ -9,6 +9,7 @@ Reusable MPL-2.0 Luau conversions of selected [Unciv](https://github.com/yairm21
 | `src/map/HexCoord.luau` | Immutable coordinates, arithmetic, conversions and parsing |
 | `src/map/MapSizes.luau` | Immutable Tiny through Huge hex presets, matching upstream radii 10/15/20/30/40 |
 | `src/map/HexMath.luau` | Distances, rings, world conversion, rounding and indexed coordinates |
+| `src/map/SphereTopology.luau` | Original closed icosahedral dual sphere, deterministic IDs, twelve pentagons and remaining hexagons |
 | `src/models/stats/Stat.luau` | Identifiers, lookup and classifications |
 | `src/models/stats/Stats.luau` | Mutable values, copy arithmetic, aggregates and supported parsing |
 | `src/models/Counter.luau` | Ordered string-key integer counters and arithmetic |
@@ -21,6 +22,8 @@ The foundation modules are partial, tested conversions. [Base game API and limit
 The [inventory](docs/dependency-inventory.md) lists 859 upstream files: 232 planned conversions, 215 deferred and 412 excluded. Its baseline statuses do not represent implemented modules. [Architecture](docs/architecture.md) describes the staged roadmap; [integration contracts](docs/integration-contracts.md) distinguish implemented foundations from future interfaces. Every one of the 102 inventoried data/asset files remains unverified and unimported.
 
 ## Run the standalone checks
+
+[Whole-sphere API, saves and validation](docs/sphere.md) cover the six sphere presets, complete globe topology and graph-based BaseGame option. `BaseGame.new(42, {mapShape="Sphere", frequency=22})` creates Huge with 4,842 cells; sphere saves use explicit version 2, while legacy hex version 1 remains supported.
 
 Install Node.js 22+ and the official [Luau CLI 0.740](https://github.com/luau-lang/luau/releases/tag/0.740). No npm dependency installation or Roblox account is needed.
 
