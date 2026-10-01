@@ -25,8 +25,8 @@ end
 local function firstCity(s: any,owner: number): any
     for _, c in s.cities do if c.ownerId==owner then return c end end; error("missing city")
 end
-local function founded(seed: number?): any
-    local s=Game.new(seed or 1,{humanPlayers=2,radius=4})
+local function founded(seed: number?,radius: number?): any
+    local s=Game.new(seed or 1,{humanPlayers=2,radius=radius or 4})
     apply(s,1,{kind="FoundCity",unitId=firstUnit(s,1,"Settler").id})
     apply(s,1,{kind="EndTurn"})
     apply(s,2,{kind="FoundCity",unitId=firstUnit(s,2,"Settler").id})
@@ -48,7 +48,8 @@ apply(shared,2,{kind="FoundCity",unitId=p2.id})
 rejected(shared,1,{kind="EndTurn"})
 apply(shared,2,{kind="EndTurn"}); assert(shared.turn==2 and shared.activePlayerId==1)
 -- Fog discloses geometry, then static terrain, then visible entities; never rival economy.
-local fog=founded(23); local own=Game.snapshot(fog,1); local rival=firstCity(fog,2)
+-- Use a larger geography so this fixture explicitly contains a hidden rival capital.
+local fog=founded(23,10); local own=Game.snapshot(fog,1); local rival=firstCity(fog,2)
 local unknown: any=nil
 for _, tile in own.tiles do if not tile.explored then unknown=tile; break end end
 assert(unknown and unknown.terrain==nil and unknown.resource==nil and unknown.ownerId==nil and unknown.food==nil)
@@ -60,6 +61,7 @@ assert(equal(own.tiles,Game.snapshot(fog,1).tiles))
 for _, e in Game.snapshot(fog,1).events do assert(e.message~="hidden tech" and e.message~="hidden city") end
 -- An explored unseen tile carries no current ownership, road or improvement.
 table.insert(fog.players[1].explored,unknown.id); table.sort(fog.players[1].explored)
+fog.tiles[unknown.id].terrain="Plains"; fog.tiles[unknown.id].resource=nil
 fog.tiles[unknown.id].ownerId=2; fog.tiles[unknown.id].road=true
 local stale=Game.snapshot(fog,1).tiles[unknown.id]
 assert(stale.explored and not stale.visible and stale.terrain and not stale.ownerId and not stale.road)
@@ -176,7 +178,7 @@ local ranged=founded(9); local attacker=firstUnit(ranged,1,"Warrior"); local def
 local rangedMap=WorldMap.fromTiles(ranged.tiles,ranged.radius)
 local target: number?=nil
 for _, tile in ranged.tiles do if WorldMap.distance(rangedMap,attacker.tileId,tile.id)==2 and not tile.ownerId then target=tile.id; break end end
-assert(target); defender.tileId=target; attacker.kind="Archer"; attacker.hp=Rules.units.Archer.hp
+assert(target); ranged.tiles[target].terrain="Plains"; ranged.tiles[target].resource=nil; defender.tileId=target; attacker.kind="Archer"; attacker.hp=Rules.units.Archer.hp
 apply(ranged,1,{kind="DeclareWar",targetId=2})
 local hp=attacker.hp; local enemyHp=defender.hp
 apply(ranged,1,{kind="RangedAttack",unitId=attacker.id,tileId=defender.tileId})

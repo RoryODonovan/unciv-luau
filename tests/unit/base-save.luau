@@ -19,6 +19,7 @@ local left=Map.tileId(map,-2,0) :: number
 local right=Map.tileId(map,2,0) :: number
 local center=Map.tileId(map,0,0) :: number
 local worker=Map.tileId(map,1,0) :: number
+for _,id in {left,right,center,worker} do map.tiles[id].terrain="Plains"; map.tiles[id].resource=nil end
 map.tiles[center].ownerId=1; map.tiles[worker].ownerId=1; map.tiles[worker].terrain="Plains"; map.tiles[worker].resource="Wheat"
 local explored={}; for id=1,#map.tiles do table.insert(explored,id) end
 local state: any={seed=124,radius=3,difficulty="Normal",humanPlayers=2,forest=true,maxTurns=120,turn=1,revision=4,activePlayerId=1,phase="Playing",tiles=map.tiles,
@@ -122,6 +123,7 @@ local largeMap=Map.fromTiles(large.state.tiles,7)
 large.state.units[1].tileId=Map.tileId(largeMap,-6,0); large.state.units[2].tileId=Map.tileId(largeMap,6,0)
 large.state.units[3].tileId=Map.tileId(largeMap,1,0); large.state.tiles[large.state.units[3].tileId].terrain="Plains"; large.state.tiles[large.state.units[3].tileId].ownerId=1; large.state.tiles[large.state.units[3].tileId].resource="Wheat"
 large.state.cities[1].tileId=Map.tileId(largeMap,0,0); large.state.tiles[large.state.cities[1].tileId].ownerId=1
+for _,id in {large.state.units[1].tileId,large.state.units[2].tileId,large.state.cities[1].tileId} do large.state.tiles[id].terrain="Plains"; large.state.tiles[id].resource=nil end
 large.state.events[1].tileId=large.state.cities[1].tileId
 for _,p in large.state.players do p.explored={}; for i=1,169 do table.insert(p.explored,i) end end
 assert(Save.valid(large),"max map fixture rejected")

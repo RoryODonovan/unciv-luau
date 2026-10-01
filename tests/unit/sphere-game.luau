@@ -24,9 +24,11 @@ for _,preset in Sizes.spherePresets do
     assert(equal(s,Game.new(42,{humanPlayers=2,mapShape="Sphere",frequency=f})),"seed determinism")
     local saved=Game.serialize(s); assert(saved.version==2 and Save.valid(saved))
     local restored=Game.restore(saved); assert(restored and equal(saved,Game.serialize(restored)))
-    local descriptor=Sphere.generate(f); local map=Map.fromSphereTiles(s.tiles,f); local starts=Map.sphereStarts(f)
-    local path=Map.shortestPath(map,starts[1],starts[2]); assert(path and #path>2,"connected playable antipodes")
-    assert(Map.distance(map,starts[1],starts[2])==#path-1,"guaranteed shortest land corridor")
+    local descriptor=Sphere.generate(f); local map=Map.fromSphereTiles(s.tiles,f); local starts={unit(s,1,"Settler").tileId,unit(s,2,"Settler").tileId}
+    local path,cost=Map.shortestPath(map,starts[1],starts[2]); assert(path and #path>2 and cost,"connected playable generated starts")
+    local total=0
+    for i=2,#path do assert(table.find(map.neighbors[path[i-1]],path[i])); total+=Map.movementCost(s.tiles[path[i]]) :: number end
+    assert(total==cost and #path-1>=Map.distance(map,starts[1],starts[2]),"optimal land route respects adjacency and terrain costs")
     for owner=1,2 do
         local view=Game.snapshot(s,owner); assert(view.mapShape=="Sphere" and view.frequency==f and view.radius==nil and view.seed==nil)
         local unknown=0

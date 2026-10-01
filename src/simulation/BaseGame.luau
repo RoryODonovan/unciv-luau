@@ -455,15 +455,20 @@ function BaseGame.new(seed: number?, options: Options?): State
     if o.mapShape=="Sphere" then s.mapShape="Sphere"; s.frequency=map.frequency; s.radius=nil end
     topology[s]=map
     for owner=1,2 do table.insert(s.players,{id=owner,human=owner<=humans,gold=30,science=0,culture=0,happiness=9,technologies={},policies={},explored={},resources={},income={food=0,production=0,gold=0,science=0,culture=0,maintenance=0}}) end
-    local starts={0,0}
-    if s.mapShape=="Sphere" then starts=W.sphereStarts(s.frequency)
-    else for _, tile in s.tiles do if tile.x==-(radius-1) and tile.y==0 then starts[1]=tile.id elseif tile.x==radius-1 and tile.y==0 then starts[2]=tile.id end end end
+    local starts=map.startIds
+    assert(starts and #starts==2 and W.distance(map,starts[1],starts[2])>=3,"missing or adjacent starting sites")
+    local deployed={[starts[1]]=true,[starts[2]]=true}
     for owner=1,2 do
-        local start=starts[owner]; assert(start>0,"missing starting tile"); s.tiles[start].terrain="Plains"
+        local start=starts[owner]; assert(s.tiles[start] and R.terrains[s.tiles[start].terrain].passable,"invalid starting tile")
         if owner==2 and humans==1 then addCity(s,owner,start) else addUnit(s,owner,"Settler",start) end
-        local ids=map.neighbors[start]; local used=start
-        for _, id in ids do if R.terrains[s.tiles[id].terrain].passable then addUnit(s,owner,"Warrior",id); used=id; break end end
-        for _, id in ids do if id~=used and R.terrains[s.tiles[id].terrain].passable then addUnit(s,owner,"Worker",id); break end end
+        for _,kind in {"Warrior","Worker"} do
+            local deployment=nil
+            for _,id in map.neighbors[start] do
+                if not deployed[id] and R.terrains[s.tiles[id].terrain].passable then deployment=id; break end
+            end
+            assert(deployment,"starting site needs free passable deployment neighbors")
+            deployed[deployment]=true; addUnit(s,owner,kind,deployment)
+        end
     end
     for _, unit in s.units do unit.moves=R.units[unit.kind].moves end
     refreshVision(s); refreshEconomyState(s); return s :: State

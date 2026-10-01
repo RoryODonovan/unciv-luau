@@ -4,9 +4,10 @@
 -- Original indexed bounded map, Dijkstra traversal and fog projection. Uses attributed HexMath.
 local HexMath = require("../map/HexMath")
 local SphereTopology = require("../map/SphereTopology")
+local WorldGeneration = require("../map/WorldGeneration")
 local Rules = require("./BaseRules")
 export type Tile = {id: number, x: number?, y: number?, terrain: string, resource: string?, ownerId: number?, improvement: string?, road: boolean?}
-export type Map = {radius: number, tiles: {Tile}, index: {[string]: number}, neighbors: {{number}}, mapShape: string?, frequency: number?, distanceRows: {[number]: {number}}?, distanceOrder: {number}?}
+export type Map = {radius: number, tiles: {Tile}, index: {[string]: number}, neighbors: {{number}}, mapShape: string?, frequency: number?, startIds: {number}?, distanceRows: {[number]: {number}}?, distanceOrder: {number}?}
 export type Cost = (number, number) -> number?
 local WorldMap = {}
 local offsets = {{1,0},{0,1},{1,1},{-1,0},{0,-1},{-1,-1}}
@@ -32,26 +33,19 @@ end
 function WorldMap.generate(seed: number, radius: number): Map
     assert(integer(seed), "seed must be a finite safe integer")
     assert(integer(radius) and radius >= Rules.minRadius and radius <= Rules.maxRadius, "radius must be 3..40")
-    local random = seed % 2147483647
-    if random == 0 then random=1 end
-    local function roll(limit: number): number random=(random*48271)%2147483647; return random%limit end
     local tiles: {Tile} = {}
+    local centers: {WorldGeneration.Center} = {}
     for x=-radius,radius do for y=-radius,radius do
         if HexMath.getDistanceXY(0,0,x,y) > radius then continue end
-        local n=roll(100)
-        local terrain: string=if n<35 then "Plains" elseif n<55 then "Grassland" elseif n<72 then "Hills" elseif n<86 then "Forest" elseif n<92 then "Desert" elseif n<97 then "Water" else "Mountain"
-        -- A central spine joins the default opposite starts, preserving a playable route.
-        if x==y or y==0 then terrain="Plains" end
-        local resource: string? = nil
-        if roll(4)==0 then
-            if terrain=="Hills" then resource=if roll(2)==0 then "Iron" else "Gold"
-            elseif terrain=="Forest" then resource=if roll(2)==0 then "Deer" else "Spices"
-            elseif terrain=="Plains" or terrain=="Grassland" then resource=if roll(2)==0 then "Wheat" else "Horses"
-            elseif terrain=="Desert" then resource="Gold" end
-        end
-        table.insert(tiles,{id=#tiles+1,x=x,y=y,terrain=terrain,resource=resource})
+        local id=#tiles+1
+        tiles[id]={id=id,x=x,y=y,terrain="Plains"}
+        centers[id]={x=(x-y/2)/radius,y=0,z=(math.sqrt(3)/2*y)/radius}
     end end
-    return WorldMap.fromTiles(tiles,radius)
+    local map=WorldMap.fromTiles(tiles,radius)
+    local generated=WorldGeneration.generate(seed,centers,map.neighbors,"Hex")
+    for id,tile in tiles do tile.terrain=generated.tiles[id].terrain; tile.resource=generated.tiles[id].resource end
+    map.startIds=table.clone(generated.starts)
+    return map
 end
 function WorldMap.tileId(map: Map, x: number, y: number): number? return map.index[key(x,y)] end
 -- Exact adjacency distances. At most eight full BFS rows are retained per live map.
@@ -111,30 +105,16 @@ end
 function WorldMap.generateSphere(seed: number, frequency: number): Map
     assert(integer(seed),"seed must be a finite safe integer")
     local cells=SphereTopology.generate(frequency).cells
-    local random=seed%2147483647; if random==0 then random=1 end
-    local function roll(limit: number): number random=(random*48271)%2147483647; return random%limit end
     local tiles: {Tile}={}
-    for id in cells do
-        local n=roll(100)
-        local terrain: string=if n<35 then "Plains" elseif n<55 then "Grassland" elseif n<72 then "Hills" elseif n<86 then "Forest" elseif n<92 then "Desert" elseif n<97 then "Water" else "Mountain"
-        local resource: string?=nil
-        if roll(4)==0 then
-            if terrain=="Hills" then resource=if roll(2)==0 then "Iron" else "Gold"
-            elseif terrain=="Forest" then resource=if roll(2)==0 then "Deer" else "Spices"
-            elseif terrain=="Plains" or terrain=="Grassland" then resource=if roll(2)==0 then "Wheat" else "Horses"
-            elseif terrain=="Desert" then resource="Gold" end
-        end
-        tiles[id]=({id=id,terrain=terrain,resource=resource} :: any)
+    local centers: {WorldGeneration.Center}={}
+    for id,cell in cells do
+        tiles[id]={id=id,terrain="Plains"}
+        local p=cell.center; centers[id]={x=p.x,y=p.y,z=p.z}
     end
-    local map=WorldMap.fromSphereTiles(tiles,frequency); local starts=WorldMap.sphereStarts(frequency)
-    local queue={starts[1]}; local previous: {[number]: number}={[starts[1]]=0}; local head=1
-    while head<=#queue and previous[starts[2]]==nil do
-        local current=queue[head]; head+=1
-        for _,other in map.neighbors[current] do if previous[other]==nil then previous[other]=current; table.insert(queue,other) end end
-    end
-    local current=starts[2]
-    while current~=0 do tiles[current].terrain="Plains"; tiles[current].resource=nil; current=previous[current] end
-    for _,start in starts do for _,id in WorldMap.range(map,start,1) do tiles[id].terrain="Plains"; tiles[id].resource=nil end end
+    local map=WorldMap.fromSphereTiles(tiles,frequency)
+    local generated=WorldGeneration.generate(seed,centers,map.neighbors,"Sphere")
+    for id,tile in tiles do tile.terrain=generated.tiles[id].terrain; tile.resource=generated.tiles[id].resource end
+    map.startIds=table.clone(generated.starts)
     return map
 end
 function WorldMap.movementCost(tile: Tile): number?
