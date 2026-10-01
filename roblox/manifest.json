@@ -35,8 +35,8 @@
     {
       "path": "roblox/simulation/BaseGame.luau",
       "sourcePath": "src/simulation/BaseGame.luau",
-      "sourceSha256": "34bfc8348a3b0dc607da19e38249f0eabcc52169329777923b106759b59aef04",
-      "generatedSha256": "dd74f80fa440d57bf716a67803d1caef806490e3ff1b7541695f796a02c6cdaf"
+      "sourceSha256": "5e0a68d672e7227c7be24a1833e79036878e0a98549e30d65264b6a6bd178840",
+      "generatedSha256": "26123f15422bedb25023c89d4a86669e799c327dcfbac909f8d507abca72d43a"
     },
     {
       "path": "roblox/simulation/BaseRules.luau",

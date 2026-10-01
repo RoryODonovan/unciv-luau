@@ -1,6 +1,6 @@
 --!strict
 -- Generated module-only Roblox form. Source: src/simulation/BaseGame.luau
--- Source SHA-256: 34bfc8348a3b0dc607da19e38249f0eabcc52169329777923b106759b59aef04
+-- Source SHA-256: 5e0a68d672e7227c7be24a1833e79036878e0a98549e30d65264b6a6bd178840
 -- Reproduce with tools/roblox-export.mjs; preserve MPL notices below.
 -- Covered source: https://github.com/RoryODonovan/unciv-luau
 -- This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
@@ -142,7 +142,11 @@ end
 local function spawnTile(s: any, city: any): number?
     local units,cities=occupants(s)
     local ids={city.tileId}; for _, id in mapFor(s).neighbors[city.tileId] do table.insert(ids,id) end; table.sort(ids)
-    for _, id in ids do if not units[id] and R.terrains[s.tiles[id].terrain].passable and (not cities[id] or cities[id].ownerId==city.ownerId) then return id end end
+    for _, id in ids do
+        local tile=s.tiles[id]
+        local territoryAllowed=not tile.ownerId or tile.ownerId==city.ownerId or s.diplomacy.status=="War"
+        if not units[id] and R.terrains[tile.terrain].passable and territoryAllowed and (not cities[id] or cities[id].ownerId==city.ownerId) then return id end
+    end
     return nil
 end
 local function complete(s: any, city: any, item: string, spawn: number?)

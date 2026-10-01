@@ -211,6 +211,50 @@ end
 assert(#capped.units==Rules.maxUnits)
 rejected(capped,1,{kind="Purchase",cityId=firstCity(capped,1).id,item="Warrior"})
 assert(not table.find(Game.snapshot(capped,1).availableProductionByCity[tostring(firstCity(capped,1).id)],"Warrior"))
+-- Purchases and production share the movement rule for peaceful foreign land.
+-- Every candidate except one foreign-owned neighbor is occupied by own units.
+local function blockedDeployment(owner: number): (any,any,number)
+    local s=founded(24+owner); if owner==2 then apply(s,1,{kind="EndTurn"}) end
+    local city=firstCity(s,owner); local graph=WorldMap.fromTiles(s.tiles,s.radius)
+    local unitsAt={}; for _, u in s.units do unitsAt[u.tileId]=true end
+    local target: number?=nil
+    for _, id in graph.neighbors[city.tileId] do if not unitsAt[id] then target=id; break end end
+    assert(target)
+    local candidates={city.tileId}; for _, id in graph.neighbors[city.tileId] do table.insert(candidates,id) end
+    for _, id in candidates do
+        local tile=s.tiles[id]; tile.terrain="Plains"; tile.resource=nil; tile.improvement=nil; tile.road=nil
+        tile.ownerId=if id==target then 3-owner else owner
+        if id~=target and not unitsAt[id] then
+            table.insert(s.units,{id=s.nextUnit,ownerId=owner,kind="Worker",tileId=id,hp=Rules.units.Worker.hp,moves=0,fortified=false,level=0}); s.nextUnit += 1
+        end
+    end
+    s.players[owner].gold=1000; city.queue="Warrior"; city.production=Rules.productionCosts.Warrior
+    assert(Game.restore(Game.serialize(s)),"deployment fixture must be a valid resumable state")
+    return s,city,target
+end
+for owner=1,2 do
+    local peaceful,city,foreignTile=blockedDeployment(owner)
+    rejected(peaceful,owner,{kind="Purchase",cityId=city.id,item="Warrior"})
+    local purchases=Game.snapshot(peaceful,owner).availablePurchasesByCity[tostring(city.id)]
+    assert(not table.find(purchases,"Warrior") and table.find(purchases,"Monument"))
+    local count,beforeProduction=#peaceful.units,city.production
+    apply(peaceful,owner,{kind="EndTurn"})
+    assert(#peaceful.units==count and city.production>beforeProduction and peaceful.tiles[foreignTile].ownerId==3-owner)
+    assert(Game.restore(Game.serialize(peaceful)))
+    for _, relation in {"Own","War"} do
+        local allowed,allowedCity,allowedTarget=blockedDeployment(owner)
+        if relation=="Own" then allowed.tiles[allowedTarget].ownerId=owner
+        else apply(allowed,owner,{kind="DeclareWar",targetId=3-owner}) end
+        assert(table.find(Game.snapshot(allowed,owner).availablePurchasesByCity[tostring(allowedCity.id)],"Warrior"))
+        local productionClone=Game.restore(Game.serialize(allowed)); assert(productionClone)
+        local oldCount=#allowed.units
+        apply(allowed,owner,{kind="Purchase",cityId=allowedCity.id,item="Warrior"})
+        assert(#allowed.units==oldCount+1 and allowed.units[#allowed.units].ownerId==owner and allowed.units[#allowed.units].tileId==allowedTarget)
+        apply(productionClone,owner,{kind="EndTurn"})
+        assert(#productionClone.units==oldCount+1 and productionClone.units[#productionClone.units].ownerId==owner and productionClone.units[#productionClone.units].tileId==allowedTarget)
+        assert(Game.restore(Game.serialize(allowed)) and Game.restore(Game.serialize(productionClone)))
+    end
+end
 -- Solo AI acts once per round, researches, produces and stays deterministically resumable.
 for _, difficulty in {"Easy","Normal","Hard"} do
     for seed=1,4 do

@@ -135,7 +135,11 @@ end
 local function spawnTile(s: any, city: any): number?
     local units,cities=occupants(s)
     local ids={city.tileId}; for _, id in mapFor(s).neighbors[city.tileId] do table.insert(ids,id) end; table.sort(ids)
-    for _, id in ids do if not units[id] and R.terrains[s.tiles[id].terrain].passable and (not cities[id] or cities[id].ownerId==city.ownerId) then return id end end
+    for _, id in ids do
+        local tile=s.tiles[id]
+        local territoryAllowed=not tile.ownerId or tile.ownerId==city.ownerId or s.diplomacy.status=="War"
+        if not units[id] and R.terrains[tile.terrain].passable and territoryAllowed and (not cities[id] or cities[id].ownerId==city.ownerId) then return id end
+    end
     return nil
 end
 local function complete(s: any, city: any, item: string, spawn: number?)
