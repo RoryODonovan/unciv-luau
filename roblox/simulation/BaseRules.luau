@@ -1,6 +1,6 @@
 --!strict
 -- Generated module-only Roblox form. Source: src/simulation/BaseRules.luau
--- Source SHA-256: 7b968a71fbb6c603e56e8f83a441f3575652986cb896e2480e240d84b0a2d322
+-- Source SHA-256: 682fbec37daf23a831ad40c59543af6d0da3d03ba2b9f132278ac81de32d5698
 -- Reproduce with tools/roblox-export.mjs; preserve MPL notices below.
 -- Covered source: https://github.com/RoryODonovan/unciv-luau
 -- This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
@@ -89,7 +89,7 @@ for id, rule in buildings do productionCosts[id]=rule.cost; purchaseCosts[id]=ru
 local terrainYields: {[string]: Yields} = {}
 for id, rule in terrains do terrainYields[id]=rule.yields end
 local rules = {
-    minRadius=3,maxRadius=7,radius=4,maxTurns=120,maxPopulation=100,maxUnits=169,maxCities=24,
+    minRadius=3,maxRadius=40,maxTiles=4921,radius=4,maxTurns=120,maxPopulation=100,maxUnits=169,maxCities=24,
     units=units,unitStats=units,buildings=buildings,buildingEffects=buildings,technologies=technologies,technologyOrder=technologyOrder,
     unitOrder={"Scout","Warrior","Settler","Worker","Archer","Swordsman","Pikeman","Knight","Catapult","Musketman","Rifleman"},buildingOrder={"Monument","Granary","Library","Walls","Market","Workshop","Temple","University","GuildHall","Observatory","SpaceProject"},
     policies=policies,policyOrder={"Tradition","Liberty","Honor","Commerce","Rationalism","Patronage"},

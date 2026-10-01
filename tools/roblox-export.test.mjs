@@ -2,9 +2,10 @@
 // Regression coverage for source-preserving module import adaptation.
 import assert from 'node:assert/strict';
 import {rewriteImports} from './roblox-export.mjs';
-const modules = ['map/HexMath.luau', 'map/HexCoord.luau', 'models/stats/Stats.luau'];
+const modules = ['map/HexMath.luau', 'map/HexCoord.luau', 'map/MapSizes.luau', 'models/stats/Stats.luau'];
 const rewrite = source => rewriteImports(source, 'map/HexMath.luau', modules);
 assert.equal(rewrite('require("./HexCoord")'), 'require(script.Parent.HexCoord)');
+assert.equal(rewrite('require("./MapSizes")'), 'require(script.Parent.MapSizes)');
 assert.equal(rewriteImports("require('../../map/HexCoord')", 'models/stats/Stats.luau', modules), 'require(script.Parent.Parent.Parent.map.HexCoord)');
 for (const source of [
   '-- require("./Missing")\nreturn {}',

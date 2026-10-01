@@ -7,6 +7,7 @@ Reusable MPL-2.0 Luau conversions of selected [Unciv](https://github.com/yairm21
 | Module | Supported scope |
 | --- | --- |
 | `src/map/HexCoord.luau` | Immutable coordinates, arithmetic, conversions and parsing |
+| `src/map/MapSizes.luau` | Immutable Tiny through Huge hex presets, matching upstream radii 10/15/20/30/40 |
 | `src/map/HexMath.luau` | Distances, rings, world conversion, rounding and indexed coordinates |
 | `src/models/stats/Stat.luau` | Identifiers, lookup and classifications |
 | `src/models/stats/Stats.luau` | Mutable values, copy arithmetic, aggregates and supported parsing |

@@ -15,3 +15,5 @@ MPL obligations apply to files containing covered code. Independently authored i
 This is an independent adaptation and is not endorsed by the Unciv project, Roblox, or the owners of Civilization. No trademark rights are granted by this repository's source license.
 
 Simulation Mechanics partially extracts BattleDamage.kt and city/managers/CityPopulationManager.kt at the pinned upstream revision; see provenance/simulation-mechanics.json. Game.luau and Rules.luau are original MPL-2.0 synthetic prototype code, not upstream gameplay conversions; see provenance/simulation-original.json and docs/simulation.md.
+
+MapSizes.luau adapts the five predefined names/radii from core/src/com/unciv/logic/map/MapSize.kt at the pinned revision; see provenance/map-sizes.json. The surrounding land map generation and simulation remain original bounded implementations.

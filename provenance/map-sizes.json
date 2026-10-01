@@ -1,0 +1,35 @@
+{
+  "sourceRevision": "42939c6a2cf31aa76f44ffc033015ad12fece9f5",
+  "license": "MPL-2.0",
+  "modulePaths": [
+    "src/map/MapSizes.luau"
+  ],
+  "upstreamPaths": [
+    "core/src/com/unciv/logic/map/MapSize.kt"
+  ],
+  "upstreamSha256": "8d60f3c69f9b4d2769be0335a92c806dfc671641298f05d0beb4dc953dbc012f",
+  "status": "partial-presets-tested",
+  "supported": {
+    "MapSizes": [
+      "presets",
+      "get"
+    ]
+  },
+  "differences": [
+    "Only names and radii of the five upstream predefined sizes are adapted; tileCount is the corresponding complete hexagon.",
+    "Unknown names return nil instead of upstream safeValueOf Tiny fallback.",
+    "Records and ordered presets array are immutable Luau values."
+  ],
+  "omitted": [
+    "rectangular widths/heights",
+    "Auto",
+    "Custom",
+    "size correction",
+    "world wrapping",
+    "technology/policy cost modifiers",
+    "native Unciv JSON save serialization"
+  ],
+  "testPath": "tests/unit/map-sizes.luau",
+  "documentationPath": "docs/map-sizes.md",
+  "upstreamKotlinExecuted": false
+}

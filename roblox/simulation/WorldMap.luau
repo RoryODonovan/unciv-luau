@@ -1,6 +1,6 @@
 --!strict
 -- Generated module-only Roblox form. Source: src/simulation/WorldMap.luau
--- Source SHA-256: 51645a6c3235e5381a0efb6be12a25f7bbf300ac99aa2714afce9581a59cbaf9
+-- Source SHA-256: d1344195e056f8ae3619057372a149c6472b612f099bf5305cc30d81deb017f5
 -- Reproduce with tools/roblox-export.mjs; preserve MPL notices below.
 -- Covered source: https://github.com/RoryODonovan/unciv-luau
 -- This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
@@ -19,7 +19,7 @@ local offsets = {{1,0},{0,1},{1,1},{-1,0},{0,-1},{-1,-1}}
 local function integer(value: number): boolean return value == value and math.abs(value) <= 9007199254740991 and value % 1 == 0 end
 local function key(x: number, y: number): string return tostring(x) .. ":" .. tostring(y) end
 function WorldMap.fromTiles(tiles: {Tile}, radius: number): Map
-    assert(integer(radius) and radius >= Rules.minRadius and radius <= Rules.maxRadius, "radius must be 3..7")
+    assert(integer(radius) and radius >= Rules.minRadius and radius <= Rules.maxRadius, "radius must be 3..40")
     assert(#tiles == 1+3*radius*(radius+1), "incomplete map")
     local index: {[string]: number}, neighbors: {{number}} = {}, {}
     for id, tile in tiles do
@@ -37,7 +37,7 @@ function WorldMap.fromTiles(tiles: {Tile}, radius: number): Map
 end
 function WorldMap.generate(seed: number, radius: number): Map
     assert(integer(seed), "seed must be a finite safe integer")
-    assert(integer(radius) and radius >= Rules.minRadius and radius <= Rules.maxRadius, "radius must be 3..7")
+    assert(integer(radius) and radius >= Rules.minRadius and radius <= Rules.maxRadius, "radius must be 3..40")
     local random = seed % 2147483647
     if random == 0 then random=1 end
     local function roll(limit: number): number random=(random*48271)%2147483647; return random%limit end
@@ -70,18 +70,42 @@ function WorldMap.movementCost(tile: Tile): number?
     if not terrain or not terrain.passable then return nil end
     return if tile.road then Rules.roadMovement else terrain.movement
 end
+-- Heap order matches the former scan: minimum cost first, then ascending tile ID.
+type Entry = {id: number, cost: number}
+local function before(a: Entry, b: Entry): boolean return a.cost<b.cost or (a.cost==b.cost and a.id<b.id) end
+local function push(heap: {Entry}, entry: Entry)
+    local index=#heap+1
+    while index>1 do
+        local parent=math.floor(index/2)
+        if not before(entry,heap[parent]) then break end
+        heap[index]=heap[parent]; index=parent
+    end
+    heap[index]=entry
+end
+local function pop(heap: {Entry}): Entry
+    local first=heap[1]
+    local last=table.remove(heap) :: Entry
+    if #heap==0 then return first end
+    local index=1
+    while index*2<=#heap do
+        local child=index*2
+        if child<#heap and before(heap[child+1],heap[child]) then child+=1 end
+        if not before(heap[child],last) then break end
+        heap[index]=heap[child]; index=child
+    end
+    heap[index]=last
+    return first
+end
 local function search(map: Map, start: number, budget: number, cost: Cost?, goal: number?): ({[number]: number}, {[number]: number})
     assert(map.tiles[start] ~= nil and budget >= 0 and budget == budget,"invalid search")
     local distances: {[number]: number}, previous: {[number]: number}, visited: {[number]: boolean} = {[start]=0},{},{}
+    local heap: {Entry}={{id=start,cost=0}}
     local getCost: Cost = cost or function(_from: number, to: number): number? return WorldMap.movementCost(map.tiles[to]) end
-    for _=1,#map.tiles do
-        local current: number? = nil
-        local best=math.huge
-        for id=1,#map.tiles do
-            local d=distances[id]
-            if d ~= nil and not visited[id] and d<best then current=id; best=d end
-        end
-        if not current or best>budget then break end
+    while #heap>0 do
+        local entry=pop(heap)
+        local current,best=entry.id,entry.cost
+        if visited[current] or distances[current]~=best then continue end
+        if best>budget then break end
         visited[current]=true
         if current==goal then break end
         for _, nextId in map.neighbors[current] do
@@ -90,7 +114,9 @@ local function search(map: Map, start: number, budget: number, cost: Cost?, goal
             if step == nil then continue end
             assert(step==step and step>0 and step<math.huge,"path cost must be finite and positive")
             local candidate=best+step
-            if candidate<=budget and (distances[nextId]==nil or candidate<distances[nextId]) then distances[nextId]=candidate; previous[nextId]=current end
+            if candidate<=budget and (distances[nextId]==nil or candidate<distances[nextId]) then
+                distances[nextId]=candidate; previous[nextId]=current; push(heap,{id=nextId,cost=candidate})
+            end
         end
     end
     return distances,previous
@@ -110,13 +136,21 @@ function WorldMap.shortestPath(map: Map, start: number, goal: number, cost: Cost
 end
 function WorldMap.visibility(map: Map, centers: {number}, range: number): {number}
     assert(integer(range) and range>=0 and range<=Rules.maxRadius*2,"invalid vision range")
-    local seen: {[number]: boolean} = {}
+    local seen: {[number]: boolean}, checked: {[number]: boolean} = {},{}
     for _, center in centers do
-        assert(map.tiles[center] ~= nil,"unknown center")
-        for id=1,#map.tiles do if WorldMap.distance(map,center,id)<=range then seen[id]=true end end
+        local tile=map.tiles[center]; assert(tile ~= nil,"unknown center")
+        if checked[center] then continue end; checked[center]=true
+        -- Probe only the local geometric disk; terrain does not obstruct vision.
+        for x=math.max(-map.radius,tile.x-range),math.min(map.radius,tile.x+range) do
+            for y=math.max(-map.radius,tile.y-range),math.min(map.radius,tile.y+range) do
+                if HexMath.getDistanceXY(tile.x,tile.y,x,y)>range then continue end
+                local id=map.index[key(x,y)]; if id then seen[id]=true end
+            end
+        end
     end
     local result: {number} = {}
-    for id=1,#map.tiles do if seen[id] then table.insert(result,id) end end
+    for id in seen do table.insert(result,id) end
+    table.sort(result)
     return result
 end
 function WorldMap.projectTiles(map: Map, discovered: {number}, visible: {number}): {any}

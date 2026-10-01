@@ -35,6 +35,13 @@
       "upstreamSha256": "423f67af037810ff3f77258b17e8ac94de635adeed6ae03cd320127c9336e100",
       "license": "MPL-2.0",
       "upstream": "core/src/com/unciv/models/Counter.kt"
+    },
+    {
+      "module": "src/map/MapSizes.luau",
+      "status": "partial-presets-tested",
+      "upstreamSha256": "8d60f3c69f9b4d2769be0335a92c806dfc671641298f05d0beb4dc953dbc012f",
+      "license": "MPL-2.0",
+      "upstream": "core/src/com/unciv/logic/map/MapSize.kt"
     }
   ]
 }

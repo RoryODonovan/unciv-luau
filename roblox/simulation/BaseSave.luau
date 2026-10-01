@@ -1,6 +1,6 @@
 --!strict
 -- Generated module-only Roblox form. Source: src/simulation/BaseSave.luau
--- Source SHA-256: b9cfea1e8d22adf7dfcdd1e4f562232e16850f289411f9ab5f1b7270e3ed0d23
+-- Source SHA-256: 8b55e589bbf9d95bd6f9e9e7abe0b4f34b324baeb9857921aa83d0412ae52188
 -- Reproduce with tools/roblox-export.mjs; preserve MPL notices below.
 -- Covered source: https://github.com/RoryODonovan/unciv-luau
 -- This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
@@ -12,15 +12,21 @@
 local Rules=require(script.Parent.BaseRules)
 local HexMath=require(script.Parent.Parent.map.HexMath)
 local BaseSave={}
+-- Structural work budget: 4,921 tiles with all 8 fields and two fully explored players,
+-- plus independently bounded units/cities/events. This is a hard bound, not an unbounded traversal.
+local maxTreeEntries=65536
 local function number(value: any,low: number,high: number): boolean return type(value)=="number" and value==value and value>=low and value<=high end
 local function integer(value: any,low: number,high: number): boolean return number(value,low,high) and value%1==0 end
 local function owner(value: any): boolean return value==1 or value==2 end
 local function id(value: any): boolean return integer(value,1,1000000) end
 local function text(value: any,limit: number): boolean return type(value)=="string" and #value>0 and #value<=limit end
+local schemas: {[string]: {[string]: boolean}}={}
 local function object(value: any,keys: string): boolean
     if type(value)~="table" or getmetatable(value)~=nil then return false end
-    local allowed: {[string]: boolean}={}
-    for key in string.gmatch(keys,"%S+") do allowed[key]=true end
+    local allowed=schemas[keys]
+    if not allowed then
+        allowed={}; for key in string.gmatch(keys,"%S+") do allowed[key]=true end; schemas[keys]=allowed
+    end
     for key in value do if type(key)~="string" or not allowed[key] then return false end end
     return true
 end
@@ -39,8 +45,8 @@ local function plainTree(root: any): boolean
         local node=table.remove(pending) :: {value: any,depth: number}
         if getmetatable(node.value)~=nil or node.depth>10 then return false end
         for key,child in node.value do
-            entries+=1; if entries>16384 then return false end
-            if type(key)=="string" then if #key>128 then return false end elseif not integer(key,1,16384) then return false end
+            entries+=1; if entries>maxTreeEntries then return false end
+            if type(key)=="string" then if #key>128 then return false end elseif not integer(key,1,maxTreeEntries) then return false end
             local kind=type(child)
             if kind=="table" then
                 if seen[child] then return false end
@@ -72,7 +78,7 @@ function BaseSave.valid(saved: any): boolean
     if not plainTree(saved) or not object(saved,"format version state") or saved.format~="unciv-luau-base" or saved.version~=1 then return false end
     local s=saved.state
     if not object(s,"seed radius difficulty humanPlayers forest maxTurns turn revision activePlayerId phase winner reason victoryType tiles units cities players diplomacy trades events nextEvent nextUnit nextCity nextTrade log") then return false end
-    if not integer(s.seed,-9007199254740991,9007199254740991) or not integer(s.radius,3,7) or not integer(s.maxTurns,20,500) or not integer(s.turn,1,s.maxTurns) or not integer(s.revision,0,1000000000) then return false end
+    if not integer(s.seed,-9007199254740991,9007199254740991) or not integer(s.radius,Rules.minRadius,Rules.maxRadius) or not integer(s.maxTurns,20,500) or not integer(s.turn,1,s.maxTurns) or not integer(s.revision,0,1000000000) then return false end
     if not owner(s.humanPlayers) or not owner(s.activePlayerId) or type(s.forest)~="boolean" or (s.phase=="Playing" and s.humanPlayers==1 and s.activePlayerId~=1) then return false end
     if s.difficulty~="Easy" and s.difficulty~="Normal" and s.difficulty~="Hard" then return false end
     if not id(s.nextUnit) or not id(s.nextCity) or not id(s.nextTrade) or not integer(s.nextEvent,1,1000000000) then return false end
@@ -80,7 +86,7 @@ function BaseSave.valid(saved: any): boolean
     elseif s.phase=="Finished" then
         if not owner(s.winner) or not text(s.reason,256) or (s.victoryType~="Science" and s.victoryType~="Culture" and s.victoryType~="Domination" and s.victoryType~="Score") then return false end
     else return false end
-    if not array(s.tiles,169) or #s.tiles~=1+3*s.radius*(s.radius+1) or not array(s.units,169) or not array(s.cities,24) or not array(s.players,2) or #s.players~=2 then return false end
+    if not array(s.tiles,Rules.maxTiles) or #s.tiles~=1+3*s.radius*(s.radius+1) or not array(s.units,Rules.maxUnits) or not array(s.cities,Rules.maxCities) or not array(s.players,2) or #s.players~=2 then return false end
     local coordinates,tiles={},{}
     for index,tile in s.tiles do
         if not object(tile,"id x y terrain resource ownerId improvement road") or tile.id~=index or not integer(tile.x,-s.radius,s.radius) or not integer(tile.y,-s.radius,s.radius) or HexMath.getDistanceXY(0,0,tile.x,tile.y)>s.radius then return false end

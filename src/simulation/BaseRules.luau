@@ -82,7 +82,7 @@ for id, rule in buildings do productionCosts[id]=rule.cost; purchaseCosts[id]=ru
 local terrainYields: {[string]: Yields} = {}
 for id, rule in terrains do terrainYields[id]=rule.yields end
 local rules = {
-    minRadius=3,maxRadius=7,radius=4,maxTurns=120,maxPopulation=100,maxUnits=169,maxCities=24,
+    minRadius=3,maxRadius=40,maxTiles=4921,radius=4,maxTurns=120,maxPopulation=100,maxUnits=169,maxCities=24,
     units=units,unitStats=units,buildings=buildings,buildingEffects=buildings,technologies=technologies,technologyOrder=technologyOrder,
     unitOrder={"Scout","Warrior","Settler","Worker","Archer","Swordsman","Pikeman","Knight","Catapult","Musketman","Rifleman"},buildingOrder={"Monument","Granary","Library","Walls","Market","Workshop","Temple","University","GuildHall","Observatory","SpaceProject"},
     policies=policies,policyOrder={"Tradition","Liberty","Honor","Commerce","Rationalism","Patronage"},

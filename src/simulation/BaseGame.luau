@@ -206,6 +206,13 @@ local function attackable(s: any, unit: any, target: number, seen: any, occupanc
     if not enemy or enemy.ownerId==unit.ownerId then return false end
     return distance(s,unit.tileId,target)<=math.max(1,R.units[unit.kind].range or 1)
 end
+local function attackTargets(s: any, unit: any, seen: any, units: any, cities: any): {number}
+    if unit.moves<=0 or R.units[unit.kind].strength<=0 or s.diplomacy.status~="War" then return {} end
+    local set={}
+    for tileId in units do if attackable(s,unit,tileId,seen,units,cities) then set[tileId]=true end end
+    for tileId in cities do if attackable(s,unit,tileId,seen,units,cities) then set[tileId]=true end end
+    local ids={}; for tileId in set do table.insert(ids,tileId) end; table.sort(ids); return ids
+end
 local function combat(s: any, unit: any, target: number)
     local units,cities=occupants(s); local defender,city=units[target],cities[target]
     local ranged=(R.units[unit.kind].range or 1)>1
@@ -394,8 +401,8 @@ local function ai(s: any, owner: number)
         end
         if u.work or u.moves<=0 then continue end
         if R.units[u.kind].strength>0 and u.hp<40 then u.fortified=true; u.moves=0; continue end
-        local seen=visible(s,owner); local attack: number?=nil
-        for _, tile in s.tiles do if attackable(s,u,tile.id,seen) then attack=tile.id; break end end
+        local seen=visible(s,owner); local occupiedUnits,occupiedCities=occupants(s)
+        local attack=attackTargets(s,u,seen,occupiedUnits,occupiedCities)[1]
         if attack then combat(s,u,attack); continue end
         local targets=reachable(s,u); local best: number?=nil; local bestRank=-math.huge
         local discovered={}; for _, tileId in p.explored do discovered[tileId]=true end
@@ -441,7 +448,7 @@ end
 function BaseGame.new(seed: number?, options: Options?): State
     local o: Options=options or {}; local supplied=seed or 1; local radius=o.radius or 4; local humans=o.humanPlayers or 1; local difficulty=o.difficulty or "Normal"; local turns=o.maxTurns or 120
     assert(type(supplied)=="number" and supplied==supplied and math.abs(supplied)<=9007199254740991 and supplied%1==0,"seed must be a finite integer")
-    assert(radius%1==0 and radius>=3 and radius<=7,"radius must be 3 to 7")
+    assert(radius%1==0 and radius>=R.minRadius and radius<=R.maxRadius,"radius must be 3 to 40")
     assert(humans==1 or humans==2,"humanPlayers must be 1 or 2")
     assert(difficulty=="Easy" or difficulty=="Normal" or difficulty=="Hard","unknown difficulty")
     assert(turns%1==0 and turns>=20 and turns<=500,"maxTurns must be 20 to 500")
@@ -577,7 +584,7 @@ function BaseGame.snapshot(state: State, actorId: number): View
     for _, u in s.units do
         if u.ownerId==actorId or seen[u.tileId] then table.insert(units,copy(u)) end
         if u.ownerId==actorId then
-            local targets={}; if canAct then for tileId in reachable(s,u,seen,occupancyUnits,occupancyCities) do if tileId~=u.tileId then table.insert(targets,tileId) end end; for _, tile in s.tiles do if attackable(s,u,tile.id,seen,occupancyUnits,occupancyCities) then table.insert(targets,tile.id) end end end
+            local targets={}; if canAct then for tileId in reachable(s,u,seen,occupancyUnits,occupancyCities) do if tileId~=u.tileId then table.insert(targets,tileId) end end; for _, tileId in attackTargets(s,u,seen,occupancyUnits,occupancyCities) do table.insert(targets,tileId) end end
             table.sort(targets); legal[tostring(u.id)]=targets
             local choices={}; if canAct then for _, id in improvementOrder do if improvementAvailable(s,u,id) then table.insert(choices,id) end end end
             improvements[tostring(u.id)]=choices

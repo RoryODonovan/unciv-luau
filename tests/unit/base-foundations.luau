@@ -77,7 +77,7 @@ assert(view[expensive].terrain==nil and view[expensive].resource==nil)
 view[goal].ownerId=2; assert(shown.ownerId==1)
 local vision=WorldMap.visibility(map,{expensive},1)
 assert(#vision==7 and equal(vision,WorldMap.visibility(map,{expensive,expensive},1)))
-assert(not pcall(function() WorldMap.generate(1,8) end))
+assert(not pcall(function() WorldMap.generate(1,41) end))
 assert(not pcall(function() WorldMap.generate(0/0,3) end))
 print("base map and rule foundations passed")
 
