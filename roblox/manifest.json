@@ -29,8 +29,8 @@
     {
       "path": "roblox/map/WorldGeneration.luau",
       "sourcePath": "src/map/WorldGeneration.luau",
-      "sourceSha256": "8b2b988506c0ee2b1b45592dfc6d53b9af1aada05824a5833c0fb0b57c381a51",
-      "generatedSha256": "fd08d600effca6b22a672cff0fa29f9cf39e296f1dda4f6117d92fdbfe0d1210"
+      "sourceSha256": "4ac3a79467478a67c988e369af2b2f584c168f0ed5f0be7ac8352cb688506661",
+      "generatedSha256": "130071491f6493b94ea016629204caf68b362e650b983e52775acee480580d33"
     },
     {
       "path": "roblox/models/Counter.luau",
