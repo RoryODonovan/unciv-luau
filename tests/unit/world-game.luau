@@ -27,6 +27,40 @@ local function metadataFree(value: any)
         metadataFree(child)
     end
 end
+-- Adjacent protected regions once exhausted both starter repairs on this exact Duel seed.
+-- Inspect the completed map: the second repair must not remove the first site's useful plot.
+local protectedMap=Map.generateSphere(116784261,2)
+local protectedStarts=protectedMap.startIds :: {number}
+for owner,start in protectedStarts do
+    local workTile=false
+    for _,id in protectedMap.neighbors[start] do
+        local tile=protectedMap.tiles[id]
+        local terrain=Rules.terrains[tile.terrain]
+        local resource=if tile.resource then Rules.resources[tile.resource].yields else {food=0,production=0}
+        if terrain.passable and terrain.yields.food+resource.food>=2 and terrain.yields.production+resource.production>=1 then workTile=true end
+    end
+    assert(workTile,string.format("Sphere Duel seed116784261 actor%d needs one same adjacent food/production work tile after both repairs",owner))
+end
+local protectedState: any=Game.new(116784261,{mapShape="Sphere",frequency=2,humanPlayers=2})
+assert(equal(protectedState.tiles,protectedMap.tiles),"deploying both regions must preserve repaired terrain/resources")
+for owner=1,2 do
+    apply(protectedState,owner,{kind="FoundCity",unitId=unit(protectedState,owner,"Settler").id})
+    local city=protectedState.cities[owner]
+    assert(city.tileId==protectedStarts[owner])
+    apply(protectedState,owner,{kind="SetCityFocus",cityId=city.id,focus="Food"})
+    apply(protectedState,owner,{kind="EndTurn"})
+end
+for _=1,16 do
+    for owner=1,2 do apply(protectedState,owner,{kind="EndTurn"}) end
+end
+assert(protectedState.turn==18 and #protectedState.cities==2)
+for owner,city in protectedState.cities do
+    assert(city.population>=2 and protectedState.players[owner].income.production>0,"both repaired starters must support actual early growth and production")
+end
+for _,event in protectedState.events do assert(event.kind~="Starvation","repaired starts must sustain their first citizens") end
+local protectedSave=Game.serialize(protectedState)
+assert(Save.valid(protectedSave) and equal(protectedSave,Game.serialize(Game.restore(protectedSave) :: Game.State)))
+print("Sphere Duel protected-neighbor seed116784261: both useful work tiles, actual founding/growth/turns and save passed")
 local names={"Duel","Tiny","Small","Medium","Large","Huge"}
 local seeds={0,1,2,42,73,99991}
 local seenTerrains: {[string]: boolean}={}
@@ -110,9 +144,9 @@ end
 assert(seenTerrains.Tundra and seenTerrains.Water and seenTerrains.Mountain and seenTerrains.Forest and seenTerrains.Desert)
 assert(Rules.terrains.Tundra.passable and Rules.terrains.Tundra.movement==1 and Rules.terrains.Tundra.defense==0 and Rules.terrains.Tundra.yields.food==1)
 assert(not table.find(Rules.improvements.Farm.terrains,"Tundra"),"generation must not expand unrelated improvement balance")
--- Existing public support includes frequency one and finite safe integer seeds.
+-- Existing public support includes frequency one, tiny-map capacity and finite safe integer seeds.
 for _,shape in {"Hex","Sphere"} do
-    for _,seed in {-9007199254740991,9007199254740991,-42} do
+    for _,seed in {-9007199254740991,9007199254740991,-42,9586495911} do
         local options: any=if shape=="Sphere" then {mapShape="Sphere",frequency=1,humanPlayers=2} else {radius=3,humanPlayers=2}
         local first=Game.new(seed,options)
         assert(equal(first,Game.new(seed,options)) and Save.valid(Game.serialize(first)))
