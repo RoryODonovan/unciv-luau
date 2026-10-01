@@ -1,8 +1,16 @@
 {
   "license": "MPL-2.0",
   "provenanceKind": "original",
-  "modulePaths": ["src/simulation/Game.luau", "src/simulation/Rules.luau"],
-  "description": "Original synthetic bounded simulation orchestration, seeded map, balance, commands, snapshots and AI. Uses separately attributed converted HexMath and Mechanics; no full Unciv gameplay parity or copied ruleset/media.",
-  "testPaths": ["tests/unit/simulation.luau", "tests/winning-replay.luau"],
+  "modulePaths": [
+    "src/simulation/Game.luau",
+    "src/simulation/Rules.luau",
+    "src/simulation/Save.luau"
+  ],
+  "description": "Original synthetic bounded simulation orchestration, seeded map, balance, commands, snapshots and AI. Uses separately attributed converted HexMath and Mechanics; no full Unciv gameplay parity or copied ruleset/media. Release extension: difficulty profiles, optional forest terrain, building economy, purchases, fortification, upgrades, authoritative legal moves, event history, and versioned bounded save validation are original synthetic systems.",
+  "testPaths": [
+    "tests/unit/simulation.luau",
+    "tests/winning-replay.luau",
+    "tests/unit/simulation-release.luau"
+  ],
   "documentationPath": "docs/simulation.md"
 }
