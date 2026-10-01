@@ -27,6 +27,12 @@
       "generatedSha256": "8a6bc91bb3f69baf9c419bcc6a95b635eb0d4d1b1626eb487718046157a531cd"
     },
     {
+      "path": "roblox/map/WorldGeneration.luau",
+      "sourcePath": "src/map/WorldGeneration.luau",
+      "sourceSha256": "8b2b988506c0ee2b1b45592dfc6d53b9af1aada05824a5833c0fb0b57c381a51",
+      "generatedSha256": "fd08d600effca6b22a672cff0fa29f9cf39e296f1dda4f6117d92fdbfe0d1210"
+    },
+    {
       "path": "roblox/models/Counter.luau",
       "sourcePath": "src/models/Counter.luau",
       "sourceSha256": "b10dda1f60b6d4674936e196c818bb51b8a02f794d3d125d71c8aef6ef3270da",
@@ -47,14 +53,14 @@
     {
       "path": "roblox/simulation/BaseGame.luau",
       "sourcePath": "src/simulation/BaseGame.luau",
-      "sourceSha256": "1f88bddc451c0babe4915f5169489171274b2b59abc0449e289fc4b9381298e0",
-      "generatedSha256": "06a7d5251d0f58a8130ddfef33d8b75d33894d914c5abc7b4d39bfd93988f2a2"
+      "sourceSha256": "952d3f9c192e803552c66a022303aeb3357af46a20090c9410f926f7e4bb1cca",
+      "generatedSha256": "2d7ef96aa879415a2ff99f3ea3a56cc3cb87ce8864152a8da6173a363b6c809d"
     },
     {
       "path": "roblox/simulation/BaseRules.luau",
       "sourcePath": "src/simulation/BaseRules.luau",
-      "sourceSha256": "682fbec37daf23a831ad40c59543af6d0da3d03ba2b9f132278ac81de32d5698",
-      "generatedSha256": "bb84718e2094c4320ca673d292b6fa3f033fb5df99f35d695f30dadd3b57ef55"
+      "sourceSha256": "d54908e1f49ac0abe8f4875d0356d0506d4ea45c44641dde895bc9f52d57bb77",
+      "generatedSha256": "bb7a73d921b3e376b4565fa54cc7981774bd84dedbd971fc04bb9fd07c1b3620"
     },
     {
       "path": "roblox/simulation/BaseSave.luau",
@@ -89,8 +95,8 @@
     {
       "path": "roblox/simulation/WorldMap.luau",
       "sourcePath": "src/simulation/WorldMap.luau",
-      "sourceSha256": "2d556c0b9adeed21a2de6af35cfe2d1cbbba0944a68634900cd33201e34ace97",
-      "generatedSha256": "8cce8880d4986d4a13bb2790e53073483fe3c729b2526a8263a599fb72810682"
+      "sourceSha256": "979e460ad261ff24baea8c6129ab55d51e475822b11a5cd3f52f883383abf6f3",
+      "generatedSha256": "e8703bd8402d76e16c22b10840a908c3b29afeaa50bf02296b0ea04924754553"
     }
   ]
 }

@@ -1,6 +1,6 @@
 --!strict
 -- Generated module-only Roblox form. Source: src/simulation/BaseRules.luau
--- Source SHA-256: 682fbec37daf23a831ad40c59543af6d0da3d03ba2b9f132278ac81de32d5698
+-- Source SHA-256: d54908e1f49ac0abe8f4875d0356d0506d4ea45c44641dde895bc9f52d57bb77
 -- Reproduce with tools/roblox-export.mjs; preserve MPL notices below.
 -- Covered source: https://github.com/RoryODonovan/unciv-luau
 -- This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
@@ -64,6 +64,7 @@ local terrains: {[string]: Terrain} = {
     Hills={id="Hills",movement=2,passable=true,defense=3,yields=yields(1,2)},
     Forest={id="Forest",movement=2,passable=true,defense=3,yields=yields(1,2)},
     Desert={id="Desert",movement=1,passable=true,defense=0,yields=yields(0,1)},
+    Tundra={id="Tundra",movement=1,passable=true,defense=0,yields=yields(1)},
     Water={id="Water",movement=1,passable=false,defense=0,yields=yields(1,0,1)},
     Mountain={id="Mountain",movement=1,passable=false,defense=0,yields=yields()},
 }
@@ -81,7 +82,7 @@ local improvements: {[string]: Improvement} = {
     Pasture={id="Pasture",technology="Agriculture",terrains={"Plains","Grassland"},resources={"Horses"},turns=2,yields=yields(0,1),road=false},
     Plantation={id="Plantation",technology="Currency",terrains={"Plains","Grassland","Forest"},resources={"Spices"},turns=3,yields=yields(0,0,2),road=false},
     Camp={id="Camp",technology="Archery",terrains={"Forest","Plains"},resources={"Deer"},turns=2,yields=yields(1),road=false},
-    Road={id="Road",technology="Engineering",terrains={"Plains","Grassland","Hills","Forest","Desert"},resources={},turns=2,yields=yields(),road=true},
+    Road={id="Road",technology="Engineering",terrains={"Plains","Grassland","Hills","Forest","Desert","Tundra"},resources={},turns=2,yields=yields(),road=true},
 }
 local productionCosts: {[string]: number}, purchaseCosts: {[string]: number} = {}, {}
 for id, rule in units do productionCosts[id]=rule.cost; purchaseCosts[id]=rule.purchaseCost end
