@@ -13,8 +13,10 @@ local function text(value: any, limit: number): boolean
 end
 local function object(value: any, keys: string): boolean
     if type(value) ~= "table" or getmetatable(value) ~= nil then return false end
+    local allowed: {[string]: boolean} = {}
+    for key in string.gmatch(keys, "%S+") do allowed[key] = true end
     for key in value do
-        if type(key) ~= "string" or not string.find(" " .. keys .. " ", " " .. key .. " ", 1, true) then return false end
+        if type(key) ~= "string" or allowed[key] ~= true then return false end
     end
     return true
 end
@@ -35,7 +37,42 @@ local function uniqueStrings(values: any, known: any, max: number): boolean
     end
     return true
 end
+-- Validate the complete tree before any schema access or recursive copying. Iterative
+-- traversal gives fixed depth/entry budgets and rejects cycles/shared tables, metatables,
+-- non-data values and non-finite numbers even when hidden in an unexpected field.
+-- The version-1 schema needs at most six levels and fewer than 4,000 entries at
+-- maximum map/entity/event capacity. These limits leave bounded headroom.
+local function plainTree(root: any): boolean
+    if type(root) ~= "table" then return false end
+    local pending: {{value: any, depth: number}} = {{value = root, depth = 1}}
+    local seen: {[any]: boolean} = {[root] = true}
+    local entries = 0
+    while #pending > 0 do
+        local node = table.remove(pending) :: {value: any, depth: number}
+        local value = node.value
+        if getmetatable(value) ~= nil or node.depth > 8 then return false end
+        for key, child in value do
+            entries += 1
+            if entries > 8192 then return false end
+            if type(key) == "string" then
+                if #key > 256 then return false end
+            elseif not integer(key, 1, 8192) then return false end
+            local kind = type(child)
+            if kind == "table" then
+                if seen[child] then return false end
+                seen[child] = true
+                table.insert(pending, {value = child, depth = node.depth + 1})
+            elseif kind == "number" then
+                if child ~= child or math.abs(child) > 9007199254740991 then return false end
+            elseif kind == "string" then
+                if #child > 1024 then return false end
+            elseif kind ~= "boolean" then return false end
+        end
+    end
+    return true
+end
 function Save.valid(saved: any): boolean
+    if not plainTree(saved) then return false end
     if not object(saved, "format version state") or saved.format ~= "unciv-luau-original" or saved.version ~= 1 then return false end
     local s = saved.state
     if not object(s, "seed difficulty radius forest events nextEvent turn revision phase winner reason tiles units cities players log nextUnit nextCity aiCapital") then return false end

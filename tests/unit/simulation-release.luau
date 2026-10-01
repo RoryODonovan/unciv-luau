@@ -219,10 +219,66 @@ local corruptions: {(any)->()} = {
     function(v) v.state.units={v.state.units[3]} end,
     function(v) v.state.events={{id=1,kind="Move",message="bad"},{id=3,kind="Move",message="bad"}};v.state.nextEvent=4 end,
 }
+-- The old substring whitelist accepted compound names consisting of adjacent
+-- valid schema keys. Check every object shape, including the empty string key.
+for _, compound in {"format version", "version state", ""} do
+    table.insert(corruptions, function(v) v[compound] = {} end)
+end
+for _, compound in {"seed difficulty", "difficulty radius", "tiles units", "nextUnit nextCity", ""} do
+    table.insert(corruptions, function(v) v.state[compound] = {} end)
+end
+for _, compound in {"id x", "ownerId food", ""} do
+    table.insert(corruptions, function(v) v.state.tiles[1][compound] = {} end)
+end
+for _, compound in {"id ownerId", "fortified level", ""} do
+    table.insert(corruptions, function(v) v.state.units[1][compound] = {} end)
+end
+for _, compound in {"name population", "hp buildings", ""} do
+    table.insert(corruptions, function(v) v.state.cities[1][compound] = {} end)
+end
+for _, compound in {"gold science", "technologies research", ""} do
+    table.insert(corruptions, function(v) v.state.players[1][compound] = {} end)
+end
+for _, compound in {"id progress", "progress cost", ""} do
+    table.insert(corruptions, function(v)
+        v.state.players[1].research = {id="Agriculture",progress=0,cost=12,[compound]={}}
+    end)
+end
+for _, compound in {"id kind", "ownerId amount", ""} do
+    table.insert(corruptions, function(v)
+        v.state.events = {{id=1,kind="Move",message="test",[compound]={}}}; v.state.nextEvent=2
+    end)
+end
+-- Unexpected cyclic/deep payloads must reject before Game.restore's copy can recurse.
+table.insert(corruptions, function(v) v.state["seed difficulty"] = v end)
+table.insert(corruptions, function(v) v.state["seed difficulty"] = v.state end)
+table.insert(corruptions, function(v)
+    local payload: any = {}; payload.self = payload; v.state["seed difficulty"] = payload
+end)
+table.insert(corruptions, function(v)
+    local payload: any = {}; v.state["seed difficulty"] = payload
+    for _=1,10000 do local nextNode = {}; payload.child=nextNode; payload=nextNode end
+end)
+table.insert(corruptions, function(v)
+    local payload: any = {}; v.state.extra=payload
+    for _=1,10000 do local nextNode = {}; payload.child=nextNode; payload=nextNode end
+end)
+table.insert(corruptions, function(v) v.state["seed difficulty"] = function() return true end end)
+table.insert(corruptions, function(v) v.state["seed difficulty"] = string.rep("x",100000) end)
+table.insert(corruptions, function(v) v.state.players[2] = v.state.players[1] end)
+table.insert(corruptions, function(v)
+    local payload = {}; v.state["seed difficulty"] = payload
+    for index=1,9000 do payload[index]=true end
+end)
 for index, corrupt in corruptions do
     local candidate = Game.serialize(Game.new(1)); corrupt(candidate)
     local ok, result = pcall(function() return Game.restore(candidate) end)
     assert(ok and result == nil, "corrupt save " .. index .. " must reject without exception")
+    local validState = Game.restore({format="unciv-luau-original",version=1,state=candidate.state})
+    if validState == nil then
+        local serialized = pcall(function() return Game.serialize(candidate.state) end)
+        assert(not serialized, "corrupt state " .. index .. " must fail before serialization copy")
+    end
     assert(equal(clean, Game.serialize(Game.new(1))))
 end
 for _, invalid in {false, 42, "bad", {}} do assert(Game.restore(invalid) == nil) end
