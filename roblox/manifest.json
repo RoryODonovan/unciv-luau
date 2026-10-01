@@ -59,8 +59,8 @@
     {
       "path": "roblox/simulation/BaseSave.luau",
       "sourcePath": "src/simulation/BaseSave.luau",
-      "sourceSha256": "bcd2b13597da0e01cc83260ef7f4f1e910acee188659ee157462fdf95acfe85e",
-      "generatedSha256": "a7570d6966e9f35181f0f5544fa6248f45150a5ec9024a44835aebb81afa3aa2"
+      "sourceSha256": "aac2f8f22e498a3435e11dda6b0065b223f95d04d24a36a8ec27e76b21fd1593",
+      "generatedSha256": "5532469e50d66ce520a0deefb28a4ceee5afa78fd164e61231258ea24daa4fc4"
     },
     {
       "path": "roblox/simulation/Game.luau",
