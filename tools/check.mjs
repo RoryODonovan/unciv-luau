@@ -17,8 +17,8 @@ if(mode==='all'||mode==='verify'){
   for(const p of ['LICENSE','ATTRIBUTIONS.md','upstream.lock.json','provenance/inventory.json'])assert(fs.existsSync(p),`Missing ${p}`);
   let lock;
   try{lock=JSON.parse(fs.readFileSync('upstream.lock.json','utf8').replace(/^\uFEFF/,''));assert(/^[a-f0-9]{40}$/.test(lock.revision),'upstream.lock.json needs full revision');}catch(e){errors.push(`Invalid upstream.lock.json: ${e.message}`);}
-  let manifestTexts=[];
-  for(const p of provenance){try{const raw=fs.readFileSync(p,'utf8').replace(/^\uFEFF/,'');JSON.parse(raw);manifestTexts.push(raw.replaceAll('\\\\','/'));}catch(e){errors.push(`Invalid ${p}: ${e.message}`);}}
+  let manifestTexts=[], manifestRecords=[];
+  for(const p of provenance){try{const raw=fs.readFileSync(p,'utf8').replace(/^\uFEFF/,'');manifestRecords.push(JSON.parse(raw));manifestTexts.push(raw.replaceAll('\\\\','/'));}catch(e){errors.push(`Invalid ${p}: ${e.message}`);}}
   const inventory=JSON.parse(fs.readFileSync('provenance/inventory.json','utf8').replace(/^\uFEFF/,''));
   assert(inventory.revision===lock?.revision,'Inventory revision differs from upstream lock');
   assert(inventory.files?.length===inventory.summary?.total,'Inventory count mismatch');
@@ -29,8 +29,13 @@ if(mode==='all'||mode==='verify'){
     assert(header.includes('SPDX-License-Identifier: MPL-2.0'),`${p}: missing MPL SPDX notice`);
     if(modules.includes(p)){
       assert(header.includes('--!strict'), `${p}: public module must use strict types`);
-      assert(/core\/src\/com\/unciv\/[^\s]+\.kt/.test(header),`${p}: missing upstream Kotlin source path`);
-      assert(header.includes(lock?.revision),`${p}: missing pinned revision`);
+      const original = header.includes('-- Provenance-Kind: original');
+      if (original) {
+        assert(manifestRecords.some(record => record.provenanceKind === 'original' && record.license === 'MPL-2.0' && record.modulePaths?.includes(normalize(p))), `${p}: original module needs explicit original MPL provenance`);
+      } else {
+        assert(/core\/src\/com\/unciv\/[^\s]+\.kt/.test(header),`${p}: missing upstream Kotlin source path`);
+        assert(header.includes(lock?.revision),`${p}: missing pinned revision`);
+      }
       assert(manifestTexts.some(t=>t.includes(normalize(p))),`${p}: no source provenance record`);
       // Strip comments/strings before checking actual host-global references, avoiding false positives in notices.
       const code=text.replace(/--\[\[[\s\S]*?\]\]|--[^\n]*/g,'').replace(/"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'/g,'');
@@ -53,4 +58,5 @@ if(mode==='all'||mode==='test'){
   for(const p of tests.sort())run(process.env.LUAU_BIN??'luau',[p]);
   console.log(`Passed ${tests.length} standalone test files.`);
 }
+
 

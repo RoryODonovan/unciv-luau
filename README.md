@@ -1,6 +1,6 @@
 # Unciv Luau
 
-Reusable MPL-2.0 Luau conversions of selected [Unciv](https://github.com/yairm210/Unciv) modules, pinned to `42939c6a2cf31aa76f44ffc033015ad12fece9f5`. This repository is a module library, not a playable Roblox game. Independently authored networking, UI, rendering, match orchestration and persistence adapters are required to build an experience.
+Reusable MPL-2.0 Luau conversions of selected [Unciv](https://github.com/yairm210/Unciv) modules, pinned to `42939c6a2cf31aa76f44ffc033015ad12fece9f5`. This repository is a module library, not a playable Roblox game. The public library includes an original bounded headless simulation; host networking, UI, rendering and persistence adapters are required to build an experience.
 
 ## Current scope
 
@@ -11,8 +11,10 @@ Reusable MPL-2.0 Luau conversions of selected [Unciv](https://github.com/yairm21
 | `src/models/stats/Stat.luau` | Identifiers, lookup and classifications |
 | `src/models/stats/Stats.luau` | Mutable values, copy arithmetic, aggregates and supported parsing |
 | `src/models/Counter.luau` | Ordered string-key integer counters and arithmetic |
+| `src/simulation/Mechanics.luau` | Attributed partial combat damage and population growth formulas |
+| `src/simulation/Game.luau`, `Rules.luau` | Original deterministic synthetic single-player civilization slice |
 
-These are partial, tested foundation conversions. [Hex limitations](docs/hex-conversion.md) and [statistics/counter limitations](docs/stats-conversion.md) list omitted APIs and numeric/platform differences. Tests use upstream-derived expected values and properties; no Kotlin/JVM differential execution or full-game parity is claimed.
+The foundation modules are partial, tested conversions. [Simulation API and limitations](docs/simulation.md) document the original playable headless slice and its legal winning replay. [Hex limitations](docs/hex-conversion.md) and [statistics/counter limitations](docs/stats-conversion.md) list omitted APIs and numeric/platform differences. Tests use upstream-derived expected values and properties; no Kotlin/JVM differential execution or full-game parity is claimed.
 
 The [inventory](docs/dependency-inventory.md) lists 859 upstream files: 232 planned conversions, 215 deferred and 412 excluded. Its baseline statuses do not represent implemented modules. [Architecture](docs/architecture.md) describes the staged roadmap; [integration contracts](docs/integration-contracts.md) distinguish implemented foundations from future interfaces. Every one of the 102 inventoried data/asset files remains unverified and unimported.
 
@@ -43,3 +45,4 @@ The exporter adapts static relative requires to ModuleScript references while pr
 ## Licensing and provenance
 
 See [LICENSE](LICENSE), [ATTRIBUTIONS.md](ATTRIBUTIONS.md), `upstream.lock.json`, and per-module records in `provenance/`. Preserve upstream notices. Converted covered code and shipped modifications remain MPL-2.0; a private integration folder does not remove source-availability obligations. No upstream media or complete rules datasets are distributed. This independent adaptation is not endorsed by Unciv, Roblox or the owners of Civilization.
+

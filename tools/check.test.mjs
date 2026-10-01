@@ -25,5 +25,13 @@ try{
   result=run();assert.notEqual(result.status,0);assert.match(result.stderr,/Roblox host global/);
   write('src/Counter.luau',valid);write('provenance/fixture.json','{}');
   result=run();assert.notEqual(result.status,0);assert.match(result.stderr,/no source provenance record/);
-  console.log('Metadata gate regression checks passed (valid metadata, missing licence, host globals, absent provenance).');
+  const original='--!strict\n-- SPDX-License-Identifier: MPL-2.0\n-- Provenance-Kind: original\nreturn {}\n';
+  write('src/Counter.luau',original);
+  write('provenance/fixture.json',JSON.stringify({provenanceKind:'original',license:'MPL-2.0',modulePaths:['src/Counter.luau']}));
+  assert.equal(run().status,0,'Explicit original MPL modules must pass without invented upstream attribution');
+  write('provenance/fixture.json',JSON.stringify({provenanceKind:'conversion',license:'MPL-2.0',modulePaths:['src/Counter.luau']}));
+  result=run();assert.notEqual(result.status,0);assert.match(result.stderr,/original module needs explicit original MPL provenance/);
+  write('src/Counter.luau',original+'local service = game:GetService("Players")\n');
+  result=run();assert.notEqual(result.status,0);assert.match(result.stderr,/Roblox host global/);  console.log('Metadata gate regression checks passed (valid metadata, missing licence, host globals, absent provenance).');
 }finally{fs.rmSync(temp,{recursive:true,force:true});}
+

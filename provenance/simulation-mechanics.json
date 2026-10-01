@@ -1,0 +1,11 @@
+{
+  "license": "MPL-2.0",
+  "provenanceKind": "conversion",
+  "sourceRevision": "42939c6a2cf31aa76f44ffc033015ad12fece9f5",
+  "modulePaths": ["src/simulation/Mechanics.luau"],
+  "upstreamPaths": ["core/src/com/unciv/logic/battle/BattleDamage.kt", "core/src/com/unciv/logic/city/managers/CityPopulationManager.kt"],
+  "supported": ["damageModifier strength-ratio and random multiplier formula", "getFoodToNextPopulation base threshold"],
+  "omitted": ["combat modifiers", "combat orchestration", "difficulty modifiers", "game speed", "city-state growth modifiers", "upstream health-dependent damage calculation"],
+  "differences": ["binary64 Luau numbers instead of Kotlin Float", "public pure formula functions", "game orchestration uses deterministic randomness 0.5 and original health scaling"],
+  "verification": {"testPath": "tests/unit/simulation.luau", "upstreamKotlinExecuted": false, "evidence": "source-derived values and formula invariants, no full parity claim"}
+}

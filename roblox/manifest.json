@@ -31,6 +31,24 @@
       "sourcePath": "src/models/stats/Stats.luau",
       "sourceSha256": "ea9b52ab13111266781ea37f08e9d0f417a6afebab1b4b3625a8b5d98832694f",
       "generatedSha256": "56dea787bf4ac7d87f1e56f527e4675a72cfd82b024d1bc0b84d39fec0db1af8"
+    },
+    {
+      "path": "roblox/simulation/Game.luau",
+      "sourcePath": "src/simulation/Game.luau",
+      "sourceSha256": "c8aaaf382034049491a220ac566418710ee58e445b6b1e15c6ab0ae1c58235bb",
+      "generatedSha256": "cd2ad7c0e7ac4dab1ec5d7dc36d567a2d98b566f48e1f627ca50f76256274753"
+    },
+    {
+      "path": "roblox/simulation/Mechanics.luau",
+      "sourcePath": "src/simulation/Mechanics.luau",
+      "sourceSha256": "cc921980ed357288e38778237f2f86616389ce8af02de35309a96362710a2671",
+      "generatedSha256": "7c0bf9a628e877c968f5c9715fe82cbff6a68af13a328a76a00326f8978363f4"
+    },
+    {
+      "path": "roblox/simulation/Rules.luau",
+      "sourcePath": "src/simulation/Rules.luau",
+      "sourceSha256": "05eaf89184335460437ff4043b0bde145bcf7509fe506a155cbdd5796229fc40",
+      "generatedSha256": "7acfad6979cb6aee39788c8daa602a617b79f78a336d2d1643c97b8a35630de2"
     }
   ]
 }

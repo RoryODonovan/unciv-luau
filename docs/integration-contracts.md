@@ -1,6 +1,6 @@
 # Integration contracts
 
-These are design contracts for later simulation work, not currently implemented interfaces. Foundation modules use their documented local APIs. Host adapters must not supply hidden replacements for missing converted gameplay rules.
+The general contracts below describe later full conversion work. The implemented original bounded slice has its concrete [Game API contract](simulation.md). Foundation modules use their documented local APIs. Host adapters must not supply hidden replacements for missing converted gameplay rules.
 
 - RulesProvider: validated immutable rules data plus explicit supported-effect identifiers. Unknown effects are rejected.
 - RandomSource: seedable next-integer/next-number operations with documented distribution and reproducibility scope.
@@ -10,4 +10,5 @@ These are design contracts for later simulation work, not currently implemented 
 - Persistence: public schema/codec and migration logic where converted; private backend reads/writes bytes or tables and owns operational retries and concurrency.
 - Clock and scheduling: public turn rules; private wall-clock deadlines, disconnect handling and server lifecycle.
 
-The initial private development environment imports only the verified foundation modules and runs development smoke checks. It does not implement these larger contracts or a playable match. No advanced-game API is represented as complete by a stub.
+The library now supplies an original playable headless slice with its own explicit Game API; broader contracts above remain future scope. No advanced-game API is represented as complete by a stub.
+
