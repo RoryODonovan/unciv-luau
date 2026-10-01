@@ -138,6 +138,7 @@ check(sphere(2),76);check(hex(4),16)
 check(sphere(2),116784261)
 for _,seed in {3789352366,7126244748,23867264156}do check(sphere(2),seed)end
 check(hex(3),-67849)
+check(hex(3),9586495911)
 -- Independent 32-bit LCG samples the full seed range, unlike the small positive
 -- and arithmetic seed fixtures above. All checks inspect final game-rule yields
 -- and reachable resources after both starting regions have been repaired.

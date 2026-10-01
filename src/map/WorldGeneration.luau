@@ -235,7 +235,7 @@ function Generation.generate(seed: number,centers: {Center},neighbors: {{number}
   first,second,distance=choose()
  end
  assert(first and second,'topology lacks separated playable starting regions')
- local starts={first :: number,second :: number};local startFood: {number}={};local startProduction: {number}={};local protected: {[number]: boolean}={};local workedPlots: {[number]: boolean}={}
+ local starts={first :: number,second :: number};local startFood: {number}={};local startProduction: {number}={};local protected: {[number]: boolean}={};local workedPlots: {[number]: boolean}={};local expanded=false
  local function change(id: number,terrain: string?,resource: string?)
   local tile=tiles[id]
   if terrain and tile.terrain~=terrain then tile.terrain=terrain;tile.resource=nil;repairs+=1 end
@@ -289,6 +289,26 @@ function Generation.generate(seed: number,centers: {Center},neighbors: {{number}
    if not selected then for _,id in ids do local t=tiles[id];if id~=start and not protected[id]and passable(t)and t.resource==nil and t.terrain==terrain then selected=id;break end end end
    if not selected then for _,id in ids do if id~=start and not protected[id]and passable(tiles[id])and tiles[id].resource==nil then selected=id;break end end end
    if not selected then for _,id in ids do if id~=start and passable(tiles[id])and not protected[id]then selected=id;break end end end
+   if not selected then
+    -- A tiny coast can have every reachable plot reserved. Open at most one
+    -- local blocked site for this deposit, reached in two steps from the city.
+    -- Prefer a mountain foothill to reclaiming water; never build a route.
+    local frontier={start}
+    for _,id in neighbors[start]do if passable(tiles[id])then table.insert(frontier,id)end end
+    for _,blocked in {'Mountain','Water'}do
+     for _,from in frontier do
+      for _,id in neighbors[from]do
+       if tiles[id].terrain==blocked then selected=id;break end
+      end
+      if selected then break end
+     end
+     if selected then break end
+    end
+    if selected then
+     change(selected,terrain,kind);expanded=true
+     stamp+=1;ids=disk(neighbors,start,2,marks,stamp,tiles)
+    end
+   end
    assert(selected,'starting region has no repair site');change(selected,if workedPlots[selected]then 'Plains'else terrain,kind);protected[selected]=true
   end
   if not hasFood then place('Wheat','Grassland')end
@@ -303,6 +323,10 @@ function Generation.generate(seed: number,centers: {Center},neighbors: {{number}
   if p<5 then for _,id in ids do
    if id~=start and not protected[id]and passable(tiles[id])and tiles[id].resource==nil and production(tiles[id])==0 then change(id,'Hills',nil);p+=2;if p>=5 then break end end
   end end
+ end
+ if expanded then
+  biggest=components(tiles,neighbors)
+  distance=distances(tiles,neighbors,starts[1])
  end
  -- Both regions may overlap on tiny worlds. Report the finished world, not a
  -- stale intermediate score from before the other region was repaired.
