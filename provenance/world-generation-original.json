@@ -3,5 +3,5 @@
   "provenanceKind": "original",
   "modulePaths": ["src/map/WorldGeneration.luau"],
   "testPaths": ["tests/unit/world-generation.luau"],
-  "description": "Original deterministic layered Cartesian value fields, domain-warped mainland/coast and lake masks, mountain belts with foothills, latitude/moisture terrain, compatible resource provinces and bounded graph-based starting-region selection. No external noise implementation or Unciv map-generator code is copied. This is an original civilization ruleset generator with intentional differences from upstream; it is not an Unciv parity implementation. Existing saved tile records are unaffected by generation changes."
+  "description": "Original deterministic layered Cartesian value fields, domain-warped mainland/coast and lake masks, mountain belts with foothills, latitude/moisture terrain, compatible resource provinces and bounded graph-based starting-region selection. Adjacent capital worked plots are reserved before resource balancing; compatible Plains deposits preserve combined food and production yields even in tiny regions. No external noise implementation or Unciv map-generator code is copied. This is an original civilization ruleset generator with intentional differences from upstream; it is not an Unciv parity implementation. Existing saved tile records are unaffected by generation changes."
 }

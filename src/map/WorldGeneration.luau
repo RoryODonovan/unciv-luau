@@ -235,14 +235,42 @@ function Generation.generate(seed: number,centers: {Center},neighbors: {{number}
   first,second,distance=choose()
  end
  assert(first and second,'topology lacks separated playable starting regions')
- local starts={first :: number,second :: number};local startFood: {number}={};local startProduction: {number}={};local protected: {[number]: boolean}={}
+ local starts={first :: number,second :: number};local startFood: {number}={};local startProduction: {number}={};local protected: {[number]: boolean}={};local workedPlots: {[number]: boolean}={}
  local function change(id: number,terrain: string?,resource: string?)
   local tile=tiles[id]
   if terrain and tile.terrain~=terrain then tile.terrain=terrain;tile.resource=nil;repairs+=1 end
   if resource and tile.resource~=resource then tile.resource=resource;repairs+=1 end
  end
- for player,start in starts do
+ -- Reserve both capitals' worked plots before resources are assessed. Capital
+ -- separation makes these adjacent neighborhoods disjoint, and later repairs
+ -- must preserve the same plot's food and production together.
+ for _,start in starts do
   if tiles[start].terrain~='Grassland' and tiles[start].terrain~='Plains'then change(start,'Grassland',nil)end
+ end
+ for _,start in starts do
+  local worked: number?=nil
+  for _,id in neighbors[start]do
+   if passable(tiles[id])and food(tiles[id])>=2 and production(tiles[id])>=1 then worked=id;break end
+  end
+  if not worked then
+   for _,id in neighbors[start]do
+    if tiles[id].terrain=='Grassland' and tiles[id].resource=='Wheat'then change(id,'Plains','Wheat');worked=id;break end
+   end
+  end
+  if not worked then
+   for _,id in neighbors[start]do
+    if passable(tiles[id])and tiles[id].resource==nil then change(id,'Plains',nil);worked=id;break end
+   end
+  end
+  if not worked then
+   for _,id in neighbors[start]do
+    if passable(tiles[id])then change(id,'Plains',nil);worked=id;break end
+   end
+  end
+  assert(worked,'starting region has no worked plot')
+  protected[worked]=true;workedPlots[worked]=true
+ end
+ for _,start in starts do
   stamp+=1;local ids=disk(neighbors,start,2,marks,stamp,tiles)
   local hasFood,hasIron,hasHorses,hasLuxury=false,false,false,false
   for _,id in ids do local resource=tiles[id].resource
@@ -253,30 +281,27 @@ function Generation.generate(seed: number,centers: {Center},neighbors: {{number}
   end
   local function place(kind: string,terrain: string)
    local selected: number?=nil
-   for _,id in ids do local t=tiles[id];if id~=start and passable(t)and t.resource==nil and t.terrain==terrain then selected=id;break end end
-   if not selected then for _,id in ids do if id~=start and passable(tiles[id])and tiles[id].resource==nil then selected=id;break end end end
+   -- An empty reserved Plains plot can host these compatible deposits without
+   -- losing its combined yields. This matters when a tiny region has few sites.
+   if kind=='Wheat' or kind=='Horses'then for _,id in ids do
+    if workedPlots[id]and tiles[id].resource==nil and tiles[id].terrain=='Plains'then selected=id;break end
+   end end
+   if not selected then for _,id in ids do local t=tiles[id];if id~=start and not protected[id]and passable(t)and t.resource==nil and t.terrain==terrain then selected=id;break end end end
+   if not selected then for _,id in ids do if id~=start and not protected[id]and passable(tiles[id])and tiles[id].resource==nil then selected=id;break end end end
    if not selected then for _,id in ids do if id~=start and passable(tiles[id])and not protected[id]then selected=id;break end end end
-   assert(selected,'starting region has no repair site');change(selected,terrain,kind);protected[selected]=true
+   assert(selected,'starting region has no repair site');change(selected,if workedPlots[selected]then 'Plains'else terrain,kind);protected[selected]=true
   end
   if not hasFood then place('Wheat','Grassland')end
   if not hasIron then place('Iron','Hills')end
   if not hasHorses then place('Horses','Plains')end
   if not hasLuxury then place('Spices','Forest')end
-  local adjacentYield=false
-  for _,id in neighbors[start]do if passable(tiles[id])and food(tiles[id])>=2 and production(tiles[id])>=1 then adjacentYield=true;break end end
-  if not adjacentYield then
-   for _,id in neighbors[start]do if passable(tiles[id])and not protected[id]then change(id,'Plains',nil);adjacentYield=true;break end end
-  end
-  if not adjacentYield then
-   for _,id in neighbors[start]do if tiles[id].terrain=='Grassland' and tiles[id].resource=='Wheat'then change(id,'Plains','Wheat');adjacentYield=true;break end end
-  end
   local f,p=0,0;for _,id in ids do f+=food(tiles[id]);p+=production(tiles[id])end
   -- Sparse polar/desert deployment areas need only a few fertile plots, never a path stripe.
   if f<8 then for _,id in ids do
-   if id~=start and passable(tiles[id])and tiles[id].resource==nil and food(tiles[id])==0 then change(id,'Grassland',nil);f+=3;if f>=8 then break end end
+   if id~=start and not protected[id]and passable(tiles[id])and tiles[id].resource==nil and food(tiles[id])==0 then change(id,'Grassland',nil);f+=3;if f>=8 then break end end
   end end
   if p<5 then for _,id in ids do
-   if id~=start and passable(tiles[id])and tiles[id].resource==nil and production(tiles[id])==0 then change(id,'Hills',nil);p+=2;if p>=5 then break end end
+   if id~=start and not protected[id]and passable(tiles[id])and tiles[id].resource==nil and production(tiles[id])==0 then change(id,'Hills',nil);p+=2;if p>=5 then break end end
   end end
  end
  -- Both regions may overlap on tiny worlds. Report the finished world, not a

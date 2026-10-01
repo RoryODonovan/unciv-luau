@@ -133,6 +133,25 @@ for seed=1,180 do
  ok,err=pcall(function()check(hex(3),-seed*3571)end);assert(ok,'Hex tiny seed '..tostring(-seed*3571)..': '..tostring(err))
 end
 check(sphere(2),76);check(hex(4),16)
+-- Every passable neighbor held a protected deposit, leaving the second capital
+-- without a single plot that could feed growth and produce a building together.
+check(sphere(2),116784261)
+for _,seed in {3789352366,7126244748,23867264156}do check(sphere(2),seed)end
+check(hex(3),-67849)
+-- Independent 32-bit LCG samples the full seed range, unlike the small positive
+-- and arithmetic seed fixtures above. All checks inspect final game-rule yields
+-- and reachable resources after both starting regions have been repaired.
+local randomSeed=246813579
+local smallFixtures={sphere(2),hex(3),hex(4)}
+for index=1,512 do
+ randomSeed=(randomSeed*1664525+1013904223)%4294967296
+ local seed=if index%2==0 then randomSeed else -randomSeed
+ for _,small in smallFixtures do
+  local ok,err=pcall(function()check(small,seed)end)
+  assert(ok,small.shape..' size '..tostring(small.size)..' random seed '..tostring(seed)..': '..tostring(err))
+ end
+ if index%8==0 then check(sphere(1),seed)end
+end
 assert(aggregate.landCoherence/aggregate.largeMaps>.2,'coherent continent boundaries across seeds and sizes')
 assert(aggregate.mountainBorder/math.max(1,aggregate.mountainCount)>.75,'mountains have adjacent range/foothill structure')
 assert(aggregate.resourceEdges/math.max(1,aggregate.resourceEdgesCount)>.3,'resource deposits form neighboring compatible clusters')
