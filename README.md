@@ -12,9 +12,10 @@ Reusable MPL-2.0 Luau conversions of selected [Unciv](https://github.com/yairm21
 | `src/models/stats/Stats.luau` | Mutable values, copy arithmetic, aggregates and supported parsing |
 | `src/models/Counter.luau` | Ordered string-key integer counters and arithmetic |
 | `src/simulation/Mechanics.luau` | Attributed partial combat damage and population growth formulas |
-| `src/simulation/Game.luau`, `Rules.luau` | Original deterministic synthetic single-player civilization slice |
+| `src/simulation/Game.luau`, `Rules.luau` | Preserved original single-player simulation and legacy saves |
+| `src/simulation/BaseGame.luau`, `BaseRules.luau`, `BaseSave.luau`, `WorldMap.luau` | Two-civilization land game: fog, weighted movement, workers, resources, city economy, technology, culture, diplomacy, trade, ranged combat and four victories |
 
-The foundation modules are partial, tested conversions. [Simulation API and limitations](docs/simulation.md) document the original playable headless slice and its legal winning replay. [Hex limitations](docs/hex-conversion.md) and [statistics/counter limitations](docs/stats-conversion.md) list omitted APIs and numeric/platform differences. Tests use upstream-derived expected values and properties; no Kotlin/JVM differential execution or full-game parity is claimed.
+The foundation modules are partial, tested conversions. [Base game API and limits](docs/base-game.md) document the new two-civilization simulation, including actor-specific snapshots and shared-game command authority. [Map and save foundations](docs/base-foundations.md) document its pathfinding and bounded serialization. [Simulation API and limitations](docs/simulation.md) document the original playable headless slice and its legal winning replay. [Hex limitations](docs/hex-conversion.md) and [statistics/counter limitations](docs/stats-conversion.md) list omitted APIs and numeric/platform differences. Tests use upstream-derived expected values and properties; no Kotlin/JVM differential execution or full-game parity is claimed.
 
 The [inventory](docs/dependency-inventory.md) lists 859 upstream files: 232 planned conversions, 215 deferred and 412 excluded. Its baseline statuses do not represent implemented modules. [Architecture](docs/architecture.md) describes the staged roadmap; [integration contracts](docs/integration-contracts.md) distinguish implemented foundations from future interfaces. Every one of the 102 inventoried data/asset files remains unverified and unimported.
 

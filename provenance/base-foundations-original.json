@@ -1,0 +1,8 @@
+{
+  "license": "MPL-2.0",
+  "provenanceKind": "original",
+  "modulePaths": ["src/simulation/BaseRules.luau", "src/simulation/WorldMap.luau", "src/simulation/BaseSave.luau"],
+  "description": "Original bounded civilization balance, deterministic indexed terrain/resource generation, weighted shortest paths, visibility projection and strict versioned save schema. Uses separately attributed HexMath; not converted Unciv rules or map generation and no copied media or full parity claim.",
+  "testPaths": ["tests/unit/base-foundations.luau", "tests/unit/base-save.luau"],
+  "documentationPath": "docs/base-foundations.md"
+}
