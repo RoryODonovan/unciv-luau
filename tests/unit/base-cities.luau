@@ -240,4 +240,95 @@ do
     local swordsmen=0; for _, u in s.units do if u.ownerId==1 and u.kind=="Swordsman" then swordsmen += 1 end end
     assert(swordsmen==1,"exactly one Swordsman")
 end
+-- 8. The global unit cap never leaks unseen rival units. Two saved games differ only by one rival Worker the actor
+-- cannot see (167 vs 168 units; the cap is 169) and both own cities finish a Warrior this step. The actor's whole
+-- snapshot, forecasts included, is identical. The forecast counts earlier own completions only against units the
+-- actor can see, so in the 168 game the newer city's Warrior is stopped by the cap (the documented exception).
+local function sameValue(a: any, b: any, path: string)
+    if type(a)~="table" or type(b)~="table" then assert(a==b,"snapshots differ at "..path); return end
+    for key, value in a do sameValue(value,b[key],path.."."..tostring(key)) end
+    for key in b do assert(a[key]~=nil,"snapshots differ at "..path.."."..tostring(key)) end
+end
+local function twoCities(seed: number): (any, any, any, any)
+    local s: any=Game.new(seed,{radius=12})
+    local settler=firstUnit(s,1,"Settler"); local home=settler.tileId
+    apply(s,1,{kind="FoundCity",unitId=settler.id})
+    local first=cityAt(s,home); local graph=WorldMap.fromTiles(s.tiles,s.radius); local far=rival(s).tileId
+    local spot
+    for _, tile in s.tiles do
+        if WorldMap.distance(graph,first.tileId,tile.id)==3 and WorldMap.distance(graph,far,tile.id)>=6 and Rules.terrains[tile.terrain].passable and not tile.ownerId then spot=tile.id; break end
+    end
+    assert(spot,"a second site")
+    local worker=firstUnit(s,1,"Worker"); worker.kind="Settler"; worker.tileId=spot; worker.moves=2
+    apply(s,1,{kind="FoundCity",unitId=worker.id})
+    local second=cityAt(s,spot)
+    for _, c in ({first,second} :: {any}) do c.queue="Warrior"; c.production=Rules.productionCosts.Warrior end
+    return s,first,second,graph
+end
+-- Free passable tiles away from both cities' deployment tiles; `hidden` keeps only tiles the actor cannot see.
+local function fill(s: any, graph: any, cities: {any}, owner: number, total: number, hidden: boolean)
+    local seen={}; for _, tile in Game.snapshot(s,1).tiles do seen[tile.id]=tile.visible end
+    local used={}; for _, u in s.units do used[u.tileId]=true end; for _, c in s.cities do used[c.tileId]=true end
+    for _, tile in s.tiles do
+        if #s.units>=total then break end
+        local near=false; for _, c in cities do if WorldMap.distance(graph,c.tileId,tile.id)<=2 then near=true end end
+        if used[tile.id] or near or tile.ownerId or not Rules.terrains[tile.terrain].passable or (hidden and seen[tile.id]) then continue end
+        table.insert(s.units,{id=s.nextUnit,ownerId=owner,kind="Worker",tileId=tile.id,hp=50,moves=0,fortified=false,level=0}); s.nextUnit += 1
+        used[tile.id]=true
+    end
+    assert(#s.units==total,"filled to "..total)
+end
+do
+    local s,first,second,graph=twoCities(46)
+    fill(s,graph,{first,second},2,167,true)
+    local lower=assert(Game.restore(Game.serialize(s)))
+    fill(s,graph,{first,second},2,168,true)
+    local higher=assert(Game.restore(Game.serialize(s)))
+    assert(#lower.units==167 and #higher.units==168)
+    local a,b=Game.snapshot(lower,1),Game.snapshot(higher,1)
+    sameValue(a,b,"view")
+    for _, c in ({first,second} :: {any}) do
+        local f=a.cityForecasts[tostring(c.id)]
+        assert(f.productionTurns==1 and f.productionBlocked==nil,"both Warriors are forecast to finish")
+    end
+    endTurnMatchesForecast(lower,1)
+    local warriors=function(state: any): number local n=0; for _, u in state.units do if u.ownerId==1 and u.kind=="Warrior" then n += 1 end end; return n end
+    local before=warriors(higher)
+    apply(higher,1,{kind="EndTurn"})
+    assert(warriors(higher)==before+1,"in the 168 game the unseen Worker lets the cap stop the newer city's Warrior")
+end
+-- When the units the actor can see already reach the cap with the earlier completion, the block is certain and reported.
+do
+    local s,first,second,graph=twoCities(46)
+    fill(s,graph,{first,second},1,168,false)
+    local view=Game.snapshot(s,1)
+    local older,newer=view.cityForecasts[tostring(first.id)],view.cityForecasts[tostring(second.id)]
+    assert(older.productionTurns==1 and older.productionBlocked==nil,"older city takes the last unit slot")
+    assert(newer.productionBlocked=="NotAvailable" and newer.productionTurns==nil,"newer city is stopped by the cap")
+    endTurnMatchesForecast(s,1)
+end
+
+-- 9. Strategic resources the step's claim brings in count for availability: a population-3 city with Iron Working
+-- and a full Swordsman queue has its only Iron Mine two tiles out, still unowned. The step claims it first and
+-- completes the Swordsman, and the forecast says so without claiming the tile itself.
+do
+    local s,city,graph=fixture(47)
+    city.population=3
+    for _, id in {"Mining","BronzeWorking","IronWorking"} do table.insert(s.players[1].technologies,id) end
+    local mine: any=nil
+    for _, id in WorldMap.range(graph,city.tileId,2) do
+        local tile=s.tiles[id]
+        if tile.resource=="Iron" then tile.resource=nil end
+        if WorldMap.distance(graph,city.tileId,id)==2 and not tile.ownerId and not mine then mine=tile end
+    end
+    assert(mine,"an unowned tile two steps out")
+    plain(mine,"Hills",nil); mine.resource="Iron"; mine.improvement="Mine"
+    city.queue="Swordsman"; city.production=Rules.productionCosts.Swordsman
+    local forecast=Game.snapshot(s,1).cityForecasts[tostring(city.id)]
+    assert(forecast.productionTurns==1 and forecast.productionBlocked==nil,"the claimed Iron makes the Swordsman available")
+    assert(mine.ownerId==nil,"the snapshot does not claim the mine")
+    endTurnMatchesForecast(s,1)
+    local swordsmen=0; for _, u in s.units do if u.ownerId==1 and u.kind=="Swordsman" then swordsmen += 1 end end
+    assert(swordsmen==1 and mine.ownerId==1,"the step claimed the mine and completed the Swordsman")
+end
 print("base cities: founding-order names per civilization, exact per-city forecasts for own cities only passed")

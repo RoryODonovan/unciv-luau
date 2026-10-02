@@ -133,10 +133,11 @@ local function eligible(player: any, entry: any, list: any): boolean
     for _, prerequisite in entry.prerequisites do if not has(list,prerequisite) then return false end end
     return true
 end
-local function resourceInventory(s: any, owner: number): any
+-- `claimed` marks tiles counted as the owner's (the forecast's virtual claims); the state is not read for them.
+local function resourceInventory(s: any, owner: number, claimed: {[number]: boolean}?): any
     local result: {[string]: number} = {}
     for _, tile in s.tiles do
-        if tile.ownerId ~= owner or not tile.resource then continue end
+        if (tile.ownerId ~= owner and not (claimed ~= nil and claimed[tile.id] == true)) or not tile.resource then continue end
         local resource=R.resources[tile.resource]
         if tile.improvement == resource.improvement then result[tile.resource]=(result[tile.resource] or 0)+1 end
     end
@@ -151,18 +152,20 @@ local function refreshEconomyState(s: any)
         p.happiness=happiness
     end
 end
--- `extra` lists units that do not exist yet but would by then (the forecast's earlier completions this step).
-local function productionAvailable(s: any, city: any, item: string, extra: {any}?): boolean
+-- For the forecast, `extra` lists the city owner's units that do not exist yet but would by then (earlier
+-- completions this step) and `claimed` the tiles its claims would own by then. Neither changes the global unit
+-- cap check, which counts every unit (including unseen rival units) and so stays at the current count.
+local function productionAvailable(s: any, city: any, item: string, extra: {any}?, claimed: {[number]: boolean}?): boolean
     local entry=R.units[item] or R.buildings[item]
     if not entry then return false end
     local player=s.players[city.ownerId]
     if entry.technology and not has(player.technologies,entry.technology) then return false end
     if R.buildings[item] and has(city.buildings,item) then return false end
-    if R.units[item] and #s.units+(if extra then #extra else 0) >= R.maxUnits then return false end
+    if R.units[item] and #s.units >= R.maxUnits then return false end
     if entry.resource then
         local used=0; for _, u in s.units do if u.ownerId==city.ownerId and R.units[u.kind].resource==entry.resource then used += R.units[u.kind].resourceAmount or 1 end end
         if extra then for _, u in extra do if u.ownerId==city.ownerId and R.units[u.kind].resource==entry.resource then used += R.units[u.kind].resourceAmount or 1 end end end
-        if (resourceInventory(s,city.ownerId)[entry.resource] or 0) < used+(entry.resourceAmount or 1) then return false end
+        if (resourceInventory(s,city.ownerId,claimed)[entry.resource] or 0) < used+(entry.resourceAmount or 1) then return false end
     end
     return true
 end
@@ -744,9 +747,11 @@ function BaseGame.snapshot(state: State, actorId: number): View
     -- Per-city forecast for the actor's own cities: what the next economy step adds, and turns to grow and to finish
     -- the queue at that rate. It replays the step without mutating the state: cities in id order, each first making
     -- its territory claim (into a virtual overlay), then the shared yield and net functions with the step's
-    -- happiness. Earlier own cities' unit completions count against later cities' unit limit,
-    -- strategic resources and deployment space.
-    -- It reads only the actor's own cities, units, technologies and territory plus tiles around its cities.
+    -- happiness (taken before any claim, as the step does). Production availability counts claimed improved
+    -- resources and earlier own completions' strategic resources and deployment space. The global unit cap is fog-safe:
+    -- the current total (already exposed by availableProductionByCity) plus earlier own completions against the
+    -- units the actor can see; unseen rival units are never counted, so they cannot change any forecast.
+    -- It reads only the actor's own cities, units, technologies and territory, tiles around its cities, visible units.
     local forecasts={}
     do
         local actor=s.players[actorId]; local worked,claimed,added={},{},{}; local _,cityTiles=occupants(s)
@@ -760,7 +765,7 @@ function BaseGame.snapshot(state: State, actorId: number): View
             local canGrow=stepMood>=0 and c.population<R.maxPopulation
             -- The economy completes the queue only when it is still available and a unit has a free deployment tile.
             local blocked: ("NotAvailable" | "NoSpace")?=nil; local spawn: number?=nil
-            if not productionAvailable(s,c,c.queue,added) then blocked="NotAvailable"
+            if not productionAvailable(s,c,c.queue,added,claimed) or (R.units[c.queue] and #units+#added>=R.maxUnits) then blocked="NotAvailable"
             elseif R.units[c.queue] then spawn=spawnTile(s,c,added); if not spawn then blocked="NoSpace" end end
             local turns: number?=nil
             if not blocked and cost then
