@@ -1,6 +1,6 @@
 --!strict
 -- Generated module-only Roblox form. Source: src/simulation/BaseGame.luau
--- Source SHA-256: 8882612188b666dc94a80759399f90db94d3e41ef6062360717ee03378c63aed
+-- Source SHA-256: 069f7b2d79b247edcbcefc91d17a7e311ed56276feaf9a344956825ba407f24e
 -- Reproduce with tools/roblox-export.mjs; preserve MPL notices below.
 -- Covered source: https://github.com/RoryODonovan/unciv-luau
 -- This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
@@ -38,7 +38,8 @@ export type AttackPreview = {unitId: number, tileId: number, target: string, ran
 export type Technology = Rules.Technology
 export type Policy = Rules.Policy
 export type State = {seed: number, radius: number?, mapShape: string?, frequency: number?, difficulty: string, humanPlayers: number, forest: boolean, maxTurns: number, cultureVictoryPolicies: number?, policyCostIncrease: number?, turn: number, revision: number, activePlayerId: number, phase: string, winner: number?, reason: string?, victoryType: string?, tiles: {Tile}, units: {Unit}, cities: {City}, players: {Player}, diplomacy: Diplomacy, trades: {Trade}, events: {Event}, nextEvent: number, nextUnit: number, nextCity: number, nextTrade: number, log: {string}}
-export type View = {seed: number?, radius: number?, mapShape: string?, frequency: number?, difficulty: string, humanPlayers: number, turn: number, revision: number, activePlayerId: number, actorId: number, canAct: boolean, phase: string, winner: number?, reason: string?, victoryType: string?, gold: number, science: number, culture: number, happiness: number, research: Research?, technologies: {string}, policies: {string}, resources: {[string]: number}, income: {food: number, production: number, gold: number, science: number, culture: number, maintenance: number}, tiles: {TileView}, units: {Unit}, cities: {CityView}, events: {Event}, log: {string}, legalMoves: {[string]: {number}}, availableProduction: {string}, availableProductionByCity: {[string]: {string}}, availablePurchasesByCity: {[string]: {string}}, availableResearch: {Technology}, availablePolicies: {Policy}, availableImprovements: {[string]: {string}}, productionCosts: {[string]: number}, purchaseCosts: {[string]: number}, scores: {number}, statistics: {Statistics}, progress: {Progress}, cultureVictoryPolicies: number, policyCostIncrease: number, attackPreviews: {[string]: {AttackPreview}}, diplomacy: Diplomacy, trades: {Trade}, objectives: {string}}
+export type CityForecast = {food: number, production: number, gold: number, science: number, culture: number, growthTurns: number?, productionTurns: number?, productionBlocked: ("NotAvailable" | "NoSpace")?}
+export type View = {cityForecasts: {[string]: CityForecast}, seed: number?, radius: number?, mapShape: string?, frequency: number?, difficulty: string, humanPlayers: number, turn: number, revision: number, activePlayerId: number, actorId: number, canAct: boolean, phase: string, winner: number?, reason: string?, victoryType: string?, gold: number, science: number, culture: number, happiness: number, research: Research?, technologies: {string}, policies: {string}, resources: {[string]: number}, income: {food: number, production: number, gold: number, science: number, culture: number, maintenance: number}, tiles: {TileView}, units: {Unit}, cities: {CityView}, events: {Event}, log: {string}, legalMoves: {[string]: {number}}, availableProduction: {string}, availableProductionByCity: {[string]: {string}}, availablePurchasesByCity: {[string]: {string}}, availableResearch: {Technology}, availablePolicies: {Policy}, availableImprovements: {[string]: {string}}, productionCosts: {[string]: number}, purchaseCosts: {[string]: number}, scores: {number}, statistics: {Statistics}, progress: {Progress}, cultureVictoryPolicies: number, policyCostIncrease: number, attackPreviews: {[string]: {AttackPreview}}, diplomacy: Diplomacy, trades: {Trade}, objectives: {string}}
 local BaseGame = {}
 local R: any = Rules
 local W: any = WorldMap
@@ -112,13 +113,26 @@ local function addUnit(s: any, owner: number, kind: string, tileId: number)
     table.insert(s.units, {id=s.nextUnit, ownerId=owner, kind=kind, tileId=tileId, hp=stats.hp, moves=0, fortified=false, level=0})
     s.nextUnit += 1
 end
-local function claim(s: any, city: any)
+-- Claims unowned tiles around a city for its owner. With `overlay`, the state is untouched and each tile the
+-- claim would take is marked in the overlay instead (the forecast's virtual claims for the city's own owner).
+local function claim(s: any, city: any, overlay: {[number]: boolean}?)
     local ids = nearby(s,city.tileId,if city.population>=3 then R.cityWorkRadius else 1)
-    for _, id in ids do local t=s.tiles[id]; if not t.ownerId or id==city.tileId then t.ownerId=city.ownerId end end
+    for _, id in ids do
+        local t=s.tiles[id]
+        if not t.ownerId or id==city.tileId then if overlay then overlay[id]=true else t.ownerId=city.ownerId end end
+    end
 end
+-- Original city names, one list per civilization in founding order; "City <id>" once a list runs out.
+-- A city keeps its founding name when captured.
+local CITY_NAMES: {{string}} = {
+    {"Sunhaven","Brightwater","Oakridge","Goldcrest","Pinehollow","Stonebridge","Amberfall","Willowmere","Highmoor","Copperton","Larkspur","Mistvale"},
+    {"Ironcliff","Embermark","Duskwall","Redspire","Ashford","Thornkeep","Cinderholm","Ravenrock","Blackwater","Flintgate","Shadowfen","Coldforge"},
+}
 local function addCity(s: any, owner: number, tileId: number): any
-    local capital=true; for _, c in s.cities do if c.originalOwnerId == owner and c.capital then capital=false end end
-    local c = {id=s.nextCity, ownerId=owner, originalOwnerId=owner, capital=capital, tileId=tileId, name="City "..s.nextCity, population=1, food=0, production=0, queue="Warrior", hp=R.cityHp, buildings={}, focus="Balanced"}
+    local capital=true; local founded=0
+    for _, c in s.cities do if c.originalOwnerId == owner then founded += 1; if c.capital then capital=false end end end
+    local names=CITY_NAMES[owner]; local name=names and names[founded+1] or "City "..s.nextCity
+    local c = {id=s.nextCity, ownerId=owner, originalOwnerId=owner, capital=capital, tileId=tileId, name=name, population=1, food=0, production=0, queue="Warrior", hp=R.cityHp, buildings={}, focus="Balanced"}
     s.nextCity += 1; table.insert(s.cities,c); claim(s,c); return c
 end
 local function eligible(player: any, entry: any, list: any): boolean
@@ -126,10 +140,11 @@ local function eligible(player: any, entry: any, list: any): boolean
     for _, prerequisite in entry.prerequisites do if not has(list,prerequisite) then return false end end
     return true
 end
-local function resourceInventory(s: any, owner: number): any
+-- `claimed` marks tiles counted as the owner's (the forecast's virtual claims); the state is not read for them.
+local function resourceInventory(s: any, owner: number, claimed: {[number]: boolean}?): any
     local result: {[string]: number} = {}
     for _, tile in s.tiles do
-        if tile.ownerId ~= owner or not tile.resource then continue end
+        if (tile.ownerId ~= owner and not (claimed ~= nil and claimed[tile.id] == true)) or not tile.resource then continue end
         local resource=R.resources[tile.resource]
         if tile.improvement == resource.improvement then result[tile.resource]=(result[tile.resource] or 0)+1 end
     end
@@ -144,7 +159,10 @@ local function refreshEconomyState(s: any)
         p.happiness=happiness
     end
 end
-local function productionAvailable(s: any, city: any, item: string): boolean
+-- For the forecast, `extra` lists the city owner's units that do not exist yet but would by then (earlier
+-- completions this step) and `claimed` the tiles its claims would own by then. Neither changes the global unit
+-- cap check, which counts every unit (including unseen rival units) and so stays at the current count.
+local function productionAvailable(s: any, city: any, item: string, extra: {any}?, claimed: {[number]: boolean}?): boolean
     local entry=R.units[item] or R.buildings[item]
     if not entry then return false end
     local player=s.players[city.ownerId]
@@ -153,12 +171,14 @@ local function productionAvailable(s: any, city: any, item: string): boolean
     if R.units[item] and #s.units >= R.maxUnits then return false end
     if entry.resource then
         local used=0; for _, u in s.units do if u.ownerId==city.ownerId and R.units[u.kind].resource==entry.resource then used += R.units[u.kind].resourceAmount or 1 end end
-        if (resourceInventory(s,city.ownerId)[entry.resource] or 0) < used+(entry.resourceAmount or 1) then return false end
+        if extra then for _, u in extra do if u.ownerId==city.ownerId and R.units[u.kind].resource==entry.resource then used += R.units[u.kind].resourceAmount or 1 end end end
+        if (resourceInventory(s,city.ownerId,claimed)[entry.resource] or 0) < used+(entry.resourceAmount or 1) then return false end
     end
     return true
 end
-local function spawnTile(s: any, city: any): number?
+local function spawnTile(s: any, city: any, extra: {any}?): number?
     local units,cities=occupants(s)
+    if extra then for _, u in extra do units[u.tileId]=u end end
     local ids={city.tileId}; for _, id in mapFor(s).neighbors[city.tileId] do table.insert(ids,id) end; table.sort(ids)
     for _, id in ids do
         local tile=s.tiles[id]
@@ -335,13 +355,54 @@ local function yieldFor(tile: any): any
     if tile.improvement then for key,value in R.improvements[tile.improvement].yields do result[key] += value end end
     return result
 end
-local function economy(s: any, owner: number)
-    local p=s.players[owner]; p.resources=resourceInventory(s,owner)
+-- One city's yields this turn: the free center, each citizen on the best distinct nearby owned tile for its
+-- focus (marking `worked`), buildings, policies and the Science/Culture production conversion. Pure apart
+-- from `worked`; returns the yields and the buildings' maintenance. Shared by the economy and the forecast.
+-- `claimed` marks tiles the forecast treats as already owned by `owner` (its virtual claims).
+local function cityYields(s: any, p: any, owner: number, c: any, worked: any, cityTiles: any, claimed: {[number]: boolean}?): (any, number)
+    local candidates: {any}={}
+    for _, id in nearby(s,c.tileId,R.cityWorkRadius) do
+        local tile=s.tiles[id]; if (tile.ownerId==owner or (claimed~=nil and claimed[id]==true)) and not cityTiles[id] and not worked[id] then table.insert(candidates,{id=id,yields=yieldFor(tile)}) end
+    end
+    local focus=c.focus
+    local function rank(y: any): number
+        local weight: {[string]: number}={food=2,production=2,gold=1,science=1,culture=1}; local key=string.lower(focus)
+        if weight[key] then weight[key]=6 end
+        local total=0; for k,w in weight do total += y[k]*w end; return total
+    end
+    table.sort(candidates,function(a: any,b: any) local first,second=rank(a.yields),rank(b.yields); return if first==second then a.id<b.id else first>second end)
+    local yields: {[string]: number}=copy(R.cityBaseYields); yields.science += c.population
+    for index=1,math.min(c.population,#candidates) do local row=candidates[index]; worked[row.id]=true; for key,value in row.yields do yields[key] += value end end
+    local maintenance=0
+    for _, building in c.buildings do local b=R.buildings[building]; maintenance += b.maintenance; for key,value in b.yields do yields[key] += value end end
+    for _, policy in p.policies do for key,value in R.policies[policy].yields do yields[key] += value end end
+    if c.focus=="Science" or c.focus=="Culture" then
+        local converted=math.floor(yields.production/2); yields.production -= converted; yields[string.lower(c.focus)] += converted
+    end
+    return yields, maintenance
+end
+-- Net food and production a city adds per turn after happiness (and AI difficulty) adjustments.
+local function cityNet(s: any, p: any, c: any, yields: any, happiness: number): (number, number)
+    local food=yields.food-c.population*R.foodPerPopulation
+    if happiness<0 and food>0 then food=math.floor(food/2) end
+    local production=yields.production
+    if happiness<=-5 then production=math.max(1,math.floor(production/2)) end
+    if not p.human then production=math.max(1,math.floor(production*(if s.difficulty=="Easy" then 0.75 elseif s.difficulty=="Hard" then 1.25 else 1))) end
+    return food, production
+end
+-- The happiness an economy step uses for all of its cities (fixed at the start of the step) and the
+-- policies' maintenance discount. Pure; shared by the economy and the forecast.
+local function stepHappiness(s: any, owner: number, resources: any): (number, number)
+    local p=s.players[owner]
     local population,cityCount,happiness=0,0,R.baseHappiness
-    for resource,count in p.resources do if count>0 then happiness += R.resources[resource].happiness or 0 end end
+    for resource,count in resources do if count>0 then happiness += R.resources[resource].happiness or 0 end end
     for _, c in s.cities do if c.ownerId==owner then cityCount += 1; population += c.population; for _, b in c.buildings do happiness += R.buildings[b].happiness or 0 end end end
     local discount=0; for _, policy in p.policies do happiness += R.policies[policy].happiness or 0; discount += R.policies[policy].maintenanceDiscount or 0 end
-    p.happiness=happiness-cityCount*R.unhappinessPerCity-population*R.unhappinessPerPopulation
+    return happiness-cityCount*R.unhappinessPerCity-population*R.unhappinessPerPopulation, discount
+end
+local function economy(s: any, owner: number)
+    local p=s.players[owner]; p.resources=resourceInventory(s,owner)
+    local happiness,discount=stepHappiness(s,owner,p.resources); p.happiness=happiness
     local income: {[string]: number}={food=0,production=0,gold=0,science=0,culture=0,maintenance=0}
     local worked={}; local _,cityTiles=occupants(s)
     local cityOrder: {any}={}; for _, city in s.cities do table.insert(cityOrder,city) end
@@ -349,27 +410,9 @@ local function economy(s: any, owner: number)
     for _, c in cityOrder do
         if c.ownerId~=owner then continue end
         -- The city center is free; each citizen works one distinct nearby owned tile.
-        local candidates: {any}={}
         claim(s,c)
-        for _, id in nearby(s,c.tileId,R.cityWorkRadius) do
-            local tile=s.tiles[id]; if tile.ownerId==owner and not cityTiles[id] and not worked[id] then table.insert(candidates,{id=id,yields=yieldFor(tile)}) end
-        end
-        local focus=c.focus
-        local function rank(y: any): number
-            local weight: {[string]: number}={food=2,production=2,gold=1,science=1,culture=1}; local key=string.lower(focus)
-            if weight[key] then weight[key]=6 end
-            local total=0; for k,w in weight do total += y[k]*w end; return total
-        end
-        table.sort(candidates,function(a: any,b: any) local first,second=rank(a.yields),rank(b.yields); return if first==second then a.id<b.id else first>second end)
-        local yields: {[string]: number}=copy(R.cityBaseYields); yields.science += c.population
-        for index=1,math.min(c.population,#candidates) do local row=candidates[index]; worked[row.id]=true; for key,value in row.yields do yields[key] += value end end
-        for _, building in c.buildings do local b=R.buildings[building]; income.maintenance += b.maintenance; for key,value in b.yields do yields[key] += value end end
-        for _, policy in p.policies do for key,value in R.policies[policy].yields do yields[key] += value end end
-        if c.focus=="Science" or c.focus=="Culture" then
-            local converted=math.floor(yields.production/2); yields.production -= converted; yields[string.lower(c.focus)] += converted
-        end
-        local food=yields.food-c.population*R.foodPerPopulation
-        if p.happiness<0 and food>0 then food=math.floor(food/2) end
+        local yields,maintenance=cityYields(s,p,owner,c,worked,cityTiles); income.maintenance += maintenance
+        local food,production=cityNet(s,p,c,yields,p.happiness)
         c.food += food
         local threshold=R.growthBase+c.population*R.growthPerPopulation
         if c.food>=threshold and p.happiness>=0 and c.population<R.maxPopulation then c.food -= threshold; c.population += 1; event(s,"Growth","City grew.",c.tileId,nil,owner,c.population)
@@ -377,9 +420,6 @@ local function economy(s: any, owner: number)
             if c.population>1 then c.population -= 1; event(s,"Starvation","City lost population.",c.tileId,nil,owner,c.population) end
             c.food=0
         end
-        local production=yields.production
-        if p.happiness<=-5 then production=math.max(1,math.floor(production/2)) end
-        if not p.human then production=math.max(1,math.floor(production*(if s.difficulty=="Easy" then 0.75 elseif s.difficulty=="Hard" then 1.25 else 1))) end
         c.production += production; c.hp=math.min(R.cityHp,c.hp+5)
         for key,value in yields do income[key] += value end
         if productionAvailable(s,c,c.queue) and c.production>=(R.productionCosts[c.queue] or math.huge) then
@@ -711,7 +751,40 @@ function BaseGame.snapshot(state: State, actorId: number): View
         progress[owner]={cities=cityCount,policies=#player.policies,era=1+math.floor(#player.technologies/4)}
     end
     local threshold=cultureThreshold(s)
-    return {seed=if s.humanPlayers==1 or s.phase=="Finished" then s.seed else nil,radius=s.radius,mapShape=s.mapShape,frequency=s.frequency,difficulty=s.difficulty,humanPlayers=s.humanPlayers,turn=s.turn,revision=s.revision,activePlayerId=s.activePlayerId,actorId=actorId,canAct=canAct,phase=s.phase,winner=s.winner,reason=s.reason,victoryType=s.victoryType,gold=p.gold,science=p.science,culture=p.culture,happiness=p.happiness,research=copy(p.research),technologies=copy(p.technologies),policies=copy(p.policies),resources=copy(resourceInventory(s,actorId)),income=copy(p.income),tiles=tiles,units=units,cities=cities,events=events,log={},legalMoves=legal,availableProduction=production,availableProductionByCity=productionByCity,availablePurchasesByCity=purchasesByCity,availableResearch=research,availablePolicies=policies,availableImprovements=improvements,productionCosts=copy(R.productionCosts),purchaseCosts=copy(R.purchaseCosts),scores=score,statistics=stats,progress=progress,cultureVictoryPolicies=threshold,policyCostIncrease=s.policyCostIncrease or 0,attackPreviews=previews,diplomacy=copy(s.diplomacy),trades=copy(s.trades),objectives={"Found cities, develop resources and maintain happiness.","Control both original capitals for domination.","Build SpaceProject after Rocketry for science victory.","Adopt "..threshold.." "..(if threshold==1 then "policy" else "policies").." for culture victory.","Highest score wins at the round limit; ties favor civilization 1."}}
+    -- Per-city forecast for the actor's own cities: what the next economy step adds, and turns to grow and to finish
+    -- the queue at that rate. It replays the step without mutating the state: cities in id order, each first making
+    -- its territory claim (into a virtual overlay), then the shared yield and net functions with the step's
+    -- happiness (taken before any claim, as the step does). Production availability counts claimed improved
+    -- resources and earlier own completions' strategic resources and deployment space. The global unit cap is fog-safe:
+    -- the current total (already exposed by availableProductionByCity) plus earlier own completions against the
+    -- units the actor can see; unseen rival units are never counted, so they cannot change any forecast.
+    -- It reads only the actor's own cities, units, technologies and territory, tiles around its cities, visible units.
+    local forecasts={}
+    do
+        local actor=s.players[actorId]; local worked,claimed,added={},{},{}; local _,cityTiles=occupants(s)
+        local stepMood=stepHappiness(s,actorId,resourceInventory(s,actorId))
+        local own: {any}={}; for _, c in s.cities do if c.ownerId==actorId then table.insert(own,c) end end
+        table.sort(own,function(a: any,b: any) return a.id<b.id end)
+        for _, c in own do
+            claim(s,c,claimed)
+            local yields=cityYields(s,actor,actorId,c,worked,cityTiles,claimed); local food,made=cityNet(s,actor,c,yields,stepMood)
+            local growAt=R.growthBase+c.population*R.growthPerPopulation; local cost=R.productionCosts[c.queue]
+            local canGrow=stepMood>=0 and c.population<R.maxPopulation
+            -- The economy completes the queue only when it is still available and a unit has a free deployment tile.
+            local blocked: ("NotAvailable" | "NoSpace")?=nil; local spawn: number?=nil
+            if not productionAvailable(s,c,c.queue,added,claimed) or (R.units[c.queue] and #units+#added>=R.maxUnits) then blocked="NotAvailable"
+            elseif R.units[c.queue] then spawn=spawnTile(s,c,added); if not spawn then blocked="NoSpace" end end
+            local turns: number?=nil
+            if not blocked and cost then
+                if c.production+made>=cost then turns=1 elseif made>0 then turns=math.ceil((cost-c.production)/made) end
+                if turns==1 and spawn then table.insert(added,{ownerId=actorId,kind=c.queue,tileId=spawn}) end
+            end
+            forecasts[tostring(c.id)]={food=food,production=made,gold=yields.gold,science=yields.science,culture=yields.culture,
+                growthTurns=if not canGrow then nil elseif c.food+food>=growAt then 1 elseif food>0 then math.ceil((growAt-c.food)/food) else nil,
+                productionTurns=turns,productionBlocked=blocked}
+        end
+    end
+    return {cityForecasts=forecasts,seed=if s.humanPlayers==1 or s.phase=="Finished" then s.seed else nil,radius=s.radius,mapShape=s.mapShape,frequency=s.frequency,difficulty=s.difficulty,humanPlayers=s.humanPlayers,turn=s.turn,revision=s.revision,activePlayerId=s.activePlayerId,actorId=actorId,canAct=canAct,phase=s.phase,winner=s.winner,reason=s.reason,victoryType=s.victoryType,gold=p.gold,science=p.science,culture=p.culture,happiness=p.happiness,research=copy(p.research),technologies=copy(p.technologies),policies=copy(p.policies),resources=copy(resourceInventory(s,actorId)),income=copy(p.income),tiles=tiles,units=units,cities=cities,events=events,log={},legalMoves=legal,availableProduction=production,availableProductionByCity=productionByCity,availablePurchasesByCity=purchasesByCity,availableResearch=research,availablePolicies=policies,availableImprovements=improvements,productionCosts=copy(R.productionCosts),purchaseCosts=copy(R.purchaseCosts),scores=score,statistics=stats,progress=progress,cultureVictoryPolicies=threshold,policyCostIncrease=s.policyCostIncrease or 0,attackPreviews=previews,diplomacy=copy(s.diplomacy),trades=copy(s.trades),objectives={"Found cities, develop resources and maintain happiness.","Control both original capitals for domination.","Build SpaceProject after Rocketry for science victory.","Adopt "..threshold.." "..(if threshold==1 then "policy" else "policies").." for culture victory.","Highest score wins at the round limit; ties favor civilization 1."}}
 end
 -- Pure, fog-safe query for one attack the actor's unit could make now. It never mutates the
 -- state and answers the same generic message for hidden, empty or out-of-range targets.
