@@ -6,9 +6,10 @@
   ],
   "testPaths": [
     "tests/unit/base-game.luau",
-    "tests/unit/world-game.luau"
+    "tests/unit/world-game.luau",
+    "tests/unit/base-events.luau"
   ],
-  "description": "Original service-independent deterministic civilization base-game orchestration, generated fair starting-site deployment, actor turns, city economy, worker orders, research, policies, diplomacy, trade, AI, four victory conditions and fog-safe projections. Uses separately attributed HexMath through WorldMap. Synthetic balance and original gameplay code, no copied upstream ruleset/media, no claim of complete Unciv parity.",
+  "description": "Original service-independent deterministic civilization base-game orchestration, generated fair starting-site deployment, actor turns, city economy, worker orders, research, policies, diplomacy, trade, AI, four victory conditions with a configurable escalating culture race, loser-owned loss events, fog-safe combat previews, final score reveal with coarse public progress and fog-safe projections. Uses separately attributed HexMath through WorldMap. Synthetic balance and original gameplay code, no copied upstream ruleset/media, no claim of complete Unciv parity.",
   "documentationPath": "docs/base-game.md",
   "additionalDocumentationPaths": [
     "docs/world-generation.md"

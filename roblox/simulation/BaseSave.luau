@@ -1,6 +1,6 @@
 --!strict
 -- Generated module-only Roblox form. Source: src/simulation/BaseSave.luau
--- Source SHA-256: aac2f8f22e498a3435e11dda6b0065b223f95d04d24a36a8ec27e76b21fd1593
+-- Source SHA-256: 37c596b9b6c10b1cde81817588e2a2c9bc84afad824090267c6cc55fb1001e8e
 -- Reproduce with tools/roblox-export.mjs; preserve MPL notices below.
 -- Covered source: https://github.com/RoryODonovan/unciv-luau
 -- This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
@@ -80,10 +80,13 @@ function BaseSave.valid(saved: any): boolean
     if type(s)~="table" then return false end
     local sphere=saved.version==2
     if sphere and (s.mapShape~="Sphere" or not integer(s.frequency,1,22) or s.radius~=nil) then return false end
-    if not object(s,if sphere then "seed mapShape frequency difficulty humanPlayers forest maxTurns turn revision activePlayerId phase winner reason victoryType tiles units cities players diplomacy trades events nextEvent nextUnit nextCity nextTrade log" else "seed radius difficulty humanPlayers forest maxTurns turn revision activePlayerId phase winner reason victoryType tiles units cities players diplomacy trades events nextEvent nextUnit nextCity nextTrade log") then return false end
+    if not object(s,if sphere then "seed mapShape frequency difficulty humanPlayers forest maxTurns cultureVictoryPolicies policyCostIncrease turn revision activePlayerId phase winner reason victoryType tiles units cities players diplomacy trades events nextEvent nextUnit nextCity nextTrade log" else "seed radius difficulty humanPlayers forest maxTurns cultureVictoryPolicies policyCostIncrease turn revision activePlayerId phase winner reason victoryType tiles units cities players diplomacy trades events nextEvent nextUnit nextCity nextTrade log") then return false end
     if not integer(s.seed,-9007199254740991,9007199254740991) or (not sphere and not integer(s.radius,Rules.minRadius,Rules.maxRadius)) or not integer(s.maxTurns,20,500) or not integer(s.turn,1,s.maxTurns) or not integer(s.revision,0,1000000000) then return false end
     if not owner(s.humanPlayers) or not owner(s.activePlayerId) or type(s.forest)~="boolean" or (s.phase=="Playing" and s.humanPlayers==1 and s.activePlayerId~=1) then return false end
     if s.difficulty~="Easy" and s.difficulty~="Normal" and s.difficulty~="Hard" then return false end
+    -- Optional culture rules (absent in saves written before they existed: flat costs, six policies).
+    if s.cultureVictoryPolicies~=nil and not integer(s.cultureVictoryPolicies,1,#Rules.policyOrder) then return false end
+    if s.policyCostIncrease~=nil and not integer(s.policyCostIncrease,0,400) then return false end
     if not id(s.nextUnit) or not id(s.nextCity) or not id(s.nextTrade) or not integer(s.nextEvent,1,1000000000) then return false end
     if s.phase=="Playing" then if s.winner~=nil or s.reason~=nil or s.victoryType~=nil then return false end
     elseif s.phase=="Finished" then
@@ -163,19 +166,25 @@ function BaseSave.valid(saved: any): boolean
     end
     if not array(s.log,24) or not array(s.events,64) then return false end
     for _,message in s.log do if not text(message,256) then return false end end
-    local kinds={Move=true,Attack=true,Capture=true,FoundCity=true,Production=true,Research=true,Growth=true,Starvation=true,Victory=true,Purchase=true,Upgrade=true,Improvement=true,Policy=true,War=true,Peace=true,Trade=true,Defeat=true,RangedAttack=true,Disband=true}
+    local kinds={Move=true,Attack=true,Capture=true,FoundCity=true,Production=true,Research=true,Growth=true,Starvation=true,Victory=true,Purchase=true,Upgrade=true,Improvement=true,Policy=true,War=true,Peace=true,Trade=true,Defeat=true,RangedAttack=true,Disband=true,UnitLost=true,CityLost=true,Eliminated=true}
+    local causes={Combat=true,Ranged=true,Upkeep=true,Captured=true,NoCities=true,NeverFounded=true,CapitalsLost=true}
     local previous=0
     for _,e in s.events do
-        if not object(e,"id kind message tileId unitId ownerId amount public") or not integer(e.id,previous+1,s.nextEvent-1) or type(e.kind)~="string" or not (kinds :: any)[e.kind] or not text(e.message,256) then return false end
+        if not object(e,"id kind message tileId unitId ownerId amount public cause byOwnerId unitKind") or not integer(e.id,previous+1,s.nextEvent-1) or type(e.kind)~="string" or not (kinds :: any)[e.kind] or not text(e.message,256) then return false end
         if e.tileId~=nil and not integer(e.tileId,1,#s.tiles) then return false end
         if e.unitId~=nil and (not id(e.unitId) or e.unitId>=s.nextUnit) then return false end
         if e.ownerId~=nil and not owner(e.ownerId) then return false end
         if e.amount~=nil and not integer(e.amount,0,1000000) then return false end
         if e.public~=nil and type(e.public)~="boolean" then return false end
+        if e.cause~=nil and (type(e.cause)~="string" or not (causes :: any)[e.cause]) then return false end
+        if e.byOwnerId~=nil and not owner(e.byOwnerId) then return false end
+        if e.unitKind~=nil and (type(e.unitKind)~="string" or not Rules.units[e.unitKind]) then return false end
         previous=e.id
     end
     if #s.events==0 then if s.nextEvent~=1 then return false end
-    elseif s.events[1].id~=s.nextEvent-#s.events or previous~=s.nextEvent-1 then return false end
+    -- Ids strictly increase and end at the last issued id. Gaps exist only in a full ring, which
+    -- evicts routine events before losses and outcomes; a partial ring is contiguous.
+    elseif previous~=s.nextEvent-1 or (#s.events<64 and s.events[1].id~=s.nextEvent-#s.events) then return false end
     if s.phase=="Playing" then
         for player=1,2 do
             local survives=false
