@@ -1,0 +1,24 @@
+{
+  "sourceRevision": "42939c6a2cf31aa76f44ffc033015ad12fece9f5",
+  "license": "MPL-2.0",
+  "modulePaths": ["src/map/HexCoord.luau", "src/map/HexMath.luau"],
+  "upstreamPaths": ["core/src/com/unciv/logic/map/HexMath.kt"],
+  "upstreamTestPaths": ["tests/src/com/unciv/logic/map/HexmathTests.kt"],
+  "upstreamUrl": "https://github.com/yairm210/Unciv/blob/42939c6a2cf31aa76f44ffc033015ad12fece9f5/core/src/com/unciv/logic/map/HexMath.kt",
+  "status": "partial-foundation-verified",
+  "supported": {
+    "HexCoord": ["of", "Zero", "plus", "plusXY", "minus", "times", "eq", "equals", "cpy", "toHexCoord", "toVector2", "asSerializable", "toPrettyString", "fromString"],
+    "HexMath": ["getVectorForAngle", "getNumberOfTilesInHexagon", "getHexagonalRadiusForArea", "getLatitude", "getLongitude", "hexFromLatLong", "worldFromLatLong", "getEquivalentRectangularSize", "getEquivalentHexagonalRadius", "getUnwrappedNearestTo", "hex2WorldCoords", "world2HexCoords", "getRow", "getColumn", "getTileCoordsFromColumnRow", "roundHexCoords", "getHexCoordsAtDistance", "getHexCoordsInDistance", "getDistance", "getDistanceXY", "getDistanceVector", "getClockPositionToHexcoord", "getZeroBasedIndex"]
+  },
+  "omitted": ["HexCoord.Serializer", "InlineHexCoord", "Vector2.toHexCoord extension", "getClockPositionToWorldVector", "getDistanceFromEdge", "mapRelativePositionToPositiveIntRedblob", "tilesAndNeighborUniqueIndex"],
+  "differences": ["binary64 instead of binary32", "int32 overflow rejected for coordinate construction instead of wrapping", "explicit structural equality instead of native table equality", "static functions instead of overloaded instance methods", "no JVM JSON serialization", "CLI-relative imports require host adaptation"],
+  "verification": {
+    "runtime": "Luau 0.740",
+    "testPath": "tests/unit/hex.luau",
+    "assertionsPassed": 124497,
+    "strictAnalysis": "clean",
+    "upstreamKotlinExecuted": false,
+    "evidence": "source-derived expected values and invariants; no full cross-runtime parity claim"
+  },
+  "documentationPath": "docs/hex-conversion.md"
+}

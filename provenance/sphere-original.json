@@ -1,0 +1,8 @@
+{
+  "license": "MPL-2.0",
+  "provenanceKind": "original",
+  "modulePaths": ["src/map/SphereTopology.luau"],
+  "testPaths": ["tests/unit/sphere-topology.luau", "tests/unit/sphere-game.luau"],
+  "description": "Original service-independent deterministic integer-barycentric icosahedral subdivision and spherical circumcenter polygonal dual. No copied implementation or dependency. Twelve pentagons, remaining hexagons, exact closed sphere graph; synthetic sphere size presets and graph simulation adaptation are original additions to separately attributed modules.",
+  "documentationPath": "docs/sphere.md"
+}

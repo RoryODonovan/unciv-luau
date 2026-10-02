@@ -1,0 +1,64 @@
+# Original civilization base game
+
+`src/simulation/BaseGame.luau` is an original, deterministic, service-independent civilization game. It uses the original `BaseRules`, indexed `WorldMap` and exact-schema `BaseSave` modules. This is synthetic balance and original orchestration under MPL-2.0; it does not implement or claim full Unciv parity. Legacy `Game`, `Rules` and version-1 `unciv-luau-original` saves remain separate and unchanged.
+
+## Public API
+
+The optional [whole-sphere mode](sphere.md) uses `mapShape="Sphere", frequency=1..22`, graph distance and complete globe coverage. Sphere state/snapshots omit planar coordinates and radius; deterministic public geometry is regenerated from frequency. Sphere saves use explicit version 2; all hex behavior and version-1 saves described below remain supported.
+
+```luau
+local BaseGame = require("./src/simulation/BaseGame")
+local state = BaseGame.new(42, {humanPlayers=2, radius=4, difficulty="Normal", maxTurns=120})
+local view = BaseGame.snapshot(state, 1)
+local result = BaseGame.apply(state, 1, {kind="FoundCity", unitId=1})
+local save = BaseGame.serialize(state)
+local restored, errorMessage = BaseGame.restore(save)
+local rules = BaseGame.getRules()
+```
+
+`new(seed?, options?)` validates finite safe integer seeds, radius 3â€“40, `humanPlayers` 1 or 2, difficulty `Easy`/`Normal`/`Hard`, and a round limit of 20â€“500 (default 120). The default radius is 4 and difficulty is Normal. [Unciv-scale presets](map-sizes.md) expose Tiny (10) through Huge (40); pass the chosen preset radius. Existing small games and version-1 saves remain supported. `forest` is accepted as a legacy option and saved; new base maps use [coherent terrain and resource regions](world-generation.md), including forest and passable Tundra. Starting sites are selected from connected passable land with useful food/production and neighboring deployment space. A solo game starts one human with a settler, warrior and worker against an AI capital. Two-human games give both civilizations settlers, warriors and workers.
+
+`apply(state, actorId, command)` is the authoritative mutation boundary. The actor must own the active human turn; ownership, prerequisites, resources, funds, movement and exact command fields are checked. Rejected commands return `{ok=false,message=...}` without changing state or revision. Accepted commands increment revision once. A human EndTurn runs that civilization's economy; in solo games it also runs the AI turn. Round count advances after civilization 2 completes its turn. Unit movement and healing refresh at the beginning of the owner's next turn.
+
+| Command | Exact fields beyond `kind` | Behavior |
+| --- | --- | --- |
+| `MoveUnit` | `unitId`, `tileId` | Move to an observable reachable destination using weighted path cost; visible hostile targets initiate combat during war. |
+| `RangedAttack` | `unitId`, `tileId` | Archer/Catapult attacks a visible enemy within range, spends movement, receives no retaliation and cannot capture. |
+| `FoundCity` | `unitId` | Consumes a moving settler at a free site at least three tiles from another city. |
+| `FortifyUnit` | `unitId` | Military unit spends movement, improves defense and heals faster on subsequent turns. |
+| `UpgradeUnit` | `unitId` | Applies the rule's upgrade chain with required technology, strategic resource and gold. |
+| `BuildImprovement` | `unitId`, `improvement` | Worker begins a compatible improvement on owned land; order completes after its rule's number of owner turns. Moving cancels the order. |
+| `SetProduction`, `Purchase` | `cityId`, `item` | Select or buy an eligible unit/building; purchases require a free deployment tile for units. |
+| `SetCityFocus` | `cityId`, `focus` | Balanced, Food, Production, Gold, Science or Culture; changes tile selection or converts some production into science/culture. |
+| `Research` | `technology` | Starts an available technology after prerequisites; science accrues at EndTurn. Changing research resets its progress. |
+| `AdoptPolicy` | `policy` | Spends culture on a policy after its prerequisites; effects apply to city yields, happiness or upkeep. |
+| `DeclareWar`, `OfferPeace`, `AcceptPeace` | `targetId` | Changes bilateral relations; accepted peace blocks war for eight rounds. |
+| `ProposeTrade` | `targetId`, `giveGold`, `receiveGold` | Creates a peaceful gold offer, without reserving funds; offer lasts three rounds. |
+| `AcceptTrade`, `CancelTrade` | `tradeId` | Accept atomically rechecks both treasuries and conserves gold; either participant can cancel. |
+| `EndTurn` | none | Advances economy, improvements, research, AI when applicable and victory evaluation. |
+
+Snapshots are detached and actor-specific. Common legacy display fields remain (`tiles`, `units`, `cities`, `gold`, `science`, `research`, `technologies`, `availableProduction`, `availableResearch`, `legalMoves`, `events`, `phase`, `turn`, `revision`). New fields include `actorId`, `activePlayerId`, `canAct`, `culture`, `policies`, `availablePolicies`, `happiness`, `resources`, `income`, `availableImprovements`, `diplomacy`, `trades` and `victoryType`. `availableProduction` is the union of eligible choices across the actor's cities. Prefer `availableProductionByCity` and `availablePurchasesByCity`, keyed by string city ID, for city menus; purchase choices also check treasury and deployment space. Legal moves are empty while another actor owns the turn.
+
+Unknown tiles expose geometry plus `explored=false, visible=false`. Explored tiles retain terrain/resource and natural yields. Current owner, improvement and road are supplied only while visible. Enemy units/cities appear only while visible; enemy city queues, food, production, buildings and focus are never supplied. Enemy economy, research and score remain private; their score/statistics entries are zero placeholders, not inferred scores. Hidden research/production events and global log are filtered out. Shared games omit the procedural seed while Playing; a private host must choose an unpredictable seed and must never replicate authoritative state or saves to clients. Visibility extends two hexes around own units/cities and refreshes after every accepted mutation. Travel uses paths wholly inside the currently visible area, so legal destinations cannot reveal hidden terrain or blockers. Exploration advances by moving toward visible edges.
+
+`serialize` validates before copying and emits `{format="unciv-luau-base",version=1,state=...}`. `restore` validates before copying and rejects legacy/foreign saves; a host preserving old slots should dispatch `unciv-luau-original` to legacy `Game.restore`. Saves retain active actor, both economies, explored tiles, worker orders, diplomacy, pending trades, IDs, events and victory state. Derived topology/neighbor caches are rebuilt from validated tiles and are not serialized. Generator starting IDs and diagnostics are also transient. Loading preserves every stored terrain/resource record. NewGame and Restart use the current generator: the same seed reproduces geography within a generator version, but geography can change across generator upgrades. Separate legacy Game generation remains unchanged. `getRules` returns a detached, typed rule table.
+
+## Functional systems and evidence
+
+The map contains plains, grassland, hills, forest, desert, tundra, water and mountains, with six bonus/luxury/strategic resources. Water and mountains are impassable for the land-only roster. Stable coordinate and neighbor indexes support weighted Dijkstra movement; cached local rings support vision and city work areas. Roads improve expensive terrain movement. Occupied friendly tiles and peaceful foreign land block travel.
+
+Workers build Farm, Mine, Pasture, Plantation, Camp and Road. Farm/Mine can develop bare compatible terrain; the other resource improvements require their listed resource. Improved luxury resources increase happiness; improved Iron/Horses enable resource-dependent units. Existing units reserve their resource requirement immediately, including units purchased during the same turn.
+
+Each city works distinct owned nearby tiles, excluding city centers. Citizens compete for nearby tiles in stable city ID order and choose tiles by focus with stable ID tie breaks. City centers provide base yields. Borders start at radius one and expand to the configured work radius at population three. Net food subtracts per-citizen consumption: surplus grows population, a deficit depletes food and reduces population. Happiness includes city/population pressure, luxuries, buildings and policies; negative happiness slows surplus growth and severe unhappiness reduces production. Units and buildings consume maintenance. Insolvency retires maintained military units, then reduces science for any residual deficit. Gold is bounded at zero. There is no automatic research queue: humans choose their next technology.
+
+Sixteen technologies form a prerequisite tree ending in Rocketry. Eleven land unit kinds include civilian, melee and ranged roles. Eleven buildings alter city yields, defense or happiness. Six policies form a culture progression. Production completes one item per city per owner turn and preserves excess production; completed buildings reset the queue to Warrior. Unit deployment requires a free passable tile outside foreign cities, and foreign territory is available only during war, matching movement restrictions. Purchases and purchase menus use that same deployment rule. If no eligible deployment tile is free, unit production waits without spending accumulated production. SpaceProject requires Rocketry.
+
+Diplomacy is bilateral between the two civilizations. Peaceful gold offers recheck funds at acceptance, expire or can be cancelled; war clears outstanding offers. The deterministic AI researches, adopts policies, selects production, develops owned tiles, scouts observed territory, founds cities, heals weak military units, attacks visible enemies, assesses peace offers and accepts favorable funded gold trades. Difficulty changes AI production yield. AI target planning uses its own visible/discovered area.
+
+Domination requires control of both original capitals, or elimination of the other civilization's cities and settlers. Science requires Rocketry and an owned completed SpaceProject. Culture requires all six policies. Score victory uses configured city/population/unit/technology/policy weights at the round limit; ties favor civilization 1. Combat is deterministic synthetic damage, including ranged attacks and city capture.
+
+`tests/unit/base-game.luau` checks both actors' ownership/turns, fog projections and private events, detached views/rules, acceptance of every advertised legal move for each actor, terrain movement costs, timed worker development and strategic resource reservation, city focus and starvation, research/building gates, bilateral peace/trade, ranged combat, all four command-driven victories, malformed-command atomicity and deterministic save/resume across varied AI seeds/difficulties. Foundation tests separately check topology/pathfinding and bounded save corruption rejection. Legacy tests continue to exercise the preserved old game.
+
+## Deliberate scope limits
+
+This is a bounded two-civilization land game. Religion, espionage, naval/air units, multiplayer beyond two humans, city states, barbarians, wonders, culture borders beyond the stated city growth rule, resource leasing, per-turn trade payments, tactical line of sight, diplomacy personalities, and a complete Unciv ruleset are outside this version. Ranged attacks use hex distance and visibility without obstruction tracing. No copied Unciv art, media or full rules data is shipped. The host/UI and network identity checks remain private integration responsibilities.

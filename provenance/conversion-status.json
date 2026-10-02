@@ -1,0 +1,12 @@
+{
+  "upstreamDifferentialExecuted": false,
+  "milestone": "foundation-setup",
+  "convertedModules": 5,
+  "scope": "partial-foundations",
+  "records": [
+    "provenance/hex.json",
+    "provenance/stats.json"
+  ],
+  "advancedSystems": "not-implemented",
+  "revision": "42939c6a2cf31aa76f44ffc033015ad12fece9f5"
+}

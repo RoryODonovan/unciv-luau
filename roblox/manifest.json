@@ -1,0 +1,102 @@
+{
+  "formatVersion": 1,
+  "upstreamRevision": "42939c6a2cf31aa76f44ffc033015ad12fece9f5",
+  "modules": [
+    {
+      "path": "roblox/map/HexCoord.luau",
+      "sourcePath": "src/map/HexCoord.luau",
+      "sourceSha256": "a673a33f14b24dd5ce7f6f9571d499516242b756b9a41e5064d993ec71b6742a",
+      "generatedSha256": "1e0fa4768b6d9be734028d4c2839ca1a257a0a1ce7c77a26cf9119918793e45c"
+    },
+    {
+      "path": "roblox/map/HexMath.luau",
+      "sourcePath": "src/map/HexMath.luau",
+      "sourceSha256": "b89c7345567eae10a9762d56e4c3ee64720ffd74fb1c391b06f65548dad30892",
+      "generatedSha256": "e5a25bbcf62ad7c6c6c369f6d07b5c5847af4a8b82386fe564e561d1dbd5db50"
+    },
+    {
+      "path": "roblox/map/MapSizes.luau",
+      "sourcePath": "src/map/MapSizes.luau",
+      "sourceSha256": "70863c0d61f3f35850e8801ad34ba39675e8ad40adb38b295acba6dd41b679b5",
+      "generatedSha256": "184ef350313ad51928d77fe011c997fa3b5b3a4f0e53dc5667ae5d7f4a9cdbd0"
+    },
+    {
+      "path": "roblox/map/SphereTopology.luau",
+      "sourcePath": "src/map/SphereTopology.luau",
+      "sourceSha256": "4b71d3c4a6b0ccdebf126d30fd601086c7d14fd556365abfc96ced10b7d8be9c",
+      "generatedSha256": "8a6bc91bb3f69baf9c419bcc6a95b635eb0d4d1b1626eb487718046157a531cd"
+    },
+    {
+      "path": "roblox/map/WorldGeneration.luau",
+      "sourcePath": "src/map/WorldGeneration.luau",
+      "sourceSha256": "4ac3a79467478a67c988e369af2b2f584c168f0ed5f0be7ac8352cb688506661",
+      "generatedSha256": "130071491f6493b94ea016629204caf68b362e650b983e52775acee480580d33"
+    },
+    {
+      "path": "roblox/models/Counter.luau",
+      "sourcePath": "src/models/Counter.luau",
+      "sourceSha256": "b10dda1f60b6d4674936e196c818bb51b8a02f794d3d125d71c8aef6ef3270da",
+      "generatedSha256": "60c6626d2b373d353f1c265fc10b66ec60993e2fcdcc8d1e44f5e5f2876ba4e1"
+    },
+    {
+      "path": "roblox/models/stats/Stat.luau",
+      "sourcePath": "src/models/stats/Stat.luau",
+      "sourceSha256": "c910c2048396e74badc95fb7028d5965d6971dabcdcffb7d7a15951003a687a8",
+      "generatedSha256": "e4d06dd604960f9ab62fdcdb7cfe127ef0ff82f5281c084a7ff17f3b55407b9b"
+    },
+    {
+      "path": "roblox/models/stats/Stats.luau",
+      "sourcePath": "src/models/stats/Stats.luau",
+      "sourceSha256": "ea9b52ab13111266781ea37f08e9d0f417a6afebab1b4b3625a8b5d98832694f",
+      "generatedSha256": "56dea787bf4ac7d87f1e56f527e4675a72cfd82b024d1bc0b84d39fec0db1af8"
+    },
+    {
+      "path": "roblox/simulation/BaseGame.luau",
+      "sourcePath": "src/simulation/BaseGame.luau",
+      "sourceSha256": "952d3f9c192e803552c66a022303aeb3357af46a20090c9410f926f7e4bb1cca",
+      "generatedSha256": "2d7ef96aa879415a2ff99f3ea3a56cc3cb87ce8864152a8da6173a363b6c809d"
+    },
+    {
+      "path": "roblox/simulation/BaseRules.luau",
+      "sourcePath": "src/simulation/BaseRules.luau",
+      "sourceSha256": "d54908e1f49ac0abe8f4875d0356d0506d4ea45c44641dde895bc9f52d57bb77",
+      "generatedSha256": "bb7a73d921b3e376b4565fa54cc7981774bd84dedbd971fc04bb9fd07c1b3620"
+    },
+    {
+      "path": "roblox/simulation/BaseSave.luau",
+      "sourcePath": "src/simulation/BaseSave.luau",
+      "sourceSha256": "aac2f8f22e498a3435e11dda6b0065b223f95d04d24a36a8ec27e76b21fd1593",
+      "generatedSha256": "5532469e50d66ce520a0deefb28a4ceee5afa78fd164e61231258ea24daa4fc4"
+    },
+    {
+      "path": "roblox/simulation/Game.luau",
+      "sourcePath": "src/simulation/Game.luau",
+      "sourceSha256": "c69fd537e7a86b5032bffb149ea2df6afc4d50ac0eeb3a40c26b59b444131ad1",
+      "generatedSha256": "9111b95fd52daf93a686b75802822d7440faa0b9ff89f0a9b050a851a1c3df0a"
+    },
+    {
+      "path": "roblox/simulation/Mechanics.luau",
+      "sourcePath": "src/simulation/Mechanics.luau",
+      "sourceSha256": "cc921980ed357288e38778237f2f86616389ce8af02de35309a96362710a2671",
+      "generatedSha256": "7c0bf9a628e877c968f5c9715fe82cbff6a68af13a328a76a00326f8978363f4"
+    },
+    {
+      "path": "roblox/simulation/Rules.luau",
+      "sourcePath": "src/simulation/Rules.luau",
+      "sourceSha256": "771366ee45541585a5283b418ac873ecce94bbdf310cb8c9dc91181e0b1fd357",
+      "generatedSha256": "2dd2bc4f165a89751f3230000d82bfbee15bfc85464b6d405d7731cf8e230d9f"
+    },
+    {
+      "path": "roblox/simulation/Save.luau",
+      "sourcePath": "src/simulation/Save.luau",
+      "sourceSha256": "61481f6189a435244c795b8b9e9e4549face9680ecb3d80620ba7dfa78e11c41",
+      "generatedSha256": "26758d61bcb01bc49ad498bdd7711cb31b97542114607b98baa4e05db02cfe0e"
+    },
+    {
+      "path": "roblox/simulation/WorldMap.luau",
+      "sourcePath": "src/simulation/WorldMap.luau",
+      "sourceSha256": "979e460ad261ff24baea8c6129ab55d51e475822b11a5cd3f52f883383abf6f3",
+      "generatedSha256": "e8703bd8402d76e16c22b10840a908c3b29afeaa50bf02296b0ea04924754553"
+    }
+  ]
+}

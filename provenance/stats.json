@@ -1,0 +1,44 @@
+{
+  "license": "MPL-2.0",
+  "upstreamRepository": "https://github.com/yairm210/Unciv",
+  "sourceRevision": "42939c6a2cf31aa76f44ffc033015ad12fece9f5",
+  "upstreamPaths": [
+    "core/src/com/unciv/models/stats/Stat.kt",
+    "core/src/com/unciv/models/stats/Stats.kt",
+    "core/src/com/unciv/models/Counter.kt"
+  ],
+  "modulePaths": [
+    "src/models/stats/Stat.luau",
+    "src/models/stats/Stats.luau",
+    "src/models/Counter.luau"
+  ],
+  "conversions": [
+    {
+      "upstreamPath": "core/src/com/unciv/models/stats/Stat.kt",
+      "modulePath": "src/models/stats/Stat.luau",
+      "status": "partial-tested",
+      "scope": "Identifiers, lookup, stable names, purchase and scope classification",
+      "omissions": ["UI metadata", "GameResource interface"]
+    },
+    {
+      "upstreamPath": "core/src/com/unciv/models/stats/Stats.kt",
+      "modulePath": "src/models/stats/Stats.luau",
+      "status": "partial-tested",
+      "scope": "Mutable values, copy arithmetic, aggregates, ranking weights, signed-integer parsing",
+      "omissions": ["Translated and icon formatting", "StatMap", "Lazy sequence and operator API"],
+      "differences": ["Binary64 numbers instead of Float", "Runtime-frozen defaults", "Snapshot entries"]
+    },
+    {
+      "upstreamPath": "core/src/com/unciv/models/Counter.kt",
+      "modulePath": "src/models/Counter.luau",
+      "status": "partial-tested",
+      "scope": "Ordered string-key integer counter, arithmetic, cloning, zero-removing mutation",
+      "omissions": ["Non-string keys", "GDX JSON", "Kotlin operators and inheritance"],
+      "differences": ["Checked integers up to 2^53-1 instead of Int overflow", "Ordered-entry constructor", "Snapshot traversal", "Fully runtime-frozen ZERO"]
+    }
+  ],
+  "individualUpstreamNotices": "None present in the three pinned source files",
+  "documentation": "docs/stats-conversion.md",
+  "tests": ["tests/unit/stats.luau", "tests/unit/counter.luau"],
+  "evidence": "Official Luau 0.740 unit execution and static analysis; no JVM differential parity run"
+}

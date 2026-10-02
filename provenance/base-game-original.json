@@ -1,0 +1,16 @@
+{
+  "license": "MPL-2.0",
+  "provenanceKind": "original",
+  "modulePaths": [
+    "src/simulation/BaseGame.luau"
+  ],
+  "testPaths": [
+    "tests/unit/base-game.luau",
+    "tests/unit/world-game.luau"
+  ],
+  "description": "Original service-independent deterministic civilization base-game orchestration, generated fair starting-site deployment, actor turns, city economy, worker orders, research, policies, diplomacy, trade, AI, four victory conditions and fog-safe projections. Uses separately attributed HexMath through WorldMap. Synthetic balance and original gameplay code, no copied upstream ruleset/media, no claim of complete Unciv parity.",
+  "documentationPath": "docs/base-game.md",
+  "additionalDocumentationPaths": [
+    "docs/world-generation.md"
+  ]
+}
