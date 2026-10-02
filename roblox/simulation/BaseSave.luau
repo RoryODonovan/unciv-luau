@@ -1,6 +1,6 @@
 --!strict
 -- Generated module-only Roblox form. Source: src/simulation/BaseSave.luau
--- Source SHA-256: e44c3f794684b139ebd93fb9b8d91687089e4bbcac12960253af246093562645
+-- Source SHA-256: 37c596b9b6c10b1cde81817588e2a2c9bc84afad824090267c6cc55fb1001e8e
 -- Reproduce with tools/roblox-export.mjs; preserve MPL notices below.
 -- Covered source: https://github.com/RoryODonovan/unciv-luau
 -- This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
@@ -182,7 +182,9 @@ function BaseSave.valid(saved: any): boolean
         previous=e.id
     end
     if #s.events==0 then if s.nextEvent~=1 then return false end
-    elseif s.events[1].id~=s.nextEvent-#s.events or previous~=s.nextEvent-1 then return false end
+    -- Ids strictly increase and end at the last issued id. Gaps exist only in a full ring, which
+    -- evicts routine events before losses and outcomes; a partial ring is contiguous.
+    elseif previous~=s.nextEvent-1 or (#s.events<64 and s.events[1].id~=s.nextEvent-#s.events) then return false end
     if s.phase=="Playing" then
         for player=1,2 do
             local survives=false
