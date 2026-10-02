@@ -5,7 +5,7 @@
 local Rules = require("./BaseRules")
 local WorldMap = require("./WorldMap")
 local Save = require("./BaseSave")
-export type Options = {humanPlayers: number?, radius: number?, mapShape: string?, frequency: number?, difficulty: string?, forest: boolean?, maxTurns: number?}
+export type Options = {humanPlayers: number?, radius: number?, mapShape: string?, frequency: number?, difficulty: string?, forest: boolean?, maxTurns: number?, cultureVictoryPolicies: number?, policyCostIncrease: number?}
 export type Command = {kind: "MoveUnit" | "RangedAttack", unitId: number, tileId: number}
     | {kind: "FoundCity" | "FortifyUnit" | "UpgradeUnit", unitId: number}
     | {kind: "BuildImprovement", unitId: number, improvement: string}
@@ -20,16 +20,18 @@ export type Unit = {id: number, ownerId: number, kind: string, tileId: number, h
 export type City = {id: number, ownerId: number, originalOwnerId: number, capital: boolean, tileId: number, name: string, population: number, food: number, production: number, queue: string, hp: number, buildings: {string}, focus: string}
 export type Research = {id: string, progress: number, cost: number}
 export type Player = {id: number, human: boolean, gold: number, science: number, culture: number, happiness: number, technologies: {string}, policies: {string}, research: Research?, explored: {number}, resources: {[string]: number}, income: {food: number, production: number, gold: number, science: number, culture: number, maintenance: number}}
-export type Event = {id: number, kind: string, message: string, tileId: number?, unitId: number?, ownerId: number?, amount: number?, public: boolean?}
+export type Event = {id: number, kind: string, message: string, tileId: number?, unitId: number?, ownerId: number?, amount: number?, public: boolean?, cause: string?, byOwnerId: number?, unitKind: string?}
 export type Diplomacy = {status: string, peaceOfferBy: number?, peaceUntil: number}
 export type Trade = {id: number, fromId: number, toId: number, giveGold: number, receiveGold: number, expires: number}
 export type TileView = {id: number, x: number?, y: number?, visible: boolean, explored: boolean, terrain: string?, resource: string?, ownerId: number?, improvement: string?, road: boolean?, food: number?, production: number?, gold: number?}
 export type CityView = {id: number, ownerId: number, originalOwnerId: number, capital: boolean, tileId: number, name: string, population: number, hp: number, food: number?, production: number?, queue: string?, buildings: {string}?, focus: string?}
 export type Statistics = {cities: number, units: number, population: number, technologies: number, policies: number}
+export type Progress = {cities: number, policies: number, era: number}
+export type AttackPreview = {unitId: number, tileId: number, target: string, ranged: boolean, exact: boolean, hiddenDefense: boolean, dealt: number?, received: number?, dealtMin: number, dealtMax: number, receivedMin: number, receivedMax: number, attackerHp: number, defenderHp: number, attackerDefeated: string, defenderDefeated: string, captures: string}
 export type Technology = Rules.Technology
 export type Policy = Rules.Policy
-export type State = {seed: number, radius: number?, mapShape: string?, frequency: number?, difficulty: string, humanPlayers: number, forest: boolean, maxTurns: number, turn: number, revision: number, activePlayerId: number, phase: string, winner: number?, reason: string?, victoryType: string?, tiles: {Tile}, units: {Unit}, cities: {City}, players: {Player}, diplomacy: Diplomacy, trades: {Trade}, events: {Event}, nextEvent: number, nextUnit: number, nextCity: number, nextTrade: number, log: {string}}
-export type View = {seed: number?, radius: number?, mapShape: string?, frequency: number?, difficulty: string, humanPlayers: number, turn: number, revision: number, activePlayerId: number, actorId: number, canAct: boolean, phase: string, winner: number?, reason: string?, victoryType: string?, gold: number, science: number, culture: number, happiness: number, research: Research?, technologies: {string}, policies: {string}, resources: {[string]: number}, income: {food: number, production: number, gold: number, science: number, culture: number, maintenance: number}, tiles: {TileView}, units: {Unit}, cities: {CityView}, events: {Event}, log: {string}, legalMoves: {[string]: {number}}, availableProduction: {string}, availableProductionByCity: {[string]: {string}}, availablePurchasesByCity: {[string]: {string}}, availableResearch: {Technology}, availablePolicies: {Policy}, availableImprovements: {[string]: {string}}, productionCosts: {[string]: number}, purchaseCosts: {[string]: number}, scores: {number}, statistics: {Statistics}, diplomacy: Diplomacy, trades: {Trade}, objectives: {string}}
+export type State = {seed: number, radius: number?, mapShape: string?, frequency: number?, difficulty: string, humanPlayers: number, forest: boolean, maxTurns: number, cultureVictoryPolicies: number?, policyCostIncrease: number?, turn: number, revision: number, activePlayerId: number, phase: string, winner: number?, reason: string?, victoryType: string?, tiles: {Tile}, units: {Unit}, cities: {City}, players: {Player}, diplomacy: Diplomacy, trades: {Trade}, events: {Event}, nextEvent: number, nextUnit: number, nextCity: number, nextTrade: number, log: {string}}
+export type View = {seed: number?, radius: number?, mapShape: string?, frequency: number?, difficulty: string, humanPlayers: number, turn: number, revision: number, activePlayerId: number, actorId: number, canAct: boolean, phase: string, winner: number?, reason: string?, victoryType: string?, gold: number, science: number, culture: number, happiness: number, research: Research?, technologies: {string}, policies: {string}, resources: {[string]: number}, income: {food: number, production: number, gold: number, science: number, culture: number, maintenance: number}, tiles: {TileView}, units: {Unit}, cities: {CityView}, events: {Event}, log: {string}, legalMoves: {[string]: {number}}, availableProduction: {string}, availableProductionByCity: {[string]: {string}}, availablePurchasesByCity: {[string]: {string}}, availableResearch: {Technology}, availablePolicies: {Policy}, availableImprovements: {[string]: {string}}, productionCosts: {[string]: number}, purchaseCosts: {[string]: number}, scores: {number}, statistics: {Statistics}, progress: {Progress}, cultureVictoryPolicies: number, policyCostIncrease: number, attackPreviews: {[string]: {AttackPreview}}, diplomacy: Diplomacy, trades: {Trade}, objectives: {string}}
 local BaseGame = {}
 local R: any = Rules
 local W: any = WorldMap
@@ -59,9 +61,20 @@ local function cityById(s: any, id: number): any for _, city in s.cities do if c
 local function occupants(s: any): (any, any)
     local units, cities = {}, {}; for _, u in s.units do units[u.tileId] = u end; for _, c in s.cities do cities[c.tileId] = c end; return units, cities
 end
-local function event(s: any, kind: string, message: string, tileId: number?, unitId: number?, ownerId: number?, amount: number?, public: boolean?)
-    table.insert(s.events, {id=s.nextEvent, kind=kind, message=message, tileId=tileId, unitId=unitId, ownerId=ownerId, amount=amount, public=public})
+local function event(s: any, kind: string, message: string, tileId: number?, unitId: number?, ownerId: number?, amount: number?, public: boolean?, cause: string?, byOwnerId: number?, unitKind: string?)
+    table.insert(s.events, {id=s.nextEvent, kind=kind, message=message, tileId=tileId, unitId=unitId, ownerId=ownerId, amount=amount, public=public, cause=cause, byOwnerId=byOwnerId, unitKind=unitKind})
     s.nextEvent += 1; if #s.events > 64 then table.remove(s.events, 1) end
+end
+-- Loss events are owned by the losing civilization, so its projection includes them whatever
+-- its current fog. Saves written before these fields existed simply lack them.
+local function unitLost(s: any, u: any, tileId: number, cause: string, byOwnerId: number?, damage: number?)
+    event(s,"UnitLost","Your "..u.kind.." was destroyed.",tileId,u.id,u.ownerId,damage,nil,cause,byOwnerId,u.kind)
+end
+-- The culture victory threshold and per-adoption policy cost growth are stored per game.
+-- A state without them (saved by an earlier library version) keeps the original flat rule.
+local function cultureThreshold(s: any): number return s.cultureVictoryPolicies or R.cultureVictoryPolicies or 6 end
+local function policyCost(s: any, p: any, policy: any): number
+    return math.floor(policy.cost*(100+(s.policyCostIncrease or 0)*#p.policies)/100)
 end
 local function visible(s: any, owner: number): any
     local centers = {}; for _, u in s.units do if u.ownerId == owner then table.insert(centers, u.tileId) end end
@@ -166,13 +179,20 @@ local function evaluate(s: any)
             if c.capital then capitals += 1; if c.originalOwnerId~=owner and c.ownerId==owner then otherCapital=true end end
         end
         for _, u in s.units do if u.ownerId==owner and u.kind=="Settler" then settlers += 1 end end
-        if cities==0 and settlers==0 then finish(s,3-owner,"Domination"); return end
+        if cities==0 and settlers==0 then
+            local founded=false; for _, c in s.cities do if c.originalOwnerId==owner then founded=true end end
+            event(s,"Eliminated","Civilization "..owner.." was eliminated.",nil,nil,owner,nil,true,if founded then "NoCities" else "NeverFounded",3-owner)
+            finish(s,3-owner,"Domination"); return
+        end
         if capitals==2 and otherCapital then
             local controls=true; for _, c in s.cities do if c.capital and c.ownerId~=owner then controls=false end end
-            if controls then finish(s,owner,"Domination"); return end
+            if controls then
+                event(s,"Eliminated","Civilization "..(3-owner).." lost its capital.",nil,nil,3-owner,nil,true,"CapitalsLost",owner)
+                finish(s,owner,"Domination"); return
+            end
         end
         local p=s.players[owner]
-        if #p.policies >= (R.cultureVictoryPolicies or 6) then finish(s,owner,"Culture"); return end
+        if #p.policies >= cultureThreshold(s) then finish(s,owner,"Culture"); return end
         if has(p.technologies,R.scienceVictoryTechnology or "Rocketry") then
             for _, c in s.cities do if c.ownerId==owner and has(c.buildings,R.scienceVictoryBuilding or "SpaceProject") then finish(s,owner,"Science"); return end end
         end
@@ -209,31 +229,70 @@ local function attackTargets(s: any, unit: any, seen: any, units: any, cities: a
     for tileId in cities do if attackable(s,unit,tileId,seen,units,cities) then set[tileId]=true end end
     local ids={}; for tileId in set do table.insert(ids,tileId) end; table.sort(ids); return ids
 end
-local function combat(s: any, unit: any, target: number)
-    local units,cities=occupants(s); local defender,city=units[target],cities[target]
+local function buildingDefense(city: any): number
+    local total=0; for _, b in city.buildings do total += R.buildings[b].defense or 0 end; return total
+end
+-- The most defence any city can gain from buildings. An enemy city's buildings are hidden.
+local hiddenCityDefense=0; for _, id in R.buildingOrder do hiddenCityDefense += R.buildings[id].defense or 0 end
+-- Deterministic damage for one strike, given the target city's building defence.
+local function strike(s: any, unit: any, defender: any, city: any, target: number, cityDefense: number): (number, number, boolean)
     local ranged=(R.units[unit.kind].range or 1)>1
     local attack=if ranged then R.units[unit.kind].rangedStrength else R.units[unit.kind].strength
     attack=math.max(1,attack+unit.level*3)*(0.5+unit.hp/200)
     local defense=if defender then math.max(3,R.units[defender.kind].strength)+(if defender.fortified then 5 else 0) else 14+(city.population or 1)
-    if city then for _, b in city.buildings do defense += R.buildings[b].defense or 0 end end
+    if city then defense += cityDefense end
     defense += R.terrains[s.tiles[target].terrain].defense or 0
     local dealt=math.clamp(math.floor(30*attack/math.max(1,defense)+0.5),8,65)
     local received=if ranged or (defender and R.units[defender.kind].strength==0) then 0 else math.clamp(math.floor(25*defense/attack+0.5),8,65)
+    return dealt,received,ranged
+end
+local function combat(s: any, unit: any, target: number)
+    local units,cities=occupants(s); local defender,city=units[target],cities[target]
+    local dealt,received,ranged=strike(s,unit,defender,city,target,if city then buildingDefense(city) else 0)
+    local enemyOwner=if defender then defender.ownerId else city.ownerId
     unit.hp -= received; unit.moves=0; unit.fortified=false; unit.work=nil
-    if defender then defender.hp -= dealt; if defender.hp<=0 then removeUnit(s,defender.id) end
+    if defender then defender.hp -= dealt
     else city.hp=math.max(0,city.hp-dealt) end
     event(s,"Attack","Battle dealt "..dealt.." damage.",target,unit.id,unit.ownerId,dealt)
-    if unit.hp<=0 then removeUnit(s,unit.id); return end
+    if defender and defender.hp<=0 then removeUnit(s,defender.id); unitLost(s,defender,target,if ranged then "Ranged" else "Combat",unit.ownerId,dealt) end
+    if unit.hp<=0 then removeUnit(s,unit.id); unitLost(s,unit,unit.tileId,"Combat",enemyOwner,received); return end
     if not ranged and not select(1,occupants(s))[target] then
         if city and city.ownerId~=unit.ownerId then
             if city.hp==0 then
+                local loser=city.ownerId
                 city.ownerId=unit.ownerId; city.hp=50; city.population=math.max(1,city.population-1); city.production=0; city.queue="Warrior"; city.food=0
                 local ids={target}; for _, id in mapFor(s).neighbors[target] do table.insert(ids,id) end
                 for _, id in ids do s.tiles[id].ownerId=unit.ownerId end
                 unit.tileId=target; event(s,"Capture","City captured.",target,unit.id,unit.ownerId)
+                event(s,"CityLost",city.name.." was captured.",target,nil,loser,nil,nil,"Captured",unit.ownerId)
             end
         else unit.tileId=target end
     end
+end
+local function outcome(low: boolean, high: boolean): string return if low~=high then "Maybe" elseif low then "Yes" else "No" end
+-- Fog-safe preview. It reads only the actor's unit, the visible defender (kind, hp and
+-- fortification), the visible city population/hp and visible terrain. Hidden city buildings
+-- widen the result to a range. Damage is monotonic in defence, so the bounds are exact.
+local function previewFor(s: any, unit: any, target: number, units: any, cities: any): AttackPreview
+    local defender,city=units[target],cities[target]
+    local high=if city then hiddenCityDefense else 0
+    local dealtMax,receivedMin,ranged=strike(s,unit,defender,city,target,0)
+    local dealtMin,receivedMax=strike(s,unit,defender,city,target,high)
+    local function result(dealt: number, received: number): (boolean, boolean, boolean)
+        local attackerDead=unit.hp-received<=0
+        local defenderDead=defender~=nil and defender.hp-dealt<=0
+        local cityHp=if not city then 1 elseif defender then city.hp else math.max(0,city.hp-dealt)
+        return attackerDead,defenderDead,not ranged and not attackerDead and city~=nil and (defender==nil or defenderDead) and cityHp==0
+    end
+    local attackerLow,defenderLow,captureLow=result(dealtMin,receivedMax)
+    local attackerHigh,defenderHigh,captureHigh=result(dealtMax,receivedMin)
+    local exact=dealtMin==dealtMax and receivedMin==receivedMax
+    return {unitId=unit.id,tileId=target,target=if defender then "Unit" else "City",ranged=ranged,exact=exact,hiddenDefense=high>0,
+        dealt=if exact then dealtMin else nil,received=if exact then receivedMin else nil,
+        dealtMin=dealtMin,dealtMax=dealtMax,receivedMin=receivedMin,receivedMax=receivedMax,
+        attackerHp=unit.hp,defenderHp=if defender then defender.hp else city.hp,
+        attackerDefeated=outcome(attackerLow,attackerHigh),defenderDefeated=if defender then outcome(defenderLow,defenderHigh) else "No",
+        captures=outcome(captureLow,captureHigh)}
 end
 local function moveUnit(s: any, unit: any, target: number): boolean
     local seen=visible(s,unit.ownerId)
@@ -328,7 +387,7 @@ local function economy(s: any, owner: number)
         rawMaintenance -= R.units[candidate.kind].maintenance
         income.maintenance=math.max(0,math.floor(rawMaintenance*multiplier))
         income.gold += prior-income.maintenance
-        removeUnit(s,candidate.id); event(s,"Disband","Unit retired because upkeep exceeds available gold.",candidate.tileId,candidate.id,owner)
+        removeUnit(s,candidate.id); event(s,"Disband","Unit retired because upkeep exceeds available gold.",candidate.tileId,candidate.id,owner,nil,nil,"Upkeep",nil,candidate.kind)
     end
     if p.gold+income.gold<0 then income.science=math.max(0,income.science+p.gold+income.gold) end
     p.gold=math.max(0,p.gold+income.gold); p.science += income.science; p.culture += income.culture; p.income=income
@@ -367,7 +426,7 @@ end
 local function ai(s: any, owner: number)
     local p=s.players[owner]
     if not p.research then for _, id in R.technologyOrder do local tech=R.technologies[id]; if eligible(p,tech,p.technologies) then p.research={id=id,progress=0,cost=tech.cost}; break end end end
-    for _, id in R.policyOrder do local policy=R.policies[id]; if eligible(p,policy,p.policies) and p.culture>=policy.cost then p.culture -= policy.cost; table.insert(p.policies,id); event(s,"Policy","Policy adopted: "..id,nil,nil,owner); break end end
+    for _, id in R.policyOrder do local policy=R.policies[id]; local cost=policyCost(s,p,policy); if eligible(p,policy,p.policies) and p.culture>=cost then p.culture -= cost; table.insert(p.policies,id); event(s,"Policy","Policy adopted: "..id,nil,nil,owner); break end end
     if s.diplomacy.peaceOfferBy and s.diplomacy.peaceOfferBy~=owner then
         local own,enemy=0,0; for _, u in s.units do if R.units[u.kind].strength>0 then if u.ownerId==owner then own += 1 else enemy += 1 end end end
         if own<=enemy or s.turn%4==0 then s.diplomacy.status="Peace"; s.diplomacy.peaceOfferBy=nil; s.diplomacy.peaceUntil=s.turn+8; event(s,"Peace","Peace agreed.",nil,nil,nil,nil,true) end
@@ -443,15 +502,18 @@ local function endTurn(s: any, owner: number)
 end
 function BaseGame.new(seed: number?, options: Options?): State
     local o: Options=options or {}; local supplied=seed or 1; local radius=o.radius or 4; local humans=o.humanPlayers or 1; local difficulty=o.difficulty or "Normal"; local turns=o.maxTurns or 120
+    local threshold=o.cultureVictoryPolicies or R.cultureVictoryPolicies or 6; local increase=o.policyCostIncrease or 50
     assert(type(supplied)=="number" and supplied==supplied and math.abs(supplied)<=9007199254740991 and supplied%1==0,"seed must be a finite integer")
     assert(radius%1==0 and radius>=R.minRadius and radius<=R.maxRadius,"radius must be 3 to 40")
     assert(humans==1 or humans==2,"humanPlayers must be 1 or 2")
     assert(difficulty=="Easy" or difficulty=="Normal" or difficulty=="Hard","unknown difficulty")
     assert(turns%1==0 and turns>=20 and turns<=500,"maxTurns must be 20 to 500")
+    assert(type(threshold)=="number" and threshold%1==0 and threshold>=1 and threshold<=#R.policyOrder,"cultureVictoryPolicies must be 1 to "..#R.policyOrder)
+    assert(type(increase)=="number" and increase%1==0 and increase>=0 and increase<=400,"policyCostIncrease must be 0 to 400")
     assert(o.mapShape==nil or o.mapShape=="Hex" or o.mapShape=="Sphere","unknown map shape")
     assert(o.mapShape=="Sphere" or o.frequency==nil,"frequency requires Sphere")
     local map=if o.mapShape=="Sphere" then W.generateSphere(supplied,o.frequency or 2) else W.generate(supplied,radius)
-    local s: any={seed=supplied,radius=radius,difficulty=difficulty,humanPlayers=humans,forest=o.forest==true,maxTurns=turns,turn=1,revision=0,activePlayerId=1,phase="Playing",tiles=map.tiles,units={},cities={},players={},diplomacy={status="Peace",peaceUntil=0},trades={},events={},nextEvent=1,nextUnit=1,nextCity=1,nextTrade=1,log={}}
+    local s: any={seed=supplied,radius=radius,difficulty=difficulty,humanPlayers=humans,forest=o.forest==true,maxTurns=turns,cultureVictoryPolicies=threshold,policyCostIncrease=increase,turn=1,revision=0,activePlayerId=1,phase="Playing",tiles=map.tiles,units={},cities={},players={},diplomacy={status="Peace",peaceUntil=0},trades={},events={},nextEvent=1,nextUnit=1,nextCity=1,nextTrade=1,log={}}
     if o.mapShape=="Sphere" then s.mapShape="Sphere"; s.frequency=map.frequency; s.radius=nil end
     topology[s]=map
     for owner=1,2 do table.insert(s.players,{id=owner,human=owner<=humans,gold=30,science=0,culture=0,happiness=9,technologies={},policies={},explored={},resources={},income={food=0,production=0,gold=0,science=0,culture=0,maintenance=0}}) end
@@ -532,8 +594,8 @@ function BaseGame.apply(state: State, actorId: number, command: Command): {ok: b
         p.research={id=tech.id,progress=0,cost=tech.cost}
     elseif cmd.kind=="AdoptPolicy" then
         local policy=if type(cmd.policy)=="string" then R.policies[cmd.policy] else nil
-        if not policy or not eligible(p,policy,p.policies) or p.culture<policy.cost then return reject("Policy requires culture and prerequisites.") end
-        p.culture -= policy.cost; table.insert(p.policies,policy.id); event(s,"Policy","Policy adopted: "..policy.id,nil,nil,actorId)
+        if not policy or not eligible(p,policy,p.policies) or p.culture<policyCost(s,p,policy) then return reject("Policy requires culture and prerequisites.") end
+        p.culture -= policyCost(s,p,policy); table.insert(p.policies,policy.id); event(s,"Policy","Policy adopted: "..policy.id,nil,nil,actorId)
     elseif cmd.targetId~=nil then
         if cmd.targetId~=3-actorId then return reject("Choose the other civilization.") end
         if cmd.kind=="DeclareWar" then
@@ -583,14 +645,18 @@ function BaseGame.snapshot(state: State, actorId: number): View
         end
         table.insert(tiles,projected)
     end
-    local units,cities,events,legal,improvements={},{},{},{},{}
+    local units,cities,events,legal,improvements,previews={},{},{},{},{},{}
     local occupancyUnits,occupancyCities=occupants(s)
     local canAct=s.phase=="Playing" and s.activePlayerId==actorId and p.human
     for _, u in s.units do
         if u.ownerId==actorId or seen[u.tileId] then table.insert(units,copy(u)) end
         if u.ownerId==actorId then
-            local targets={}; if canAct then for tileId in reachable(s,u,seen,occupancyUnits,occupancyCities) do if tileId~=u.tileId then table.insert(targets,tileId) end end; for _, tileId in attackTargets(s,u,seen,occupancyUnits,occupancyCities) do table.insert(targets,tileId) end end
-            table.sort(targets); legal[tostring(u.id)]=targets
+            local targets,unitPreviews={},{}
+            if canAct then
+                for tileId in reachable(s,u,seen,occupancyUnits,occupancyCities) do if tileId~=u.tileId then table.insert(targets,tileId) end end
+                for _, tileId in attackTargets(s,u,seen,occupancyUnits,occupancyCities) do table.insert(targets,tileId); table.insert(unitPreviews,previewFor(s,u,tileId,occupancyUnits,occupancyCities)) end
+            end
+            table.sort(targets); legal[tostring(u.id)]=targets; previews[tostring(u.id)]=unitPreviews
             local choices={}; if canAct then for _, id in improvementOrder do if improvementAvailable(s,u,id) then table.insert(choices,id) end end end
             improvements[tostring(u.id)]=choices
         end
@@ -604,7 +670,7 @@ function BaseGame.snapshot(state: State, actorId: number): View
     local productionByCity: {[string]: {string}},purchasesByCity: {[string]: {string}}={},{}
     for _, c in s.cities do if c.ownerId==actorId then productionByCity[tostring(c.id)]={}; purchasesByCity[tostring(c.id)]={} end end
     for _, id in R.technologyOrder do if eligible(p,R.technologies[id],p.technologies) then table.insert(research,copy(R.technologies[id])) end end
-    for _, id in R.policyOrder do if eligible(p,R.policies[id],p.policies) then table.insert(policies,copy(R.policies[id])) end end
+    for _, id in R.policyOrder do if eligible(p,R.policies[id],p.policies) then local entry=copy(R.policies[id]); entry.cost=policyCost(s,p,R.policies[id]); table.insert(policies,entry) end end
     local productionOrder=copy(R.unitOrder); for _, id in R.buildingOrder do table.insert(productionOrder,id) end
     for _, id in productionOrder do
         local added=false
@@ -617,9 +683,31 @@ function BaseGame.snapshot(state: State, actorId: number): View
         end
     end
     local score,stats=scores(s)
-    -- Rival economy, research and score are private even after meeting that civilization.
-    score[3-actorId]=0; stats[3-actorId]={cities=0,units=0,population=0,technologies=0,policies=0}
-    return {seed=if s.humanPlayers==1 or s.phase=="Finished" then s.seed else nil,radius=s.radius,mapShape=s.mapShape,frequency=s.frequency,difficulty=s.difficulty,humanPlayers=s.humanPlayers,turn=s.turn,revision=s.revision,activePlayerId=s.activePlayerId,actorId=actorId,canAct=canAct,phase=s.phase,winner=s.winner,reason=s.reason,victoryType=s.victoryType,gold=p.gold,science=p.science,culture=p.culture,happiness=p.happiness,research=copy(p.research),technologies=copy(p.technologies),policies=copy(p.policies),resources=copy(resourceInventory(s,actorId)),income=copy(p.income),tiles=tiles,units=units,cities=cities,events=events,log={},legalMoves=legal,availableProduction=production,availableProductionByCity=productionByCity,availablePurchasesByCity=purchasesByCity,availableResearch=research,availablePolicies=policies,availableImprovements=improvements,productionCosts=copy(R.productionCosts),purchaseCosts=copy(R.purchaseCosts),scores=score,statistics=stats,diplomacy=copy(s.diplomacy),trades=copy(s.trades),objectives={"Found cities, develop resources and maintain happiness.","Control both original capitals for domination.","Build SpaceProject after Rocketry for science victory.","Adopt six policies for culture victory.","Highest score wins at the round limit; ties favor civilization 1."}}
+    -- Rival economy, research and score are private during play, even after meeting that
+    -- civilization. Final scores and statistics are revealed once the match has finished.
+    if s.phase~="Finished" then score[3-actorId]=0; stats[3-actorId]={cities=0,units=0,population=0,technologies=0,policies=0} end
+    -- Coarse public progress for both civilizations: city count, adopted policy count and an
+    -- era index (one era per four technologies). Exact technologies and economy stay private.
+    local progress={}
+    for owner=1,2 do
+        local cityCount=0; for _, c in s.cities do if c.ownerId==owner then cityCount += 1 end end
+        local player=s.players[owner]
+        progress[owner]={cities=cityCount,policies=#player.policies,era=1+math.floor(#player.technologies/4)}
+    end
+    local threshold=cultureThreshold(s)
+    return {seed=if s.humanPlayers==1 or s.phase=="Finished" then s.seed else nil,radius=s.radius,mapShape=s.mapShape,frequency=s.frequency,difficulty=s.difficulty,humanPlayers=s.humanPlayers,turn=s.turn,revision=s.revision,activePlayerId=s.activePlayerId,actorId=actorId,canAct=canAct,phase=s.phase,winner=s.winner,reason=s.reason,victoryType=s.victoryType,gold=p.gold,science=p.science,culture=p.culture,happiness=p.happiness,research=copy(p.research),technologies=copy(p.technologies),policies=copy(p.policies),resources=copy(resourceInventory(s,actorId)),income=copy(p.income),tiles=tiles,units=units,cities=cities,events=events,log={},legalMoves=legal,availableProduction=production,availableProductionByCity=productionByCity,availablePurchasesByCity=purchasesByCity,availableResearch=research,availablePolicies=policies,availableImprovements=improvements,productionCosts=copy(R.productionCosts),purchaseCosts=copy(R.purchaseCosts),scores=score,statistics=stats,progress=progress,cultureVictoryPolicies=threshold,policyCostIncrease=s.policyCostIncrease or 0,attackPreviews=previews,diplomacy=copy(s.diplomacy),trades=copy(s.trades),objectives={"Found cities, develop resources and maintain happiness.","Control both original capitals for domination.","Build SpaceProject after Rocketry for science victory.","Adopt "..threshold.." "..(if threshold==1 then "policy" else "policies").." for culture victory.","Highest score wins at the round limit; ties favor civilization 1."}}
+end
+-- Pure, fog-safe query for one attack the actor's unit could make now. It never mutates the
+-- state and answers the same generic message for hidden, empty or out-of-range targets.
+-- Turn ownership is not required; the snapshot only lists previews for legal attacks.
+function BaseGame.previewAttack(state: State, actorId: number, unitId: number, tileId: number): (AttackPreview?, string?)
+    local s: any=state
+    if (actorId~=1 and actorId~=2) or s.phase~="Playing" then return nil,"No attack preview is available." end
+    if not finiteId(unitId) or not finiteId(tileId) or not s.tiles[tileId] then return nil,"No attack preview is available." end
+    local u=unitById(s,unitId); if not u or u.ownerId~=actorId then return nil,"Select your unit." end
+    local units,cities=occupants(s)
+    if not attackable(s,u,tileId,visible(s,actorId),units,cities) then return nil,"Choose a visible enemy within attack range." end
+    return previewFor(s,u,tileId,units,cities),nil
 end
 function BaseGame.serialize(state: State): any
     local saved={format="unciv-luau-base",version=if state.mapShape=="Sphere" then 2 else 1,state=state}
