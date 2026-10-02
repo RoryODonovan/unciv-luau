@@ -175,7 +175,9 @@ function BaseSave.valid(saved: any): boolean
         previous=e.id
     end
     if #s.events==0 then if s.nextEvent~=1 then return false end
-    elseif s.events[1].id~=s.nextEvent-#s.events or previous~=s.nextEvent-1 then return false end
+    -- Ids strictly increase and end at the last issued id. Gaps exist only in a full ring, which
+    -- evicts routine events before losses and outcomes; a partial ring is contiguous.
+    elseif previous~=s.nextEvent-1 or (#s.events<64 and s.events[1].id~=s.nextEvent-#s.events) then return false end
     if s.phase=="Playing" then
         for player=1,2 do
             local survives=false

@@ -73,6 +73,30 @@ do
         assert(not Save.valid(bad),"loss event field "..field[1].." must be validated")
     end
 end
+-- A burst of routine events in later commands never displaces a loss from the 64-event ring.
+do
+    local s=founded(31,8); apply(s,1,{kind="DeclareWar",targetId=2})
+    local attacker=firstUnit(s,1,"Warrior"); local victim=firstUnit(s,2,"Worker")
+    local from,to=arena(s,4,2,{[victim.id]=true}); clear(s,from); clear(s,to)
+    attacker.tileId=from; attacker.moves=2; victim.tileId=to; victim.hp=5
+    apply(s,1,{kind="MoveUnit",unitId=attacker.id,tileId=to})
+    -- The loss is now the oldest event and the ring is full of routine events behind it.
+    while s.events[1].kind~="UnitLost" do table.remove(s.events,1) end
+    while #s.events<64 do table.insert(s.events,{id=s.nextEvent,kind="Move",message="Moved.",ownerId=1}); s.nextEvent += 1 end
+    assert(Save.valid(Game.serialize(s)))
+    s.players[1].culture=1000
+    for index=1,3 do apply(s,1,{kind="AdoptPolicy",policy=Rules.policyOrder[index]}) end
+    assert(#s.events==64 and s.events[1].kind=="UnitLost" and s.events[64].kind=="Policy")
+    assert(#eventsOf(Game.snapshot(s,2),"UnitLost")==1,"the loser still sees its loss after the burst")
+    local saved=Game.serialize(s); assert(Save.valid(saved)); assert(Game.restore(saved))
+    -- A partial ring must stay contiguous; a full ring may have eviction gaps.
+    local gap=Game.serialize(s); table.remove(gap.state.events,2); assert(not Save.valid(gap),"a partial ring with a gap is corrupt")
+    -- A ring holding only retained kinds evicts its oldest event, and the newest is always kept.
+    for i=1,#s.events do local e=s.events[i]; s.events[i]={id=e.id,kind="UnitLost",message="Your Warrior was destroyed.",ownerId=2,cause="Combat",byOwnerId=1,unitKind="Warrior"} end
+    local oldest=s.events[1].id
+    apply(s,1,{kind="AdoptPolicy",policy=Rules.policyOrder[4]})
+    assert(#s.events==64 and s.events[1].id>oldest and s.events[64].kind=="Policy" and Save.valid(Game.serialize(s)))
+end
 -- An attacker that dies is reported to its own owner; ranged kills record the Ranged cause.
 do
     local s=founded(32,8); apply(s,1,{kind="DeclareWar",targetId=2})

@@ -61,9 +61,18 @@ local function cityById(s: any, id: number): any for _, city in s.cities do if c
 local function occupants(s: any): (any, any)
     local units, cities = {}, {}; for _, u in s.units do units[u.tileId] = u end; for _, c in s.cities do cities[c.tileId] = c end; return units, cities
 end
+-- Event kinds the ring keeps longest (each player must reliably learn of its losses and the result).
+local RETAINED={UnitLost=true, CityLost=true, Eliminated=true, Victory=true}
 local function event(s: any, kind: string, message: string, tileId: number?, unitId: number?, ownerId: number?, amount: number?, public: boolean?, cause: string?, byOwnerId: number?, unitKind: string?)
     table.insert(s.events, {id=s.nextEvent, kind=kind, message=message, tileId=tileId, unitId=unitId, ownerId=ownerId, amount=amount, public=public, cause=cause, byOwnerId=byOwnerId, unitKind=unitKind})
-    s.nextEvent += 1; if #s.events > 64 then table.remove(s.events, 1) end
+    s.nextEvent += 1
+    if #s.events > 64 then
+        -- One command (an EndTurn running the AI and both economies) can emit more than 64 events, so
+        -- routine events go first: the oldest one that is not a loss or outcome, never the event just added.
+        local drop=1
+        for i=1,#s.events-1 do if not RETAINED[s.events[i].kind] then drop=i; break end end
+        table.remove(s.events, drop)
+    end
 end
 -- Loss events are owned by the losing civilization, so its projection includes them whatever
 -- its current fog. Saves written before these fields existed simply lack them.
