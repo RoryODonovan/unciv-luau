@@ -289,7 +289,7 @@ do
     -- A melee kill of the guard advances into the camp and clears it; the preview says so exactly.
     s=fresh(); warrior=place(s,1,"Warrior",a); addCamp(s,b); local guard=place(s,0,"Warrior",b,10)
     local attack: any=Game.previewAttack(s,1,warrior.id,b)
-    assert(attack and attack.exact and attack.defenderDefeated=="Yes" and attack.clearsCamp and attack.target=="Unit")
+    assert(attack and attack.exact and attack.defenderDefeated=="Yes" and attack.advances and attack.clearsCamp and attack.target=="Unit")
     assert(equal(Game.snapshot(s,1).attackPreviews[tostring(warrior.id)][1],attack),"the snapshot lists the same preview")
     before=s.nextEvent
     apply(s,1,{kind="MoveUnit",unitId=warrior.id,tileId=b})
@@ -299,7 +299,7 @@ do
     assert(#eventsAfter(s,before,"CampCleared")==1)
     -- A full-health guard survives: no clearing.
     s=fresh(); warrior=place(s,1,"Warrior",a); addCamp(s,b); place(s,0,"Warrior",b)
-    attack=Game.previewAttack(s,1,warrior.id,b); assert(attack and not attack.clearsCamp and attack.defenderDefeated=="No")
+    attack=Game.previewAttack(s,1,warrior.id,b); assert(attack and not attack.advances and not attack.clearsCamp and attack.defenderDefeated=="No")
     -- A ranged kill leaves the camp standing, empty.
     s=fresh(); s.players[1].technologies={"Agriculture","Archery"}
     local archer=place(s,1,"Archer",a); addCamp(s,b); place(s,0,"Warrior",b,5)
@@ -359,6 +359,9 @@ do
                         if hp-dealt<=0 then assert(after==nil and query.defenderDefeated=="Yes") else assert(after.hp==hp-dealt and query.defenderDefeated=="No") end
                         local alive=unitById(s,attacker.id)
                         if 90-received<=0 then assert(alive==nil) else assert(alive.hp==90-received) end
+                        -- On unowned land a melee kill the attacker survives advances, exactly as the preview says.
+                        local advanced=attackerKind~="Archer" and hp-dealt<=0 and 90-received>0
+                        assert(query.advances==advanced and (not alive or alive.tileId==(if advanced then b else a)),"advance as previewed")
                         cases += 1
                     end
                 end
@@ -585,10 +588,79 @@ do
     rejects(function(st) for _, e in st.events do if e.kind=="UnitLost" then e.kind="CityLost" end end end,"a CityLost by barbarians")
     rejects(function(st) for _, e in st.events do if e.kind=="CampCleared" then e.kind="CampSpotted" end end end,"an unknown kind")
     rejects(function(st) st.barbarians=nil; for i=#st.units,1,-1 do if st.units[i].ownerId==0 then table.remove(st.units,i) end end end,"barbarian events without barbarians")
-    accepts(function(st) st.barbarians=nil; for i=#st.units,1,-1 do if st.units[i].ownerId==0 then table.remove(st.units,i) end end; for _, e in st.events do if e.ownerId==0 then e.ownerId=2 end; if e.byOwnerId==0 then e.byOwnerId=2 end end end,"the same match without barbarians")
+    local function withoutBarbarians(st: any)
+        st.barbarians=nil; for i=#st.units,1,-1 do if st.units[i].ownerId==0 then table.remove(st.units,i) end end
+        for _, e in st.events do if e.ownerId==0 then e.ownerId=2 end; if e.byOwnerId==0 then e.byOwnerId=2 end end
+    end
+    accepts(function(st) withoutBarbarians(st); for _, e in st.events do if e.kind=="CampCleared" then e.kind="Production" end end end,"the same match without barbarians")
+    -- A cleared camp exists only in a match with barbarians (Astra review of PR #11).
+    rejects(function(st) withoutBarbarians(st) end,"a CampCleared without barbarians")
+    -- Malformed entries in every list the validator indexes are rejected cleanly, never with an error (Astra review of
+    -- PR #11: a scalar unit entry used to throw while its owner was read before its shape was checked).
+    local function cleanlyRejected(change: (any)->(),label: string)
+        local value=variant(change)
+        local ok,result=pcall(Save.valid,value); assert(ok,label.." threw: "..tostring(result)); assert(result==false,label.." accepted")
+        local restoredOk,restored=pcall(Game.restore,value); assert(restoredOk and restored==nil,label.." threw on restore")
+        local loadedOk,loaded=pcall(Save.restore,value); assert(loadedOk and loaded==nil,label.." threw on BaseSave.restore")
+    end
+    local malformed: {() -> any}={
+        function() return 42 end, function() return "entry" end, function() return true end, function() return {} end,
+        function() return {ownerId=0} end, function() return {id=1,tileId=1} end, function() return {kind="Warrior",ownerId=0,tileId=1} end,
+    }
+    for index, make in malformed do
+        local label="malformed entry "..index
+        cleanlyRejected(function(st) st.units[1]=make() end,label.." in units")
+        cleanlyRejected(function(st) st.units[#st.units]=make() end,label.." as the last unit")
+        cleanlyRejected(function(st) st.barbarians.camps[1]=make() end,label.." in camps")
+        cleanlyRejected(function(st) st.barbarians=make() end,label.." as the barbarian record")
+        -- An empty table is a valid (empty) camp list.
+        if index~=4 then cleanlyRejected(function(st) st.barbarians.camps=make() end,label.." as the camp list") end
+        cleanlyRejected(function(st) st.events[#st.events]=make() end,label.." in events")
+        cleanlyRejected(function(st) st.cities[1]=make() end,label.." in cities")
+        cleanlyRejected(function(st) st.players[1]=make() end,label.." in players")
+        cleanlyRejected(function(st) st.tiles[1]=make() end,label.." in tiles")
+    end
+    cleanlyRejected(function(st) st.units[1]=nil end,"a hole in units")
+    cleanlyRejected(function(st) st.barbarians.camps[1]=nil; st.barbarians.camps[2]={id=1,tileId=ring3[1],founded=2,lastSpawn=2} end,"a hole in camps")
     local tooMany=fresh(); local n=0
     for _, t in tooMany.tiles do if n<=B.maxUnits and Rules.terrains[t.terrain].passable and t.id~=home.tileId and t.id~=rivalCity.tileId then place(tooMany,0,"Warrior",t.id); n += 1 end end
     assert(not Save.valid({format="unciv-luau-base",version=1,state=tooMany}),"more than thirty barbarian units")
+end
+
+-- 12b. Borders (Astra review of PR #11): a melee kill of a barbarian standing on the land of a civilization at peace
+--      with the attacker kills it but does not advance, and so does not clear a camp there; the preview says so. At war
+--      the same kill advances and clears the camp.
+do
+    local rivalLand: number?,outside: number?=nil,nil
+    for _, id in graph.neighbors[rivalCity.tileId] do
+        if base.tiles[id].ownerId~=2 or not Rules.terrains[base.tiles[id].terrain].passable then continue end
+        for _, other in graph.neighbors[id] do
+            if base.tiles[other].ownerId==nil and other~=rivalCity.tileId and Rules.terrains[base.tiles[other].terrain].passable and not adjacent(graph,other,rivalCity.tileId) then rivalLand=id; outside=other; break end
+        end
+        if rivalLand then break end
+    end
+    assert(rivalLand and outside,"the arena needs rival land beside unowned land")
+    local borderCases: {any}={{war=false,camp=false},{war=false,camp=true},{war=true,camp=false},{war=true,camp=true}}
+    for _, case in borderCases do
+        local s=fresh(); clear(s,rivalLand :: number); clear(s,outside :: number)
+        if case.war then s.diplomacy.status="War"; s.diplomacy.peaceUntil=0 else s.diplomacy.peaceUntil=s.turn+8 end
+        local warrior=place(s,1,"Warrior",outside :: number); local raider=place(s,0,"Warrior",rivalLand :: number,10)
+        if case.camp then addCamp(s,rivalLand :: number) end
+        assert(Save.valid(Game.serialize(s)),"the border fixture is a valid state")
+        local attack: any=Game.previewAttack(s,1,warrior.id,rivalLand :: number)
+        assert(attack and attack.exact and attack.defenderDefeated=="Yes" and attack.attackerDefeated=="No")
+        assert(equal(Game.snapshot(s,1).attackPreviews[tostring(warrior.id)][1],attack),"the snapshot lists the same preview")
+        assert(attack.advances==case.war and attack.clearsCamp==(case.war and case.camp),"the preview tells whether the kill advances")
+        local before=s.nextEvent
+        apply(s,1,{kind="MoveUnit",unitId=warrior.id,tileId=rivalLand :: number})
+        assert(unitById(s,raider.id)==nil,"the barbarian dies either way")
+        assert(warrior.tileId==(if case.war then rivalLand else outside),"the attacker advances only into land it may enter")
+        assert(#s.barbarians.camps==(if case.camp and not case.war then 1 else 0),"a camp on closed land stays")
+        assert(#eventsAfter(s,before,"CampCleared")==(if case.camp and case.war then 1 else 0))
+        assert(Save.valid(Game.serialize(s)))
+        -- While the peace holds, the camp left on closed land cannot be entered either.
+        if not case.war then assert(Game.previewMove(s,1,warrior.id,rivalLand :: number)==nil) end
+    end
 end
 
 -- 13. Deterministic replays: solo matches with barbarians (camps, raids, kills and cleared camps) replay identically with

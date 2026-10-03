@@ -1,6 +1,6 @@
 --!strict
 -- Generated module-only Roblox form. Source: src/simulation/BaseSave.luau
--- Source SHA-256: af701a495ea3dd2aba8800bab1ed679478ebd7cdf6866bfef00ed081342aed47
+-- Source SHA-256: 9c8e68a2d3516d0f937ed624fb2cbb1a563fd73780c1e04de8fdb3b10af6db9d
 -- Reproduce with tools/roblox-export.mjs; preserve MPL notices below.
 -- Covered source: https://github.com/RoryODonovan/unciv-luau
 -- This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
@@ -192,9 +192,10 @@ function BaseSave.valid(saved: any): boolean
     end
     local units,occupancy={},{}; local barbarianUnits=0
     for _,u in s.units do
-        -- A barbarian unit (owner 0) needs a match with barbarians.
+        -- The entry's shape is checked before any field is read. A barbarian unit (owner 0) needs a match with barbarians.
+        if not object(u,"id ownerId kind tileId hp moves fortified level xp promotions work") then return false end
         local barbarian=u.ownerId==BARBARIAN and barbarians~=nil
-        if not object(u,"id ownerId kind tileId hp moves fortified level xp promotions work") or not id(u.id) or u.id>=s.nextUnit or units[u.id] or not (owner(u.ownerId) or barbarian) or not integer(u.tileId,1,#s.tiles) or occupancy[u.tileId] then return false end
+        if not id(u.id) or u.id>=s.nextUnit or units[u.id] or not (owner(u.ownerId) or barbarian) or not integer(u.tileId,1,#s.tiles) or occupancy[u.tileId] then return false end
         if type(u.kind)~="string" or not Rules.units[u.kind] then return false end
         local rule=Rules.units[u.kind]
         -- Barbarians research nothing; their units are military, never work, gain no experience and take no promotions.
@@ -274,6 +275,8 @@ function BaseSave.valid(saved: any): boolean
         -- The barbarian owner (0) appears only in a match with barbarians: as the owner of a barbarian's Attack or
         -- UnitLost, and as the civilization-unit loser's byOwnerId of a UnitLost.
         local barbarianEvent=barbarians~=nil and (e.kind=="Attack" or e.kind=="UnitLost")
+        -- A cleared camp exists only in a match with barbarians.
+        if e.kind=="CampCleared" and barbarians==nil then return false end
         if e.ownerId~=nil and not owner(e.ownerId) and not (barbarianEvent and e.ownerId==BARBARIAN) then return false end
         if e.amount~=nil and not integer(e.amount,0,1000000) then return false end
         if e.public~=nil and type(e.public)~="boolean" then return false end

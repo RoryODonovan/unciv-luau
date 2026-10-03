@@ -1,6 +1,6 @@
 --!strict
 -- Generated module-only Roblox form. Source: src/simulation/BaseGame.luau
--- Source SHA-256: ba3966d556f163629cbadc238fda4542207e3cf169c9a042236adfe698d0f6bc
+-- Source SHA-256: 1785eda02587fea5e75204c49dcc066e5c5afbabf3129f48c8b5837ea5d5d82c
 -- Reproduce with tools/roblox-export.mjs; preserve MPL notices below.
 -- Covered source: https://github.com/RoryODonovan/unciv-luau
 -- This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
@@ -57,9 +57,11 @@ export type CityView = {id: number, ownerId: number, originalOwnerId: number, ca
 export type Statistics = {cities: number, units: number, population: number, technologies: number, policies: number}
 export type Progress = {cities: number, policies: number, era: number}
 -- `acrossRiver` is true when a melee attack crosses a river edge (its attack loses riverAttackPercent).
--- `clearsCamp` is true when a melee attack kills the guard of a barbarian encampment and so advances into it and
--- destroys it (the kill is exact: a camp never stands in a city).
-export type AttackPreview = {unitId: number, tileId: number, target: string, ranged: boolean, exact: boolean, hiddenDefense: boolean, acrossRiver: boolean, clearsCamp: boolean, dealt: number?, received: number?, dealtMin: number, dealtMax: number, receivedMin: number, receivedMax: number, attackerHp: number, defenderHp: number, attackerDefeated: string, defenderDefeated: string, captures: string}
+-- `advances` is true when a melee attack kills a unit outside a city and the attacker moves onto its tile: it survives
+-- and its owner may enter that land (a civilization at peace keeps its borders closed even to a unit chasing a
+-- barbarian). `clearsCamp` is true when that advance enters a barbarian encampment and destroys it. Both are exact (a
+-- strike on a unit outside a city is exact); a city capture is reported by `captures`.
+export type AttackPreview = {unitId: number, tileId: number, target: string, ranged: boolean, exact: boolean, hiddenDefense: boolean, acrossRiver: boolean, advances: boolean, clearsCamp: boolean, dealt: number?, received: number?, dealtMin: number, dealtMax: number, receivedMin: number, receivedMax: number, attackerHp: number, defenderHp: number, attackerDefeated: string, defenderDefeated: string, captures: string}
 -- One legal move: the path from the unit's tile (first) to the destination (last), the movement it spends and keeps,
 -- whether it ends the unit's movement, whether the zone of control ended it and whether its final step crossed a river
 -- (which also ends it). `clearsCamp` is true when the destination is a barbarian encampment, which the move destroys
@@ -126,6 +128,12 @@ local function hostile(s: any, a: number, b: number): boolean
     if a==b then return false end
     if a==BARBARIAN or b==BARBARIAN then return true end
     return s.diplomacy.status=="War"
+end
+-- Whether the unit's owner may enter the tile's territory: unowned or own land, or land of an owner it is hostile to
+-- (the other civilization at war; barbarians may enter any land). Movement and a melee attacker's advance both obey it.
+local function territoryOpen(s: any, unit: any, tileId: number): boolean
+    local owner=s.tiles[tileId].ownerId
+    return owner==nil or owner==unit.ownerId or hostile(s,unit.ownerId,owner)
 end
 -- The barbarian encampments by tile (empty when the match has none).
 local function campTiles(s: any): {[number]: any}
@@ -444,7 +452,7 @@ local function movementCost(s: any, unit: any, fromId: number, toId: number, see
     if occupant and occupant.id~=unit.id then return nil end
     if city and city.ownerId~=unit.ownerId then return nil end
     -- Foreign land only when hostile: the other civilization at war, and any land for barbarians.
-    if tile.ownerId and tile.ownerId~=unit.ownerId and not hostile(s,unit.ownerId,tile.ownerId) then return nil end
+    if not territoryOpen(s,unit,toId) then return nil end
     if tile.road and s.tiles[fromId].road then return roadSixths end
     return tileMovement(tile)*SIXTHS
 end
@@ -677,7 +685,9 @@ local function combat(s: any, unit: any, target: number)
                 unit.tileId=target; event(s,"Capture","City captured.",target,unit.id,unit.ownerId)
                 event(s,"CityLost",city.name.." was captured.",target,nil,loser,nil,nil,"Captured",unit.ownerId)
             end
-        else unit.tileId=target; enterCamp(s,unit) end
+        -- A melee attacker that kills a unit outside a city advances only into land its owner may enter: a barbarian
+        -- killed on the territory of a civilization at peace with the attacker dies, and the attacker stays put.
+        elseif territoryOpen(s,unit,target) then unit.tileId=target; enterCamp(s,unit) end
     end
 end
 local function outcome(low: boolean, high: boolean): string return if low~=high then "Maybe" elseif low then "Yes" else "No" end
@@ -699,10 +709,12 @@ local function previewFor(s: any, unit: any, target: number, units: any, cities:
     local attackerLow,defenderLow,captureLow=result(dealtMin,receivedMax)
     local attackerHigh,defenderHigh,captureHigh=result(dealtMax,receivedMin)
     local exact=dealtMin==dealtMax and receivedMin==receivedMax
-    -- A melee kill of a camp's guard advances into the camp and destroys it. A camp never stands in a city, so the
-    -- strike is exact and both bounds agree.
-    local clearsCamp=not ranged and city==nil and defender~=nil and unit.ownerId~=BARBARIAN and campTiles(s)[target]~=nil and defenderLow and defenderHigh and not attackerLow and not attackerHigh
-    return {unitId=unit.id,tileId=target,target=if defender then "Unit" else "City",ranged=ranged,exact=exact,hiddenDefense=high>0,acrossRiver=not ranged and riverBetween(s,unit.tileId,target),clearsCamp=clearsCamp,
+    -- A melee kill of a unit outside a city advances onto its tile when the attacker's owner may enter that land; a kill
+    -- of a camp's guard that advances destroys the camp. A unit outside a city gives an exact strike, so both bounds agree.
+    -- The territory owner is visible (the target tile is), so this reads nothing hidden.
+    local advances=not ranged and city==nil and defender~=nil and defenderLow and defenderHigh and not attackerLow and not attackerHigh and territoryOpen(s,unit,target)
+    local clearsCamp=advances and unit.ownerId~=BARBARIAN and campTiles(s)[target]~=nil
+    return {unitId=unit.id,tileId=target,target=if defender then "Unit" else "City",ranged=ranged,exact=exact,hiddenDefense=high>0,acrossRiver=not ranged and riverBetween(s,unit.tileId,target),advances=advances,clearsCamp=clearsCamp,
         dealt=if exact then dealtMin else nil,received=if exact then receivedMin else nil,
         dealtMin=dealtMin,dealtMax=dealtMax,receivedMin=receivedMin,receivedMax=receivedMax,
         attackerHp=unit.hp,defenderHp=if defender then defender.hp else city.hp,
