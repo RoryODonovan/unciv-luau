@@ -81,23 +81,26 @@ local baseSave=Game.serialize(base)
 local function fresh(): any local s: any=Game.restore(baseSave); assert(s); return s end
 
 -- Independent statement of city combat (numbers written out, not read from the rules).
+-- The era is the highest era among the first `technologies` of the research order (G7), and a garrison adds a quarter of
+-- its defence.
 local function referenceStrength(population: number,technologies: number,walls: boolean,garrisonKind: string?): number
-    local era=1+technologies//4
+    local era=1; for index=1,technologies do era=math.max(era,Rules.technologies[Rules.technologyOrder[index]].era) end
     local garrison=0
-    if garrisonKind and Rules.units[garrisonKind].strength>0 then garrison=math.floor(Rules.units[garrisonKind].strength*25/100) end
+    if garrisonKind and Rules.units[garrisonKind].strength>0 then garrison=math.floor(Rules.units[garrisonKind].defense*25/100) end
     return 14+population+3*(era-1)+(if walls then 8 else 0)+garrison
 end
 local function referenceDamage(strength: number,kind: string,hp: number,terrain: string,fortified: boolean,cover: boolean): number
     local ranged=math.floor(strength*60/100)
     local percent=(if terrain=="Hills" or terrain=="Forest" then 25 else 0)+(if fortified then 50 else 0)+(if cover then 33 else 0)
-    local defense=math.max(3,Rules.units[kind].strength)*(100+percent)/100*(0.5+hp/200)
+    local defense=math.max(3,Rules.units[kind].defense)*(100+percent)/100*(0.5+hp/200)
     return math.clamp(math.floor(30*math.max(1,ranged)/math.max(1,defense)+0.5),8,65)
 end
 
--- 1. Rules: the city-combat numbers and the Catapult's siege bonus.
+-- 1. Rules: the city-combat numbers and the siege bonus (G7: every Siege unit, the Catapult line, has +50%).
 do
     assert(Rules.cityBaseStrength==14 and Rules.cityStrengthPerEra==3 and Rules.garrisonPercent==25 and Rules.cityStrikeRange==2 and Rules.cityStrikePercent==60)
-    for id, rule in Rules.units do assert(rule.siegePercent==(if id=="Catapult" then 50 else 0),id.." siege percentage") end
+    local siege={Catapult=true,Trebuchet=true,Cannon=true,Artillery=true,RocketArtillery=true}
+    for id, rule in Rules.units do assert(rule.siegePercent==(if siege[id] then 50 else 0) and (rule.role=="Siege")==(siege[id]==true),id.." siege percentage") end
     local rules=Game.getRules(); assert(rules.cityStrikeRange==2 and rules.units.Catapult.siegePercent==50)
     rules.units.Catapult.siegePercent=99; assert(Game.getRules().units.Catapult.siegePercent==50,"getRules is detached")
 end
@@ -106,11 +109,11 @@ end
 do
     local cases=0
     for _, population in {1,4,9} do
-        for _, technologies in {0,4,9,16} do
+        for _, technologies in {0,4,12,40} do
             for _, walls in {false,true} do
                 for _, garrisonKind in {"None","Warrior","Scout","Worker","Archer","Rifleman"} do
-                    -- Archer and Rifleman need their technologies, so they appear only with all sixteen.
-                    if (garrisonKind=="Archer" or garrisonKind=="Rifleman") and technologies<16 then continue end
+                    -- Archer and Rifleman need their technologies, so they appear only with all forty.
+                    if (garrisonKind=="Archer" or garrisonKind=="Rifleman") and technologies<40 then continue end
                     local s=fresh(); local city=firstCity(s,1)
                     city.population=population; city.buildings=if walls then {"Walls"} else {}
                     s.players[1].technologies=table.move(Rules.technologyOrder,1,technologies,1,{})
@@ -126,11 +129,17 @@ do
         end
     end
     assert(cases==3*4*2*4+3*2*2,"cases "..cases)
-    -- Concrete values: a new size-1 city strikes with 9; Walls, a Warrior garrison and the fifth era bring it to 22.
+    -- Concrete values: a new size-1 city strikes with 9; Walls, a Warrior garrison and the sixth era (+15) bring it to 24.
     local s=fresh(); local view=viewCity(Game.snapshot(s,1),home.id); assert(view.strength==15 and view.rangedStrength==9)
     firstCity(s,1).buildings={"Walls"}; place(s,1,"Warrior",home.tileId); s.players[1].technologies=table.clone(Rules.technologyOrder)
-    view=viewCity(Game.snapshot(s,1),home.id); assert(view.strength==15+8+2+12 and view.rangedStrength==22)
-    -- Garrison shares: Scout 1, Warrior 2, Archer 1 (its melee strength 5), Rifleman 10; a civilian adds nothing.
+    view=viewCity(Game.snapshot(s,1),home.id); assert(view.strength==15+8+2+15 and view.rangedStrength==24)
+    -- Garrison shares: Scout 1, Warrior 2, Archer 1 (its defence 5), Rifleman 10; a civilian adds nothing.
+    -- G7 garrisons add a quarter of their defence: a Spearman (defence 14) 3, a Longswordsman (23) 5, Infantry (60) 15.
+    local function garrisoned(kind: string): number
+        local g=fresh(); g.players[1].technologies=table.clone(Rules.technologyOrder); place(g,1,kind,home.tileId)
+        return viewCity(Game.snapshot(g,1),home.id).strength-(15+15)
+    end
+    assert(garrisoned("Spearman")==3 and garrisoned("Longswordsman")==5 and garrisoned("Infantry")==15,"a garrison adds a quarter of its defence")
 end
 
 -- 3. A strike: exact damage against the reference, equal to the query and snapshot previews; the city takes no damage
@@ -188,7 +197,7 @@ do
     -- Cover I counts against a city strike (it is a ranged strike).
     local _,covered=strikeCase({cover=true}); assert(covered.dealt<27)
     -- A sweep over the city's strength and the target's kind, health, terrain, fortification and Cover.
-    local kinds={"Warrior","Archer","Pikeman","Rifleman","Worker","Settler","Knight","Catapult"}
+    local kinds={"Warrior","Archer","Pikeman","Rifleman","Worker","Settler","Knight","Catapult","Spearman","Lancer","GatlingGun","Infantry"}
     local terrains={"Plains","Hills","Forest","Grassland"}
     local kills,cases=0,0
     for i=0,95 do

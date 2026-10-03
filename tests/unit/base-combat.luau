@@ -55,15 +55,23 @@ local function field(s: any): (number,{number})
     end
     error("no open field")
 end
--- Independent statement of the G2 formula (percentages written out, not read from the rules). Since G5 promotions,
--- `level` adds nothing by itself (it was +3 strength per level); the sweep still varies it to show that.
+-- The G7 bonuses written out: the Spearman and Pikeman +50% against Mounted units, the Anti-Tank Gun +75% against Armor.
+local function versus(kind: string,otherKind: string): number
+    local role=Rules.units[otherKind].role
+    if (kind=="Spearman" or kind=="Pikeman") and role=="Mounted" then return 50 end
+    if kind=="AntiTankGun" and role=="Armor" then return 75 end
+    return 0
+end
+-- Independent statement of the G2 formula (percentages written out, not read from the rules), with G7's separate
+-- attack and defence and the versus bonuses. Since G5 promotions, `level` adds nothing by itself (it was +3 strength per
+-- level); the sweep still varies it to show that.
 local function reference(attackerKind: string,attackerHp: number,level: number,defenderKind: string,defenderHp: number,fortified: boolean,terrain: string,flankers: number): (number,number)
     local a=Rules.units[attackerKind]; local ranged=a.range>1
     local flank=if ranged then 0 else math.min(30,10*flankers)
     local _=level
-    local attack=math.max(1,if ranged then a.rangedStrength else a.strength)*(0.5+attackerHp/200)*(100+flank)/100
-    local percent=(if terrain=="Hills" or terrain=="Forest" then 25 else 0)+(if fortified then 50 else 0)
-    local defense=math.max(3,Rules.units[defenderKind].strength)*(100+percent)/100*(0.5+defenderHp/200)
+    local attack=math.max(1,if ranged then a.rangedStrength else a.attack)*(0.5+attackerHp/200)*(100+flank+versus(attackerKind,defenderKind))/100
+    local percent=(if terrain=="Hills" or terrain=="Forest" then 25 else 0)+(if fortified then 50 else 0)+versus(defenderKind,attackerKind)
+    local defense=math.max(3,Rules.units[defenderKind].defense)*(100+percent)/100*(0.5+defenderHp/200)
     local dealt=math.clamp(math.floor(30*attack/math.max(1,defense)+0.5),8,65)
     local received=if ranged or Rules.units[defenderKind].strength==0 then 0 else math.clamp(math.floor(25*defense/attack+0.5),8,65)
     return dealt,received
@@ -181,11 +189,11 @@ end
 
 -- 4. A preview of every combination equals the applied result and the independent formula.
 do
-    local attackers={"Warrior","Scout","Swordsman","Knight","Rifleman","Archer","Catapult","Pikeman"}
-    local defenders={"Warrior","Pikeman","Worker","Musketman","Scout","Archer"}
+    local attackers={"Warrior","Scout","Swordsman","Knight","Rifleman","Archer","Catapult","Pikeman","Spearman","Horseman","Crossbowman","Tank","AntiTankGun","Longswordsman"}
+    local defenders={"Warrior","Pikeman","Worker","Musketman","Scout","Archer","Spearman","Horseman","GatlingGun","Tank","Infantry"}
     local terrains={"Plains","Hills","Forest","Grassland","Desert"}
     local cases,kills,deaths,flanked=0,0,0,0
-    for i=0,179 do
+    for i=0,307 do
         local attackerKind=attackers[i%#attackers+1]; local defenderKind=defenders[(i//3)%#defenders+1]
         local terrain=terrains[(i//7)%#terrains+1]
         local attackerHp=math.max(1,Rules.units[attackerKind].hp-((i*13)%70))
@@ -202,7 +210,7 @@ do
         if flankers>0 and Rules.units[attackerKind].range<=1 then flanked += 1 end
         cases += 1
     end
-    assert(cases==180 and kills>0 and kills<cases and deaths>0 and flanked>0,"sweep must cover kills, survivals, deaths and flanking")
+    assert(cases==308 and kills>0 and kills<cases and deaths>0 and flanked>0,"sweep must cover kills, survivals, deaths and flanking")
 end
 
 -- 5. Cities: terrain adds its percentage to an undefended city; flanking needs a defending unit;
@@ -413,4 +421,4 @@ do
     assert(equal(run(false),run(false)) and equal(run(false),run(true)),"combat and healing are deterministic")
 end
 
-print("base combat: percentage terrain/fortify defence, wounded defenders, flanking with cap, 180 exact previews, city terrain and hidden Walls, healing by location, legacy saves and determinism passed")
+print("base combat: percentage terrain/fortify defence, wounded defenders, flanking with cap, 308 exact previews (G7 attack, defence and versus bonuses included), city terrain and hidden Walls, healing by location, legacy saves and determinism passed")

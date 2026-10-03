@@ -110,15 +110,22 @@ rejected(workerState,1,{kind="BuildImprovement",unitId=worker.id,improvement="Pa
 apply(workerState,1,{kind="BuildImprovement",unitId=worker.id,improvement="Mine"})
 for _=1,2 do round(workerState); assert(workerTile.improvement==nil) end
 round(workerState); assert(workerTile.improvement=="Mine" and workerState.players[1].resources.Iron==1)
+-- One improved Iron tile supplies two Iron (G7 quantities): two Swordsmen, then a refusal that names the shortage.
+assert(equal(Game.snapshot(workerState,1).strategic.Iron,{have=2,used=0}))
 workerState.players[1].gold=1000
 apply(workerState,1,{kind="Purchase",cityId=home.id,item="Swordsman"})
+apply(workerState,1,{kind="Purchase",cityId=home.id,item="Swordsman"})
+assert(equal(Game.snapshot(workerState,1).strategic.Iron,{have=2,used=2}))
 rejected(workerState,1,{kind="Purchase",cityId=home.id,item="Swordsman"})
+assert(Game.apply(workerState,1,{kind="Purchase",cityId=home.id,item="Swordsman"}).message=="Not enough Iron: needs 1, 2 available and 2 in use.")
 local upgrade=founded(4); local upgradeUnit=firstUnit(upgrade,1,"Warrior"); local upgradeTile=upgrade.tiles[firstUnit(upgrade,1,"Worker").tileId]
 upgradeTile.ownerId=1; upgradeTile.terrain="Plains"; upgradeTile.resource="Iron"; upgradeTile.improvement="Mine"
 upgrade.players[1].technologies={"Mining","BronzeWorking","IronWorking"}; upgrade.players[1].gold=1000
 apply(upgrade,1,{kind="UpgradeUnit",unitId=upgradeUnit.id})
-assert(upgradeUnit.kind=="Swordsman" and upgradeUnit.moves==0 and upgrade.players[1].gold<1000)
-assert(not table.find(Game.snapshot(upgrade,1).availableProductionByCity[tostring(firstCity(upgrade,1).id)],"Swordsman"))
+assert(upgradeUnit.kind=="Swordsman" and upgradeUnit.moves==0 and upgrade.players[1].gold==1000-math.max(20,28-12)*2)
+-- The upgraded Swordsman uses one of the mine's two Iron, so one more Swordsman can still be trained.
+assert(table.find(Game.snapshot(upgrade,1).availableProductionByCity[tostring(firstCity(upgrade,1).id)],"Swordsman"))
+assert(equal(Game.snapshot(upgrade,1).strategic.Iron,{have=2,used=1}))
 assert(Game.restore(Game.serialize(upgrade)))
 -- Focus changes citizens' chosen yields; maintenance and unhappiness have consequences.
 local foodState=founded(5); local productionState=Game.restore(Game.serialize(foodState)); assert(productionState)

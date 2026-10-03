@@ -24,7 +24,9 @@ local function hex(radius: number): Fixture
  return {shape='Hex',size=radius,centers=centers,neighbors=neighbors}
 end
 -- Resources by bare terrain, and by feature (woods are a feature on their own terrain since G4).
-local compatible: {[string]: {[string]: boolean}}={Wheat={Grassland=true,Plains=true},Horses={Grassland=true,Plains=true},Iron={Hills=true},Gold={Hills=true,Desert=true},Spices={Plains=true},Deer={}}
+-- G7 adds the later strategic deposits: Saltpeter on hills, desert or plains and Oil on desert, tundra, plains or hills.
+local compatible: {[string]: {[string]: boolean}}={Wheat={Grassland=true,Plains=true},Horses={Grassland=true,Plains=true},Iron={Hills=true},Gold={Hills=true,Desert=true},Spices={Plains=true},Deer={},
+ Saltpeter={Hills=true,Desert=true,Plains=true},Oil={Desert=true,Tundra=true,Plains=true,Hills=true}}
 local featureResources: {[string]: {[string]: boolean}}={Forest={Deer=true,Spices=true},Jungle={Spices=true},Marsh={},Oasis={}}
 local allowed: {[string]: boolean}={Grassland=true,Plains=true,Hills=true,Mountain=true,Water=true,Desert=true,Tundra=true}
 -- Natural food and production under the game rules, features included.

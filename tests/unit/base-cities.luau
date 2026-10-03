@@ -213,8 +213,9 @@ do
     assert(finished==warriors+1,"the Warrior was produced")
 end
 
--- 7. Within one step an earlier city's completion uses up what a later city needs. With one improved Iron and both
--- cities finishing a Swordsman, only the older city's completes; the newer city's queue is reported unavailable.
+-- 7. Within one step an earlier city's completion uses up what a later city needs. One improved Iron supplies two Iron
+-- (G7 quantities) and a Swordsman already uses one; with both cities finishing a Swordsman, only the older city's
+-- completes; the newer city's queue is reported unavailable.
 do
     local s,first,graph=fixture(45)
     local far=rival(s).tileId
@@ -231,6 +232,8 @@ do
     local mine: any=nil
     for _, id in WorldMap.range(graph,first.tileId,1) do if id~=first.tileId then mine=s.tiles[id]; break end end
     plain(mine,"Hills",1); mine.resource="Iron"; mine.improvement="Mine"
+    table.insert(s.units,{id=s.nextUnit,ownerId=1,kind="Swordsman",tileId=first.tileId,hp=100,moves=0,fortified=false,level=0}); s.nextUnit += 1
+    assert(Game.snapshot(s,1).strategic.Iron.have==2 and Game.snapshot(s,1).strategic.Iron.used==1,"one Iron left")
     for _, c in ({first,second} :: {any}) do c.queue="Swordsman"; c.production=Rules.productionCosts.Swordsman end
     local view=Game.snapshot(s,1)
     local older,newer=view.cityForecasts[tostring(first.id)],view.cityForecasts[tostring(second.id)]
@@ -238,7 +241,7 @@ do
     assert(newer.productionBlocked=="NotAvailable" and newer.productionTurns==nil,"the older city's Swordsman uses the only Iron")
     endTurnMatchesForecast(s,1)
     local swordsmen=0; for _, u in s.units do if u.ownerId==1 and u.kind=="Swordsman" then swordsmen += 1 end end
-    assert(swordsmen==1,"exactly one Swordsman")
+    assert(swordsmen==2,"exactly one more Swordsman")
 end
 -- 8. The global unit cap never leaks unseen rival units. Two saved games differ only by one rival Worker the actor
 -- cannot see (167 vs 168 units; the cap is 169) and both own cities finish a Warrior this step. The actor's whole
