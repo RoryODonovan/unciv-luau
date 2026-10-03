@@ -8,7 +8,8 @@ export type BuildingRule = {id: string, cost: number, purchaseCost: number, main
 export type Technology = {id: string, name: string, cost: number, prerequisites: {string}}
 export type Policy = {id: string, name: string, cost: number, prerequisites: {string}, yields: Yields, happiness: number, maintenanceDiscount: number}
 export type Improvement = {id: string, technology: string?, terrains: {string}, resources: {string}, turns: number, yields: Yields, road: boolean}
-export type Terrain = {id: string, movement: number, passable: boolean, defense: number, yields: Yields}
+-- defensePercent: percentage added to a defender's strength on this terrain (Hills/Forest +25%).
+export type Terrain = {id: string, movement: number, passable: boolean, defensePercent: number, yields: Yields}
 export type Resource = {id: string, category: string, yields: Yields, happiness: number, improvement: string}
 local function yields(food: number?, production: number?, gold: number?, science: number?, culture: number?): Yields
     return {food=food or 0, production=production or 0, gold=gold or 0, science=science or 0, culture=culture or 0}
@@ -52,14 +53,14 @@ local policies: {[string]: Policy} = {
     Patronage={id="Patronage",name="Patronage",cost=65,prerequisites={"Commerce"},yields=yields(0,0,0,0,3),happiness=2,maintenanceDiscount=0},
 }
 local terrains: {[string]: Terrain} = {
-    Plains={id="Plains",movement=1,passable=true,defense=0,yields=yields(2,1)},
-    Grassland={id="Grassland",movement=1,passable=true,defense=0,yields=yields(3)},
-    Hills={id="Hills",movement=2,passable=true,defense=3,yields=yields(1,2)},
-    Forest={id="Forest",movement=2,passable=true,defense=3,yields=yields(1,2)},
-    Desert={id="Desert",movement=1,passable=true,defense=0,yields=yields(0,1)},
-    Tundra={id="Tundra",movement=1,passable=true,defense=0,yields=yields(1)},
-    Water={id="Water",movement=1,passable=false,defense=0,yields=yields(1,0,1)},
-    Mountain={id="Mountain",movement=1,passable=false,defense=0,yields=yields()},
+    Plains={id="Plains",movement=1,passable=true,defensePercent=0,yields=yields(2,1)},
+    Grassland={id="Grassland",movement=1,passable=true,defensePercent=0,yields=yields(3)},
+    Hills={id="Hills",movement=2,passable=true,defensePercent=25,yields=yields(1,2)},
+    Forest={id="Forest",movement=2,passable=true,defensePercent=25,yields=yields(1,2)},
+    Desert={id="Desert",movement=1,passable=true,defensePercent=0,yields=yields(0,1)},
+    Tundra={id="Tundra",movement=1,passable=true,defensePercent=0,yields=yields(1)},
+    Water={id="Water",movement=1,passable=false,defensePercent=0,yields=yields(1,0,1)},
+    Mountain={id="Mountain",movement=1,passable=false,defensePercent=0,yields=yields()},
 }
 local resources: {[string]: Resource} = {
     Wheat={id="Wheat",category="Bonus",yields=yields(1),happiness=0,improvement="Farm"},
@@ -93,6 +94,11 @@ local rules = {
     growthBase=20,growthPerPopulation=8,starvationLoss=1,roadMovement=1,unitVision=2,cityVision=2,
     scienceVictoryTechnology="Rocketry",scienceVictoryBuilding="SpaceProject",cultureVictoryPolicies=6,score={city=10,population=3,unit=2,technology=5,policy=5},
     maxTradeTurns=20,maxTradeDeals=16,maxEvents=64,maxLog=24,
+    -- Combat percentages: fortification adds to the terrain percentage in one defence multiplier; each other
+    -- friendly military unit next to a defending unit adds to a melee attack, up to the cap.
+    fortifyDefensePercent=50,flankingPercent=10,maxFlankingPercent=30,
+    -- Hit points a unit regains at the start of its owner's turn after a turn without moving or attacking.
+    healing={neutral=10,friendly=15,city=20},
 }
 freeze(rules)
 return rules
