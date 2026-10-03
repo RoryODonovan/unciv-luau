@@ -1,6 +1,6 @@
 --!strict
 -- Generated module-only Roblox form. Source: src/simulation/WorldMap.luau
--- Source SHA-256: 979e460ad261ff24baea8c6129ab55d51e475822b11a5cd3f52f883383abf6f3
+-- Source SHA-256: 191b1dc9999e24f5f744ca3de7ab4d5413e3a1103a5d72288aedf45c78b0ef6a
 -- Reproduce with tools/roblox-export.mjs; preserve MPL notices below.
 -- Covered source: https://github.com/RoryODonovan/unciv-luau
 -- This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
@@ -127,7 +127,9 @@ end
 function WorldMap.movementCost(tile: Tile): number?
     local terrain=Rules.terrains[tile.terrain]
     if not terrain or not terrain.passable then return nil end
-    return if tile.road then Rules.roadMovement else terrain.movement
+    -- The generic per-tile entry cost keeps one move on a road. The base game's road rule depends on the tile moved
+    -- from (a third of a move between two road tiles, Rules.roadMovement), which an entry cost cannot express.
+    return if tile.road then 1 else terrain.movement
 end
 -- Heap order matches the former scan: minimum cost first, then ascending tile ID.
 type Entry = {id: number, cost: number}

@@ -1,6 +1,6 @@
 --!strict
 -- Generated module-only Roblox form. Source: src/simulation/BaseSave.luau
--- Source SHA-256: 37c596b9b6c10b1cde81817588e2a2c9bc84afad824090267c6cc55fb1001e8e
+-- Source SHA-256: 0d6f89875a92f9014f9add1dd04f4cab34e29903ed9316756072c0ba499d968b
 -- Reproduce with tools/roblox-export.mjs; preserve MPL notices below.
 -- Covered source: https://github.com/RoryODonovan/unciv-luau
 -- This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
@@ -17,6 +17,9 @@ local BaseSave={}
 local maxTreeEntries=65536
 local function number(value: any,low: number,high: number): boolean return type(value)=="number" and value==value and value>=low and value<=high end
 local function integer(value: any,low: number,high: number): boolean return number(value,low,high) and value%1==0 end
+-- Movement is a multiple of 1/6: whole and half moves (every earlier save) and the thirds a road step leaves.
+-- A third has no exact binary form, so a value within 1e-6 of a sixth is accepted; restore snaps it to that sixth.
+local function sixths(value: number): boolean return math.abs(value*6-math.round(value*6))<=1e-6 end
 local function owner(value: any): boolean return value==1 or value==2 end
 local function id(value: any): boolean return integer(value,1,1000000) end
 local function text(value: any,limit: number): boolean return type(value)=="string" and #value>0 and #value<=limit end
@@ -135,7 +138,7 @@ function BaseSave.valid(saved: any): boolean
         if type(u.kind)~="string" or not Rules.units[u.kind] then return false end
         local rule=Rules.units[u.kind]
         if rule.technology and not table.find(s.players[u.ownerId].technologies,rule.technology) then return false end
-        if not Rules.terrains[tiles[u.tileId].terrain].passable or not integer(u.hp,1,rule.hp) or not number(u.moves,0,rule.moves) or u.moves*2%1~=0 or type(u.fortified)~="boolean" or not integer(u.level,0,3) then return false end
+        if not Rules.terrains[tiles[u.tileId].terrain].passable or not integer(u.hp,1,rule.hp) or not number(u.moves,0,rule.moves) or not sixths(u.moves) or type(u.fortified)~="boolean" or not integer(u.level,0,3) then return false end
         if u.fortified and rule.strength==0 then return false end
         if u.work~=nil then
             local w=u.work

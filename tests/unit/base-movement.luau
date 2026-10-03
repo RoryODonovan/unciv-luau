@@ -265,24 +265,35 @@ do
     local peace=along("Warrior",false,"Warrior","Peace"); assert(not peace.zoneOfControl and peace.movesLeft==1,"only enemies at war exert it")
     local peaceCity=along(nil,true,"Warrior","Peace"); assert(not peaceCity.zoneOfControl and peaceCity.movesLeft==1)
     -- Fog: an enemy outside the mover's sight exerts no zone of control, so previews and results never reveal it.
-    -- The scout sees two hexes; the hidden warrior is three away, next to two adjacent visible tiles.
+    -- The scout sees two hexes; the hidden warrior is three away, next to two adjacent visible tiles t1 and t2. A road
+    -- c5-x-t1-t2 is the only cheap route to t2 (every other nearby tile is Hills), so a zone of control on the step
+    -- t1-t2 would change t2's preview from two moves left to none.
     local s5,c5,g5=arena(316); war(s5)
-    local scout5=place(s5,1,"Scout",c5)
-    local hidden: number?=nil; local t1: number?=nil; local t2: number?=nil
+    local hidden: number?=nil; local t1: number?=nil; local t2: number?=nil; local x: number?=nil
     for _, h in WorldMap.range(g5,c5,3) do
-        if WorldMap.distance(g5,h,c5)~=3 then continue end
-        local near={}; for _, id in g5.neighbors[h] do if WorldMap.distance(g5,id,c5)==2 then table.insert(near,id) end end
-        table.sort(near)
-        if #near>=2 and adjacent(g5,near[1],near[2]) then hidden=h; t1=near[1]; t2=near[2]; break end
+        if WorldMap.distance(g5,h,c5)~=3 or hidden then continue end
+        for _, ea in g5.neighbors[h] do
+            for _, eb in g5.neighbors[h] do
+                if hidden or ea==eb or WorldMap.distance(g5,ea,c5)~=2 or WorldMap.distance(g5,eb,c5)~=2 or not adjacent(g5,ea,eb) then continue end
+                for _, m in g5.neighbors[c5] do
+                    if adjacent(g5,m,ea) and not adjacent(g5,m,eb) then hidden=h; t1=ea; t2=eb; x=m; break end
+                end
+            end
+        end
     end
-    assert(hidden and t1 and t2)
+    assert(hidden and t1 and t2 and x)
+    for _, id in WorldMap.range(g5,c5,2) do s5.tiles[id].terrain="Hills" end
+    for _, id in {c5,x :: number,t1 :: number,t2 :: number} do s5.tiles[id].terrain="Plains"; s5.tiles[id].road=true end
+    local scout5=place(s5,1,"Scout",c5)
     local without=Game.snapshot(s5,1)
     local foe=place(s5,2,"Warrior",hidden :: number)
     local with=Game.snapshot(s5,1)
     for _, u in with.units do assert(u.id~=foe.id,"the enemy is hidden") end
     assert(equal(without.movePreviews,with.movePreviews) and equal(without.legalMoves,with.legalMoves),"a hidden enemy changes no move")
+    local unseen=preview(s5,scout5,t2 :: number)
+    assert(not unseen.zoneOfControl and unseen.movesLeft==2 and equal(unseen.path,{c5,x,t1,t2}),"no zone of control from a hidden enemy")
     -- Moving next to it reveals it; from then on it applies.
-    local reach=move(s5,scout5,t1 :: number); assert(not reach.zoneOfControl and reach.movesLeft==1)
+    local reach=move(s5,scout5,t1 :: number); assert(not reach.zoneOfControl and reach.movesLeft==14/6)
     local seen=false; for _, u in Game.snapshot(s5,1).units do if u.id==foe.id then seen=true end end; assert(seen)
     local blocked=preview(s5,scout5,t2 :: number); assert(blocked.zoneOfControl and blocked.movesLeft==0)
 end

@@ -1,6 +1,6 @@
 --!strict
 -- Generated module-only Roblox form. Source: src/simulation/BaseGame.luau
--- Source SHA-256: 89a0a9c754fbce00504beea2579b66b6b6583aee5ef3b0dc52121754681d8a9c
+-- Source SHA-256: 0062660027dd564f866f25690c6feeac22e35bf8f6c72222c78361d3dd2438de
 -- Reproduce with tools/roblox-export.mjs; preserve MPL notices below.
 -- Covered source: https://github.com/RoryODonovan/unciv-luau
 -- This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
@@ -35,11 +35,14 @@ export type CityView = {id: number, ownerId: number, originalOwnerId: number, ca
 export type Statistics = {cities: number, units: number, population: number, technologies: number, policies: number}
 export type Progress = {cities: number, policies: number, era: number}
 export type AttackPreview = {unitId: number, tileId: number, target: string, ranged: boolean, exact: boolean, hiddenDefense: boolean, dealt: number?, received: number?, dealtMin: number, dealtMax: number, receivedMin: number, receivedMax: number, attackerHp: number, defenderHp: number, attackerDefeated: string, defenderDefeated: string, captures: string}
+-- One legal move: the path from the unit's tile (first) to the destination (last), the movement it spends and keeps,
+-- whether it ends the unit's movement and whether the zone of control ended it. Values are in moves (multiples of 1/6).
+export type MovePreview = {unitId: number, tileId: number, path: {number}, movesSpent: number, movesLeft: number, endsMovement: boolean, zoneOfControl: boolean}
 export type Technology = Rules.Technology
 export type Policy = Rules.Policy
 export type State = {seed: number, radius: number?, mapShape: string?, frequency: number?, difficulty: string, humanPlayers: number, forest: boolean, maxTurns: number, cultureVictoryPolicies: number?, policyCostIncrease: number?, turn: number, revision: number, activePlayerId: number, phase: string, winner: number?, reason: string?, victoryType: string?, tiles: {Tile}, units: {Unit}, cities: {City}, players: {Player}, diplomacy: Diplomacy, trades: {Trade}, events: {Event}, nextEvent: number, nextUnit: number, nextCity: number, nextTrade: number, log: {string}}
 export type CityForecast = {food: number, production: number, gold: number, science: number, culture: number, growthTurns: number?, productionTurns: number?, productionBlocked: ("NotAvailable" | "NoSpace")?}
-export type View = {cityForecasts: {[string]: CityForecast}, seed: number?, radius: number?, mapShape: string?, frequency: number?, difficulty: string, humanPlayers: number, turn: number, revision: number, activePlayerId: number, actorId: number, canAct: boolean, phase: string, winner: number?, reason: string?, victoryType: string?, gold: number, science: number, culture: number, happiness: number, research: Research?, technologies: {string}, policies: {string}, resources: {[string]: number}, income: {food: number, production: number, gold: number, science: number, culture: number, maintenance: number}, tiles: {TileView}, units: {Unit}, cities: {CityView}, events: {Event}, log: {string}, legalMoves: {[string]: {number}}, availableProduction: {string}, availableProductionByCity: {[string]: {string}}, availablePurchasesByCity: {[string]: {string}}, availableResearch: {Technology}, availablePolicies: {Policy}, availableImprovements: {[string]: {string}}, productionCosts: {[string]: number}, purchaseCosts: {[string]: number}, scores: {number}, statistics: {Statistics}, progress: {Progress}, cultureVictoryPolicies: number, policyCostIncrease: number, attackPreviews: {[string]: {AttackPreview}}, diplomacy: Diplomacy, trades: {Trade}, objectives: {string}}
+export type View = {cityForecasts: {[string]: CityForecast}, seed: number?, radius: number?, mapShape: string?, frequency: number?, difficulty: string, humanPlayers: number, turn: number, revision: number, activePlayerId: number, actorId: number, canAct: boolean, phase: string, winner: number?, reason: string?, victoryType: string?, gold: number, science: number, culture: number, happiness: number, research: Research?, technologies: {string}, policies: {string}, resources: {[string]: number}, income: {food: number, production: number, gold: number, science: number, culture: number, maintenance: number}, tiles: {TileView}, units: {Unit}, cities: {CityView}, events: {Event}, log: {string}, legalMoves: {[string]: {number}}, availableProduction: {string}, availableProductionByCity: {[string]: {string}}, availablePurchasesByCity: {[string]: {string}}, availableResearch: {Technology}, availablePolicies: {Policy}, availableImprovements: {[string]: {string}}, productionCosts: {[string]: number}, purchaseCosts: {[string]: number}, scores: {number}, statistics: {Statistics}, progress: {Progress}, cultureVictoryPolicies: number, policyCostIncrease: number, attackPreviews: {[string]: {AttackPreview}}, movePreviews: {[string]: {MovePreview}}, diplomacy: Diplomacy, trades: {Trade}, objectives: {string}}
 local BaseGame = {}
 local R: any = Rules
 local W: any = WorldMap
@@ -234,6 +237,15 @@ local function evaluate(s: any)
         end
     end
 end
+-- Movement is counted in sixths of a move inside the engine. A sixth holds both the 1/3 road step and the
+-- half moves older saves may store, so movement arithmetic is exact integer arithmetic; a unit's `moves`
+-- field stores the canonical value sixths/6.
+local SIXTHS=6
+local function toSixths(moves: number): number return math.round(moves*SIXTHS) end
+local function fromSixths(sixths: number): number return sixths/SIXTHS end
+local roadSixths=toSixths(R.roadMovement)
+-- The cost in sixths of stepping from `fromId` into the adjacent `toId`, or nil when the step is not allowed. Only
+-- tiles the mover can see may be entered. Between two road tiles a step costs a third of a move, whatever the terrain.
 local function movementCost(s: any, unit: any, fromId: number, toId: number, seen: any, units: any, cities: any): number?
     if not seen[toId] then return nil end
     local tile=s.tiles[toId]; local terrain=R.terrains[tile.terrain]
@@ -242,14 +254,69 @@ local function movementCost(s: any, unit: any, fromId: number, toId: number, see
     if occupant and occupant.id~=unit.id then return nil end
     if city and city.ownerId~=unit.ownerId then return nil end
     if tile.ownerId and tile.ownerId~=unit.ownerId and s.diplomacy.status~="War" then return nil end
-    if tile.road and s.tiles[fromId].road then return R.roadMovement end
-    return terrain.movement
+    if tile.road and s.tiles[fromId].road then return roadSixths end
+    return terrain.movement*SIXTHS
+end
+-- Tiles that exert a zone of control on this unit: enemy military units (strength above zero) and enemy cities,
+-- only while at war and only where the moving civilization can see them, so a move never reveals a hidden unit.
+-- Civilians neither exert nor feel a zone of control (nil: none applies).
+local function zoneSources(s: any, unit: any, seen: any, units: any, cities: any): {[number]: boolean}?
+    if R.units[unit.kind].strength<=0 or s.diplomacy.status~="War" then return nil end
+    local sources={}
+    for tileId,u in units do if u.ownerId~=unit.ownerId and seen[tileId] and R.units[u.kind].strength>0 then sources[tileId]=true end end
+    for tileId,c in cities do if c.ownerId~=unit.ownerId and seen[tileId] then sources[tileId]=true end end
+    return sources
+end
+-- Civ V's rule: a step from a tile next to an enemy source into another tile next to that same source spends all
+-- remaining movement. Two adjacent hexes share two neighbours, so the source is one of those.
+local function zoneOfControl(s: any, sources: {[number]: boolean}?, fromId: number, toId: number): boolean
+    if not sources then return false end
+    local neighbors=mapFor(s).neighbors; local into=neighbors[toId]
+    for _, id in neighbors[fromId] do if sources[id] and table.find(into,id) then return true end end
+    return false
+end
+-- One turn of movement for a unit. Returns, for every tile it can reach, the sixths spent getting there (the start
+-- costs 0), the previous tile on the cheapest path, and whether the zone of control ended the final step.
+-- A unit with any movement left may always enter an adjacent allowed tile: when the step costs at least what remains
+-- or the zone of control applies, the unit arrives with no movement left. Arrival never decreases as the spent
+-- amount grows, so Dijkstra's order stays exact. Ties settle the lowest tile id first and keep the first path found.
+local function movementSearch(s: any, unit: any, seen: any, units: any, cities: any): ({[number]: number}, {[number]: number}, {[number]: boolean})
+    local budget=toSixths(unit.moves)
+    local spent: {[number]: number}={[unit.tileId]=0}; local previous: {[number]: number}={}; local zoc: {[number]: boolean}={}
+    if budget<=0 then return spent,previous,zoc end
+    local sources=zoneSources(s,unit,seen,units,cities); local neighbors=mapFor(s).neighbors; local settled: {[number]: boolean}={}
+    while true do
+        local current: number?=nil
+        for id,cost in spent do
+            if not settled[id] and (current==nil or cost<spent[current] or (cost==spent[current] and id<current)) then current=id end
+        end
+        if current==nil then break end
+        settled[current]=true
+        local here=spent[current]
+        if here>=budget then continue end
+        for _, nextId in neighbors[current] do
+            if settled[nextId] then continue end
+            local step=movementCost(s,unit,current,nextId,seen,units,cities)
+            if step==nil then continue end
+            local controlled=zoneOfControl(s,sources,current,nextId)
+            local arrival=if controlled then budget else math.min(budget,here+step)
+            if spent[nextId]==nil or arrival<spent[nextId] then spent[nextId]=arrival; previous[nextId]=current; zoc[nextId]=controlled end
+        end
+    end
+    return spent,previous,zoc
 end
 local function reachable(s: any, unit: any, vision: any?, occupancyUnits: any?, occupancyCities: any?): any
     if unit.moves<=0 then return {} end
     local seen=vision or visible(s,unit.ownerId); local units,cities=occupancyUnits,occupancyCities
     if not units or not cities then units,cities=occupants(s) end
-    return W.reachable(mapFor(s),unit.tileId,unit.moves,function(a: number,b: number) return movementCost(s,unit,a,b,seen,units,cities) end)
+    return (movementSearch(s,unit,seen,units,cities))
+end
+-- The fog-safe record of one legal move, built from a movement search.
+local function movePreviewFor(unit: any, target: number, spent: any, previous: any, zoc: any): MovePreview
+    local path={target}; local current=target
+    while current~=unit.tileId do current=previous[current]; table.insert(path,1,current) end
+    local left=fromSixths(toSixths(unit.moves)-spent[target])
+    return {unitId=unit.id,tileId=target,path=path,movesSpent=fromSixths(spent[target]),movesLeft=left,endsMovement=left<=0,zoneOfControl=zoc[target]==true}
 end
 local function attackable(s: any, unit: any, target: number, seen: any, occupancyUnits: any?, occupancyCities: any?): boolean
     if not seen[target] or unit.moves<=0 or R.units[unit.kind].strength<=0 or s.diplomacy.status~="War" then return false end
@@ -355,9 +422,9 @@ end
 local function moveUnit(s: any, unit: any, target: number): boolean
     local seen=visible(s,unit.ownerId)
     if attackable(s,unit,target,seen) then combat(s,unit,target); return true end
-    local targets=reachable(s,unit); local cost=targets[target]
-    if target==unit.tileId or not cost or cost>unit.moves then return false end
-    unit.tileId=target; unit.moves -= cost; unit.fortified=false; unit.work=nil
+    local targets=reachable(s,unit,seen); local cost=targets[target]
+    if target==unit.tileId or not cost then return false end
+    unit.tileId=target; unit.moves=fromSixths(toSixths(unit.moves)-cost); unit.fortified=false; unit.work=nil
     event(s,"Move","Unit moved.",target,unit.id,unit.ownerId); return true
 end
 local function improvementAvailable(s: any, unit: any, improvement: string): boolean
@@ -737,18 +804,23 @@ function BaseGame.snapshot(state: State, actorId: number): View
         end
         table.insert(tiles,projected)
     end
-    local units,cities,events,legal,improvements,previews={},{},{},{},{},{}
+    local units,cities,events,legal,improvements,previews,movePreviews={},{},{},{},{},{},{}
     local occupancyUnits,occupancyCities=occupants(s)
     local canAct=s.phase=="Playing" and s.activePlayerId==actorId and p.human
     for _, u in s.units do
         if u.ownerId==actorId or seen[u.tileId] then table.insert(units,copy(u)) end
         if u.ownerId==actorId then
-            local targets,unitPreviews={},{}
+            local targets,unitPreviews,unitMoves={},{},{}
+            if canAct and u.moves>0 then
+                local spent,previous,zoc=movementSearch(s,u,seen,occupancyUnits,occupancyCities)
+                for tileId in spent do if tileId~=u.tileId then table.insert(targets,tileId) end end
+                table.sort(targets)
+                for _, tileId in targets do table.insert(unitMoves,movePreviewFor(u,tileId,spent,previous,zoc)) end
+            end
             if canAct then
-                for tileId in reachable(s,u,seen,occupancyUnits,occupancyCities) do if tileId~=u.tileId then table.insert(targets,tileId) end end
                 for _, tileId in attackTargets(s,u,seen,occupancyUnits,occupancyCities) do table.insert(targets,tileId); table.insert(unitPreviews,previewFor(s,u,tileId,occupancyUnits,occupancyCities)) end
             end
-            table.sort(targets); legal[tostring(u.id)]=targets; previews[tostring(u.id)]=unitPreviews
+            table.sort(targets); legal[tostring(u.id)]=targets; previews[tostring(u.id)]=unitPreviews; movePreviews[tostring(u.id)]=unitMoves
             local choices={}; if canAct then for _, id in improvementOrder do if improvementAvailable(s,u,id) then table.insert(choices,id) end end end
             improvements[tostring(u.id)]=choices
         end
@@ -820,7 +892,7 @@ function BaseGame.snapshot(state: State, actorId: number): View
                 productionTurns=turns,productionBlocked=blocked}
         end
     end
-    return {cityForecasts=forecasts,seed=if s.humanPlayers==1 or s.phase=="Finished" then s.seed else nil,radius=s.radius,mapShape=s.mapShape,frequency=s.frequency,difficulty=s.difficulty,humanPlayers=s.humanPlayers,turn=s.turn,revision=s.revision,activePlayerId=s.activePlayerId,actorId=actorId,canAct=canAct,phase=s.phase,winner=s.winner,reason=s.reason,victoryType=s.victoryType,gold=p.gold,science=p.science,culture=p.culture,happiness=p.happiness,research=copy(p.research),technologies=copy(p.technologies),policies=copy(p.policies),resources=copy(resourceInventory(s,actorId)),income=copy(p.income),tiles=tiles,units=units,cities=cities,events=events,log={},legalMoves=legal,availableProduction=production,availableProductionByCity=productionByCity,availablePurchasesByCity=purchasesByCity,availableResearch=research,availablePolicies=policies,availableImprovements=improvements,productionCosts=copy(R.productionCosts),purchaseCosts=copy(R.purchaseCosts),scores=score,statistics=stats,progress=progress,cultureVictoryPolicies=threshold,policyCostIncrease=s.policyCostIncrease or 0,attackPreviews=previews,diplomacy=copy(s.diplomacy),trades=copy(s.trades),objectives={"Found cities, develop resources and maintain happiness.","Control both original capitals for domination.","Build SpaceProject after Rocketry for science victory.","Adopt "..threshold.." "..(if threshold==1 then "policy" else "policies").." for culture victory.","Highest score wins at the round limit; ties favor civilization 1."}}
+    return {cityForecasts=forecasts,seed=if s.humanPlayers==1 or s.phase=="Finished" then s.seed else nil,radius=s.radius,mapShape=s.mapShape,frequency=s.frequency,difficulty=s.difficulty,humanPlayers=s.humanPlayers,turn=s.turn,revision=s.revision,activePlayerId=s.activePlayerId,actorId=actorId,canAct=canAct,phase=s.phase,winner=s.winner,reason=s.reason,victoryType=s.victoryType,gold=p.gold,science=p.science,culture=p.culture,happiness=p.happiness,research=copy(p.research),technologies=copy(p.technologies),policies=copy(p.policies),resources=copy(resourceInventory(s,actorId)),income=copy(p.income),tiles=tiles,units=units,cities=cities,events=events,log={},legalMoves=legal,availableProduction=production,availableProductionByCity=productionByCity,availablePurchasesByCity=purchasesByCity,availableResearch=research,availablePolicies=policies,availableImprovements=improvements,productionCosts=copy(R.productionCosts),purchaseCosts=copy(R.purchaseCosts),scores=score,statistics=stats,progress=progress,cultureVictoryPolicies=threshold,policyCostIncrease=s.policyCostIncrease or 0,attackPreviews=previews,movePreviews=movePreviews,diplomacy=copy(s.diplomacy),trades=copy(s.trades),objectives={"Found cities, develop resources and maintain happiness.","Control both original capitals for domination.","Build SpaceProject after Rocketry for science victory.","Adopt "..threshold.." "..(if threshold==1 then "policy" else "policies").." for culture victory.","Highest score wins at the round limit; ties favor civilization 1."}}
 end
 -- Pure, fog-safe query for one attack the actor's unit could make now. It never mutates the
 -- state and answers the same generic message for hidden, empty or out-of-range targets.
@@ -834,13 +906,31 @@ function BaseGame.previewAttack(state: State, actorId: number, unitId: number, t
     if not attackable(s,u,tileId,visible(s,actorId),units,cities) then return nil,"Choose a visible enemy within attack range." end
     return previewFor(s,u,tileId,units,cities),nil
 end
+-- Pure, fog-safe query for one move the actor's unit could make now: the same search MoveUnit applies, so the
+-- preview's destination and remaining movement equal the applied result. It reads only tiles and enemies the
+-- actor can see, never mutates the state, ignores turn ownership and gives one message for any unavailable tile.
+function BaseGame.previewMove(state: State, actorId: number, unitId: number, tileId: number): (MovePreview?, string?)
+    local s: any=state
+    if (actorId~=1 and actorId~=2) or s.phase~="Playing" then return nil,"No move preview is available." end
+    if not finiteId(unitId) or not finiteId(tileId) or not s.tiles[tileId] then return nil,"No move preview is available." end
+    local u=unitById(s,unitId); if not u or u.ownerId~=actorId then return nil,"Select your unit." end
+    if u.moves<=0 or tileId==u.tileId then return nil,"Destination is unavailable or movement is insufficient." end
+    local units,cities=occupants(s)
+    local spent,previous,zoc=movementSearch(s,u,visible(s,actorId),units,cities)
+    if not spent[tileId] then return nil,"Destination is unavailable or movement is insufficient." end
+    return movePreviewFor(u,tileId,spent,previous,zoc),nil
+end
 function BaseGame.serialize(state: State): any
     local saved={format="unciv-luau-base",version=if state.mapShape=="Sphere" then 2 else 1,state=state}
     assert(Save.valid(saved),"cannot serialize an invalid base-game state"); return copy(saved)
 end
 function BaseGame.restore(saved: any): (State?,string?)
     if not Save.valid(saved) then return nil,"Unsupported or corrupt base-game save." end
-    local s=copy(saved.state); mapFor(s); return s :: State,nil
+    local s=copy(saved.state); mapFor(s)
+    -- Saves keep movement as a number; restoring snaps it to the exact sixth the engine counts in, so a value a
+    -- host's encoding shortened (a third written with fewer digits) behaves exactly as the saved third.
+    for _, u in s.units do u.moves=fromSixths(toSixths(u.moves)) end
+    return s :: State,nil
 end
 function BaseGame.getRules(): typeof(Rules) return copy(Rules) end
 return table.freeze(BaseGame)
