@@ -1,6 +1,6 @@
 --!strict
 -- Generated module-only Roblox form. Source: src/simulation/BaseGame.luau
--- Source SHA-256: fbc959dfbc9cfe0aab8724993483469f81f283500955c1fa4f8c6b9cf84c6dd6
+-- Source SHA-256: ddd7b811695c91b45ccb1cbefaaae78598425032da89d2d8e37a44042c4cf3ab
 -- Reproduce with tools/roblox-export.mjs; preserve MPL notices below.
 -- Covered source: https://github.com/RoryODonovan/unciv-luau
 -- This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
@@ -79,7 +79,7 @@ export type WonderView = {id: string, ownerId: number, cityId: number?, tileId: 
 -- threshold, the golden ages begun so far, what the next step adds to the meter (the current happiness when positive
 -- and no golden age is active, otherwise 0) and how many steps a new golden age lasts in this match.
 export type GoldenAgeView = {active: boolean, turnsLeft: number, progress: number, threshold: number, ages: number, progressPerTurn: number, turns: number}
-export type View = {cityForecasts: {[string]: CityForecast}, seed: number?, radius: number?, mapShape: string?, frequency: number?, difficulty: string, humanPlayers: number, turn: number, revision: number, activePlayerId: number, actorId: number, canAct: boolean, phase: string, winner: number?, reason: string?, victoryType: string?, gold: number, science: number, culture: number, happiness: number, research: Research?, technologies: {string}, policies: {string}, resources: {[string]: number}, income: {food: number, production: number, gold: number, science: number, culture: number, maintenance: number}, tiles: {TileView}, units: {UnitView}, cities: {CityView}, events: {Event}, log: {string}, legalMoves: {[string]: {number}}, availableProduction: {string}, availableProductionByCity: {[string]: {string}}, availablePurchasesByCity: {[string]: {string}}, availableResearch: {Technology}, availablePolicies: {Policy}, availableImprovements: {[string]: {string}}, productionCosts: {[string]: number}, purchaseCosts: {[string]: number}, scores: {number}, statistics: {Statistics}, progress: {Progress}, cultureVictoryPolicies: number, policyCostIncrease: number, attackPreviews: {[string]: {AttackPreview}}, cityStrikePreviews: {[string]: {CityStrikePreview}}, diplomacy: Diplomacy, trades: {Trade}, objectives: {string}, wonders: {WonderView}, goldenAge: GoldenAgeView}
+export type View = {cityForecasts: {[string]: CityForecast}, seed: number?, radius: number?, mapShape: string?, frequency: number?, difficulty: string, humanPlayers: number, turn: number, revision: number, activePlayerId: number, actorId: number, canAct: boolean, phase: string, winner: number?, reason: string?, victoryType: string?, gold: number, science: number, culture: number, happiness: number, research: Research?, technologies: {string}, policies: {string}, resources: {[string]: number}, income: {food: number, production: number, gold: number, science: number, culture: number, maintenance: number}, tiles: {TileView}, units: {UnitView}, cities: {CityView}, events: {Event}, log: {string}, legalMoves: {[string]: {number}}, riverMoves: {[string]: {number}}, availableProduction: {string}, availableProductionByCity: {[string]: {string}}, availablePurchasesByCity: {[string]: {string}}, availableResearch: {Technology}, availablePolicies: {Policy}, availableImprovements: {[string]: {string}}, productionCosts: {[string]: number}, purchaseCosts: {[string]: number}, scores: {number}, statistics: {Statistics}, progress: {Progress}, cultureVictoryPolicies: number, policyCostIncrease: number, attackPreviews: {[string]: {AttackPreview}}, cityStrikePreviews: {[string]: {CityStrikePreview}}, diplomacy: Diplomacy, trades: {Trade}, objectives: {string}, wonders: {WonderView}, goldenAge: GoldenAgeView}
 local BaseGame = {}
 local R: any = Rules
 local W: any = WorldMap
@@ -1203,7 +1203,7 @@ function BaseGame.snapshot(state: State, actorId: number): View
         end
         table.insert(tiles,projected)
     end
-    local units,cities,events,legal,improvements,previews={},{},{},{},{},{}
+    local units,cities,events,legal,improvements,previews,riverMoves={},{},{},{},{},{},{}
     local occupancyUnits,occupancyCities=occupants(s)
     local canAct=s.phase=="Playing" and s.activePlayerId==actorId and p.human
     for _, u in s.units do
@@ -1220,7 +1220,16 @@ function BaseGame.snapshot(state: State, actorId: number): View
         if u.ownerId==actorId then
             local targets,unitPreviews={},{}
             if canAct then
-                for tileId in reachable(s,u,seen,occupancyUnits,occupancyCities) do if tileId~=u.tileId then table.insert(targets,tileId) end end
+                -- The same search previewMove runs: its crossing flags give the destinations whose move ends by crossing
+                -- an unbridged river (riverCrossing), listed ascending under the unit's id only when there are any.
+                if u.moves>0 then
+                    local spent,_,_,crossed=movementSearch(s,u,seen,occupancyUnits,occupancyCities); local river={}
+                    for tileId in spent do
+                        if tileId==u.tileId then continue end
+                        table.insert(targets,tileId); if crossed[tileId] then table.insert(river,tileId) end
+                    end
+                    if #river>0 then table.sort(river); riverMoves[tostring(u.id)]=river end
+                end
                 for _, tileId in attackTargets(s,u,seen,occupancyUnits,occupancyCities) do table.insert(targets,tileId); table.insert(unitPreviews,previewFor(s,u,tileId,occupancyUnits,occupancyCities)) end
             end
             table.sort(targets); legal[tostring(u.id)]=targets; previews[tostring(u.id)]=unitPreviews
@@ -1335,7 +1344,7 @@ function BaseGame.snapshot(state: State, actorId: number): View
     local mood=stepHappiness(s,actorId,resourceInventory(s,actorId))
     local goldenAge={active=age.turnsLeft>0,turnsLeft=age.turnsLeft,progress=age.progress,threshold=goldenAgeThreshold(s,age.ages),ages=age.ages,
         progressPerTurn=if age.turnsLeft>0 then 0 else math.max(0,mood),turns=goldenAgeTurns(s)}
-    return {wonders=wonders,goldenAge=goldenAge,cityForecasts=forecasts,seed=if s.humanPlayers==1 or s.phase=="Finished" then s.seed else nil,radius=s.radius,mapShape=s.mapShape,frequency=s.frequency,difficulty=s.difficulty,humanPlayers=s.humanPlayers,turn=s.turn,revision=s.revision,activePlayerId=s.activePlayerId,actorId=actorId,canAct=canAct,phase=s.phase,winner=s.winner,reason=s.reason,victoryType=s.victoryType,gold=p.gold,science=p.science,culture=p.culture,happiness=p.happiness,research=copy(p.research),technologies=copy(p.technologies),policies=copy(p.policies),resources=copy(resourceInventory(s,actorId)),income=copy(p.income),tiles=tiles,units=units,cities=cities,events=events,log={},legalMoves=legal,availableProduction=production,availableProductionByCity=productionByCity,availablePurchasesByCity=purchasesByCity,availableResearch=research,availablePolicies=policies,availableImprovements=improvements,productionCosts=copy(R.productionCosts),purchaseCosts=copy(R.purchaseCosts),scores=score,statistics=stats,progress=progress,cultureVictoryPolicies=threshold,policyCostIncrease=s.policyCostIncrease or 0,attackPreviews=previews,cityStrikePreviews=strikePreviews,diplomacy=copy(s.diplomacy),trades=copy(s.trades),objectives={"Found cities, develop resources and maintain happiness.","Control both original capitals for domination.","Build SpaceProject after Rocketry for science victory.","Adopt "..threshold.." "..(if threshold==1 then "policy" else "policies").." for culture victory.","Highest score wins at the round limit; ties favor civilization 1."}}
+    return {wonders=wonders,goldenAge=goldenAge,cityForecasts=forecasts,seed=if s.humanPlayers==1 or s.phase=="Finished" then s.seed else nil,radius=s.radius,mapShape=s.mapShape,frequency=s.frequency,difficulty=s.difficulty,humanPlayers=s.humanPlayers,turn=s.turn,revision=s.revision,activePlayerId=s.activePlayerId,actorId=actorId,canAct=canAct,phase=s.phase,winner=s.winner,reason=s.reason,victoryType=s.victoryType,gold=p.gold,science=p.science,culture=p.culture,happiness=p.happiness,research=copy(p.research),technologies=copy(p.technologies),policies=copy(p.policies),resources=copy(resourceInventory(s,actorId)),income=copy(p.income),tiles=tiles,units=units,cities=cities,events=events,log={},legalMoves=legal,riverMoves=riverMoves,availableProduction=production,availableProductionByCity=productionByCity,availablePurchasesByCity=purchasesByCity,availableResearch=research,availablePolicies=policies,availableImprovements=improvements,productionCosts=copy(R.productionCosts),purchaseCosts=copy(R.purchaseCosts),scores=score,statistics=stats,progress=progress,cultureVictoryPolicies=threshold,policyCostIncrease=s.policyCostIncrease or 0,attackPreviews=previews,cityStrikePreviews=strikePreviews,diplomacy=copy(s.diplomacy),trades=copy(s.trades),objectives={"Found cities, develop resources and maintain happiness.","Control both original capitals for domination.","Build SpaceProject after Rocketry for science victory.","Adopt "..threshold.." "..(if threshold==1 then "policy" else "policies").." for culture victory.","Highest score wins at the round limit; ties favor civilization 1."}}
 end
 -- Pure, fog-safe query for one attack the actor's unit could make now. It never mutates the
 -- state and answers the same generic message for hidden, empty or out-of-range targets.
