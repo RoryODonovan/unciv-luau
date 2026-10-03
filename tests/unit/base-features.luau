@@ -190,6 +190,12 @@ do
     for _, id in Rules.featureOrder do assert(featureKinds[id],"generation places "..id) end
     assert(mapsWithRivers==24 and riverNetworks>=200,"every sampled map has rivers: "..mapsWithRivers.." maps, "..riverNetworks.." networks")
     assert(pentagonRivers>0,"rivers also run along pentagon edges")
+    -- Generated hex ids run by x and then y, so an interior tile's ascending neighbours (bits 0-5) sit at the offsets
+    -- (-1,-1), (-1,0), (0,-1), (0,1), (1,0), (1,1), as the documentation tells renderers.
+    local hexMap=WorldMap.generate(3,10); local origin=WorldMap.tileId(hexMap,2,-1) :: number
+    local expectedOrder={}
+    for _, offset in {{-1,-1},{-1,0},{0,-1},{0,1},{1,0},{1,1}} do table.insert(expectedOrder,WorldMap.tileId(hexMap,2+offset[1],-1+offset[2]) :: number) end
+    assert(equal(hexMap.neighbors[origin],expectedOrder),"interior hex neighbour order")
     -- A different seed changes the rivers.
     local a,b=WorldMap.generate(5,15),WorldMap.generate(6,15); local differ=0
     for id,t in a.tiles do if t.river~=b.tiles[id].river then differ += 1 end end
