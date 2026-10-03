@@ -18,7 +18,7 @@ Heap Dijkstra retains ascending tile-ID resolution for equal costs; local visibi
 
 ## CLI measurements
 
-Run `luau tools/benchmark-map-sizes.luau` with the official Luau 0.740 CLI. It measures complete generation, opposite-start paths, detached actor snapshots, real solo rounds including AI, and detached save-table validation/copy/restore. It does not measure Roblox rendering, JSON encoding, network transfer, storage or client hardware. No runtime performance threshold is asserted by tests.
+Run `luau tools/benchmark-map-sizes.luau` with the official Luau 0.740 CLI. It measures complete generation, paths between the generated starting sites (fixed opposite coordinates can be separated by water or mountains on coherent maps), detached actor snapshots, real solo rounds including AI, and detached save-table validation/copy/restore. It does not measure Roblox rendering, JSON encoding, network transfer, storage or client hardware. No runtime performance threshold is asserted by tests.
 
 A Windows run on 2026-10-01 after the changes measured:
 

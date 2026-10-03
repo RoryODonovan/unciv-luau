@@ -27,7 +27,8 @@ local occupied={}; for _,u in stress.units do occupied[u.tileId]=true end
 for _,tile in stress.tiles do
     if #stress.units>=169 then break end
     if occupied[tile.id] then continue end
-    tile.terrain="Plains"; tile.resource=nil
+    -- Plains takes no Oasis or Marsh, so the stress fixture clears the feature with the terrain (rivers stay valid).
+    tile.terrain="Plains"; tile.resource=nil; tile.feature=nil
     table.insert(stress.units,{id=stress.nextUnit,ownerId=if stress.nextUnit%2==0 then 1 else 2,kind="Warrior",tileId=tile.id,hp=100,moves=2,fortified=false,level=0}); stress.nextUnit+=1
 end
 stress.diplomacy.status="War"; assert(Game.serialize(stress))

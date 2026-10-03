@@ -1,6 +1,6 @@
 --!strict
 -- Generated module-only Roblox form. Source: src/simulation/BaseSave.luau
--- Source SHA-256: 55b3c73d54942dd2bf4b9017b89717a0a38ff8f11bc5b8a984e0df9f2f42ac49
+-- Source SHA-256: 309d1ffc006895a277b72a01d3bd63ca0a256eaed1fd583bbf95e57eeeb4ec9f
 -- Reproduce with tools/roblox-export.mjs; preserve MPL notices below.
 -- Covered source: https://github.com/RoryODonovan/unciv-luau
 -- This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
@@ -11,10 +11,11 @@
 -- Original exact bounded hex version-1 / sphere version-2 trust boundary; validates before copying.
 local Rules=require(script.Parent.BaseRules)
 local HexMath=require(script.Parent.Parent.map.HexMath)
+local SphereTopology=require(script.Parent.Parent.map.SphereTopology)
 local BaseSave={}
--- Structural work budget: 4,921 tiles with all 8 fields and two fully explored players,
+-- Structural work budget: 4,921 tiles with all 10 fields and two fully explored players,
 -- plus independently bounded units/cities/events. This is a hard bound, not an unbounded traversal.
-local maxTreeEntries=65536
+local maxTreeEntries=81920
 local function number(value: any,low: number,high: number): boolean return type(value)=="number" and value==value and value>=low and value<=high end
 local function integer(value: any,low: number,high: number): boolean return number(value,low,high) and value%1==0 end
 -- Movement is a multiple of 1/6: whole and half moves (every earlier save) and the thirds a road step leaves.
@@ -76,8 +77,46 @@ end
 local function improvement(tile: any,kind: string): boolean
     local rule=Rules.improvements[kind]
     if not rule or rule.road or not table.find(rule.terrains,tile.terrain) then return false end
+    if tile.feature~=nil and not table.find(Rules.features[tile.feature].improvements,kind) then return false end
     if kind=="Farm" or kind=="Mine" then return tile.resource==nil or table.find(rule.resources,tile.resource)~=nil end
     return tile.resource~=nil and table.find(rule.resources,tile.resource)~=nil
+end
+-- River masks: bit k marks the edge to the tile's (k+1)-th neighbour in ascending id order. Each marked edge must exist,
+-- join two passable tiles and be marked on both sides. Topology is derived only when a tile has a river, from the
+-- validated coordinates (Hex) or the public sphere descriptor for the validated frequency (Sphere).
+local hexOffsets={{1,0},{0,1},{1,1},{-1,0},{0,-1},{-1,-1}}
+local function rivers(s: any,sphere: boolean): boolean
+    local any=false
+    for _,tile in s.tiles do if tile.river~=nil then any=true; break end end
+    if not any then return true end
+    -- Neighbour lists, built only for river tiles and the tiles across their marked edges. Hex coordinates are validated
+    -- integers within the radius, so each has a distinct numeric key (outside coordinates map to nothing).
+    local cells=if sphere then SphereTopology.generate(s.frequency).cells else nil
+    local width=if sphere then 0 else 2*s.radius+3
+    local function key(x: number,y: number): number return (x+s.radius+1)*width+(y+s.radius+1) end
+    local ids: {[number]: number}={}
+    if not sphere then for id,tile in s.tiles do ids[key(tile.x,tile.y)]=id end end
+    local lists: {[number]: {number}}={}
+    local function neighborsOf(id: number): {number}
+        if cells then return cells[id].neighbors end
+        local list=lists[id]
+        if list then return list end
+        local tile=s.tiles[id]; list={}
+        for _,offset in hexOffsets do local other=ids[key(tile.x+offset[1],tile.y+offset[2])]; if other then table.insert(list,other) end end
+        table.sort(list); lists[id]=list; return list
+    end
+    for id,tile in s.tiles do
+        local mask=tile.river
+        if mask==nil then continue end
+        local list=neighborsOf(id)
+        if mask>=bit32.lshift(1,#list) or not Rules.terrains[tile.terrain].passable then return false end
+        for index,other in list do
+            if not bit32.btest(mask,bit32.lshift(1,index-1)) then continue end
+            local opposite=s.tiles[other]; local back=table.find(neighborsOf(other),id)
+            if opposite.river==nil or not back or not bit32.btest(opposite.river,bit32.lshift(1,back-1)) or not Rules.terrains[opposite.terrain].passable then return false end
+        end
+    end
+    return true
 end
 function BaseSave.valid(saved: any): boolean
     if not plainTree(saved) or not object(saved,"format version state") or saved.format~="unciv-luau-base" or (saved.version~=1 and saved.version~=2) then return false end
@@ -100,13 +139,18 @@ function BaseSave.valid(saved: any): boolean
     if not array(s.tiles,Rules.maxTiles) or #s.tiles~=(if sphere then 10*s.frequency*s.frequency+2 else 1+3*s.radius*(s.radius+1)) or not array(s.units,Rules.maxUnits) or not array(s.cities,Rules.maxCities) or not array(s.players,2) or #s.players~=2 then return false end
     local coordinates,tiles={},{}
     for index,tile in s.tiles do
-        if not object(tile,if sphere then "id terrain resource ownerId improvement road" else "id x y terrain resource ownerId improvement road") or tile.id~=index then return false end
+        if not object(tile,if sphere then "id terrain resource ownerId improvement road feature river" else "id x y terrain resource ownerId improvement road feature river") or tile.id~=index then return false end
         if not sphere and (not integer(tile.x,-s.radius,s.radius) or not integer(tile.y,-s.radius,s.radius) or HexMath.getDistanceXY(0,0,tile.x,tile.y)>s.radius) then return false end
         if type(tile.terrain)~="string" or not Rules.terrains[tile.terrain] or (tile.resource~=nil and (type(tile.resource)~="string" or not Rules.resources[tile.resource])) then return false end
+        -- Optional feature (absent in saves written before features: none): a known feature on one of its terrains.
+        if tile.feature~=nil and (type(tile.feature)~="string" or not Rules.features[tile.feature] or not table.find(Rules.features[tile.feature].terrains,tile.terrain)) then return false end
         if tile.resource~=nil then
             local resource=Rules.resources[tile.resource]
             if not table.find(Rules.improvements[resource.improvement].terrains,tile.terrain) then return false end
+            if tile.feature~=nil and not table.find(Rules.features[tile.feature].improvements,resource.improvement) then return false end
         end
+        -- Optional river edge mask (absent in saves written before rivers: none), checked against the topology below.
+        if tile.river~=nil and not integer(tile.river,1,63) then return false end
         if tile.ownerId~=nil and not owner(tile.ownerId) then return false end
         if tile.road~=nil and (type(tile.road)~="boolean" or (tile.road and not Rules.terrains[tile.terrain].passable)) then return false end
         if tile.improvement~=nil and (type(tile.improvement)~="string" or not improvement(tile,tile.improvement)) then return false end
@@ -116,6 +160,7 @@ function BaseSave.valid(saved: any): boolean
         end
         tiles[index]=tile
     end
+    if not rivers(s,sphere) then return false end
     for index,p in s.players do
         if not object(p,"id human gold science culture happiness technologies policies research explored resources income") or p.id~=index or p.human~=(index<=s.humanPlayers) then return false end
         if not integer(p.gold,0,1000000000) or not integer(p.science,0,1000000000) or not integer(p.culture,0,1000000000) or not integer(p.happiness,-10000,10000) then return false end

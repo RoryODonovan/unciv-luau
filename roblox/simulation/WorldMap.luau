@@ -1,6 +1,6 @@
 --!strict
 -- Generated module-only Roblox form. Source: src/simulation/WorldMap.luau
--- Source SHA-256: 191b1dc9999e24f5f744ca3de7ab4d5413e3a1103a5d72288aedf45c78b0ef6a
+-- Source SHA-256: c534ad55c391aed6fddca826a88ac813632dcc5ddd4a72de95d8dd341e78b17a
 -- Reproduce with tools/roblox-export.mjs; preserve MPL notices below.
 -- Covered source: https://github.com/RoryODonovan/unciv-luau
 -- This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
@@ -13,7 +13,10 @@ local HexMath = require(script.Parent.Parent.map.HexMath)
 local SphereTopology = require(script.Parent.Parent.map.SphereTopology)
 local WorldGeneration = require(script.Parent.Parent.map.WorldGeneration)
 local Rules = require(script.Parent.BaseRules)
-export type Tile = {id: number, x: number?, y: number?, terrain: string, resource: string?, ownerId: number?, improvement: string?, road: boolean?}
+-- `feature` is an optional terrain feature (BaseRules.features). `river` is an optional edge mask: bit k (value 2^k) marks
+-- a river on the edge to the tile's (k+1)-th neighbour in ascending tile-id order (`map.neighbors[id]`, which is sorted on
+-- both topologies). Both tiles of a river edge carry the bit.
+export type Tile = {id: number, x: number?, y: number?, terrain: string, resource: string?, ownerId: number?, improvement: string?, road: boolean?, feature: string?, river: number?}
 export type Map = {radius: number, tiles: {Tile}, index: {[string]: number}, neighbors: {{number}}, mapShape: string?, frequency: number?, startIds: {number}?, distanceRows: {[number]: {number}}?, distanceOrder: {number}?}
 export type Cost = (number, number) -> number?
 local WorldMap = {}
@@ -27,7 +30,7 @@ function WorldMap.fromTiles(tiles: {Tile}, radius: number): Map
     for id, tile in tiles do
         assert(tile.id == id and tile.x ~= nil and tile.y ~= nil and integer(tile.x) and integer(tile.y) and HexMath.getDistanceXY(0,0,tile.x,tile.y) <= radius, "invalid map tile")
         local coordinate = key(tile.x :: number,tile.y :: number)
-        assert(index[coordinate] == nil and Rules.terrains[tile.terrain] ~= nil, "duplicate coordinate or invalid terrain")
+        assert(index[coordinate] == nil and Rules.terrains[tile.terrain] ~= nil and (tile.feature == nil or Rules.features[tile.feature] ~= nil), "duplicate coordinate or invalid terrain")
         index[coordinate]=id
     end
     for id, tile in tiles do
@@ -50,7 +53,7 @@ function WorldMap.generate(seed: number, radius: number): Map
     end end
     local map=WorldMap.fromTiles(tiles,radius)
     local generated=WorldGeneration.generate(seed,centers,map.neighbors,"Hex")
-    for id,tile in tiles do tile.terrain=generated.tiles[id].terrain; tile.resource=generated.tiles[id].resource end
+    for id,tile in tiles do local made=generated.tiles[id]; tile.terrain=made.terrain; tile.resource=made.resource; tile.feature=made.feature; tile.river=made.river end
     map.startIds=table.clone(generated.starts)
     return map
 end
@@ -98,7 +101,7 @@ function WorldMap.fromSphereTiles(tiles: {Tile}, frequency: number): Map
     assert(#tiles==#descriptor.cells,"incomplete sphere")
     local neighbors: {{number}}={}
     for id,tile in tiles do
-        assert(tile.id==id and tile.x==nil and tile.y==nil and Rules.terrains[tile.terrain],"invalid sphere tile")
+        assert(tile.id==id and tile.x==nil and tile.y==nil and Rules.terrains[tile.terrain] and (tile.feature==nil or Rules.features[tile.feature]~=nil),"invalid sphere tile")
         neighbors[id]=descriptor.cells[id].neighbors
     end
     return {radius=0,tiles=tiles,index={},neighbors=neighbors,mapShape="Sphere",frequency=frequency}
@@ -120,7 +123,7 @@ function WorldMap.generateSphere(seed: number, frequency: number): Map
     end
     local map=WorldMap.fromSphereTiles(tiles,frequency)
     local generated=WorldGeneration.generate(seed,centers,map.neighbors,"Sphere")
-    for id,tile in tiles do tile.terrain=generated.tiles[id].terrain; tile.resource=generated.tiles[id].resource end
+    for id,tile in tiles do local made=generated.tiles[id]; tile.terrain=made.terrain; tile.resource=made.resource; tile.feature=made.feature; tile.river=made.river end
     map.startIds=table.clone(generated.starts)
     return map
 end
@@ -128,8 +131,26 @@ function WorldMap.movementCost(tile: Tile): number?
     local terrain=Rules.terrains[tile.terrain]
     if not terrain or not terrain.passable then return nil end
     -- The generic per-tile entry cost keeps one move on a road. The base game's road rule depends on the tile moved
-    -- from (a third of a move between two road tiles, Rules.roadMovement), which an entry cost cannot express.
-    return if tile.road then 1 else terrain.movement
+    -- from (a third of a move between two road tiles, Rules.roadMovement), which an entry cost cannot express, and so
+    -- does its river-crossing rule (the edge crossed, not the tile entered).
+    if tile.road then return 1 end
+    local feature=if tile.feature then Rules.features[tile.feature] else nil
+    return if feature then math.max(terrain.movement,feature.movement) else terrain.movement
+end
+-- Whether a river runs along the edge between adjacent tiles `first` and `second` (false when they are not adjacent).
+-- Reads `first`'s mask; a valid map carries the same edge on both sides.
+function WorldMap.riverBetween(map: Map, first: number, second: number): boolean
+    local mask=map.tiles[first].river
+    if not mask then return false end
+    local index=table.find(map.neighbors[first],second)
+    return index~=nil and bit32.btest(mask,bit32.lshift(1,index-1))
+end
+-- The neighbours of `tileId` across a river edge, ascending (empty without a river).
+function WorldMap.riverNeighbors(map: Map, tileId: number): {number}
+    local mask=map.tiles[tileId].river; local ids: {number}={}
+    if not mask then return ids end
+    for index,other in map.neighbors[tileId] do if bit32.btest(mask,bit32.lshift(1,index-1)) then table.insert(ids,other) end end
+    return ids
 end
 -- Heap order matches the former scan: minimum cost first, then ascending tile ID.
 type Entry = {id: number, cost: number}
@@ -208,7 +229,7 @@ function WorldMap.projectTiles(map: Map, discovered: {number}, visible: {number}
     local result: {any} = {}
     for _, tile in map.tiles do
         local row: any={id=tile.id,x=tile.x,y=tile.y,discovered=known[tile.id]==true,visible=shown[tile.id]==true}
-        if known[tile.id] then row.terrain=tile.terrain; row.resource=tile.resource end
+        if known[tile.id] then row.terrain=tile.terrain; row.resource=tile.resource; row.feature=tile.feature; row.river=tile.river end
         if shown[tile.id] then row.ownerId=tile.ownerId; row.improvement=tile.improvement; row.road=tile.road end
         table.insert(result,row)
     end

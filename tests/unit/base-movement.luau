@@ -55,6 +55,8 @@ local function adjacent(g: any,a: number,b: number): boolean return table.find(g
 -- each city so the cities see none of it. Player 1 is to move.
 local function arena(seed: number): (any,number,any)
     local s: any=Game.new(seed,{humanPlayers=2,radius=12})
+    -- These fixtures pin earlier rules on bare terrain: terrain features and rivers (G4) are removed from the whole map.
+    for _, t in s.tiles do t.feature=nil; t.river=nil end
     apply(s,1,{kind="FoundCity",unitId=firstUnit(s,1,"Settler").id}); apply(s,1,{kind="EndTurn"})
     apply(s,2,{kind="FoundCity",unitId=firstUnit(s,2,"Settler").id}); apply(s,2,{kind="EndTurn"})
     s.units={}
@@ -422,6 +424,8 @@ end
 -- 5. Saves written before these rules restore unchanged (whole and half moves) and then move under them.
 do
     local map=WorldMap.generate(124,3)
+    -- A save written before G4 has no features or rivers.
+    for _, t in map.tiles do t.feature=nil; t.river=nil end
     local function at(x: number,y: number): number return WorldMap.tileId(map,x,y) :: number end
     local hub,west,east,rival=at(0,0),at(-2,0),at(1,0),at(3,0)
     local path={at(-2,1),at(-1,1),at(0,1)}

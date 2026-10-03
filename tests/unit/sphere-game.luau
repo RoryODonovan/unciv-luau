@@ -62,10 +62,10 @@ for _,preset in Sizes.spherePresets do
     local occupied={[seamA]=true,[seamB]=true}
     for _,u in seamState.units do if u~=mover then
         local id=u.tileId; while occupied[id] do id=id%#seamState.tiles+1 end
-        occupied[id]=true; u.tileId=id; seamState.tiles[id].terrain="Plains"; seamState.tiles[id].resource=nil
+        occupied[id]=true; u.tileId=id; seamState.tiles[id].terrain="Plains"; seamState.tiles[id].resource=nil; seamState.tiles[id].feature=nil
     end end
     mover.tileId=seamA; mover.moves=2
-    for _,id in {seamA,seamB} do seamState.tiles[id].terrain="Plains"; seamState.tiles[id].resource=nil end
+    for _,id in {seamA,seamB} do seamState.tiles[id].terrain="Plains"; seamState.tiles[id].resource=nil; seamState.tiles[id].feature=nil end
     apply(seamState,1,{kind="MoveUnit",unitId=mover.id,tileId=seamB}); assert(mover.tileId==seamB and Save.valid(Game.serialize(seamState)))
     local defender=unit(seamState,2,"Warrior"); defender.tileId=seamA; defender.hp=100
     seamState.diplomacy.status="War"; mover.moves=2
@@ -90,7 +90,7 @@ local occupied={}; for _,u in stress.units do occupied[u.tileId]=true end
 for _,tile in stress.tiles do
     if #stress.units>=169 then break end
     if occupied[tile.id] then continue end
-    tile.terrain="Plains"; tile.resource=nil
+    tile.terrain="Plains"; tile.resource=nil; tile.feature=nil
     table.insert(stress.units,{id=stress.nextUnit,ownerId=if stress.nextUnit%2==0 then 1 else 2,kind="Warrior",tileId=tile.id,hp=100,moves=2,fortified=false,level=0}); stress.nextUnit+=1
 end
 stress.diplomacy.status="War"

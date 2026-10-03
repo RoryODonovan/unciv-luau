@@ -10,13 +10,13 @@ Reusable MPL-2.0 Luau conversions of selected [Unciv](https://github.com/yairm21
 | `src/map/MapSizes.luau` | Immutable Tiny through Huge hex presets, matching upstream radii 10/15/20/30/40 |
 | `src/map/HexMath.luau` | Distances, rings, world conversion, rounding and indexed coordinates |
 | `src/map/SphereTopology.luau` | Original closed icosahedral dual sphere, deterministic IDs, twelve pentagons and remaining hexagons |
-| `src/map/WorldGeneration.luau` | Original layered continents, coastlines, mountain belts, climate biomes, resource regions and connected viable starting sites |
+| `src/map/WorldGeneration.luau` | Original layered continents, coastlines, mountain belts, climate biomes, Forest/Jungle/Marsh/Oasis features, downhill rivers, resource regions and connected viable starting sites |
 | `src/models/stats/Stat.luau` | Identifiers, lookup and classifications |
 | `src/models/stats/Stats.luau` | Mutable values, copy arithmetic, aggregates and supported parsing |
 | `src/models/Counter.luau` | Ordered string-key integer counters and arithmetic |
 | `src/simulation/Mechanics.luau` | Attributed partial combat damage and population growth formulas |
 | `src/simulation/Game.luau`, `Rules.luau` | Preserved original single-player simulation and legacy saves |
-| `src/simulation/BaseGame.luau`, `BaseRules.luau`, `BaseSave.luau`, `WorldMap.luau` | Two-civilization land game: fog, weighted movement, workers, resources, city economy, technology, culture, diplomacy, trade, ranged combat, city strikes with garrison and siege bonuses, experience and promotions, and four victories |
+| `src/simulation/BaseGame.luau`, `BaseRules.luau`, `BaseSave.luau`, `WorldMap.luau` | Two-civilization land game: fog, weighted movement, terrain features and rivers, workers, resources, city economy, technology, culture, diplomacy, trade, ranged combat, city strikes with garrison and siege bonuses, experience and promotions, and four victories |
 
 The foundation modules are partial, tested conversions. [Base game API and limits](docs/base-game.md) document the new two-civilization simulation, including actor-specific snapshots and shared-game command authority. [Map and save foundations](docs/base-foundations.md) document its pathfinding and bounded serialization. [World generation](docs/world-generation.md) explains the original geography layers, starting-region guarantees and seed/save compatibility. [Simulation API and limitations](docs/simulation.md) document the original playable headless slice and its legal winning replay. [Hex limitations](docs/hex-conversion.md) and [statistics/counter limitations](docs/stats-conversion.md) list omitted APIs and numeric/platform differences. Tests use upstream-derived expected values and properties; no Kotlin/JVM differential execution or full-game parity is claimed.
 

@@ -20,6 +20,17 @@ end
 local function apply(state: any,owner: number,command: any)
     local result=Game.apply(state,owner,command); assert(result.ok,result.message)
 end
+-- Natural food and production under the game rules: the terrain's, replaced (Forest, Jungle, Oasis) or reduced (Marsh)
+-- by a feature, plus the resource's.
+local function natural(tile: any): (number,number)
+    local terrain=Rules.terrains[tile.terrain]; local feature=if tile.feature then Rules.features[tile.feature] else nil
+    local food,production=terrain.yields.food,terrain.yields.production
+    if feature and feature.overrideYields then food,production=feature.yields.food,feature.yields.production
+    elseif feature then food+=feature.yields.food; production+=feature.yields.production end
+    food,production=math.max(0,food),math.max(0,production)
+    if tile.resource then local r=Rules.resources[tile.resource].yields; food+=r.food; production+=r.production end
+    return food,production
+end
 local function metadataFree(value: any)
     if type(value)~="table" then return end
     for key,child in value do
@@ -36,8 +47,8 @@ for owner,start in protectedStarts do
     for _,id in protectedMap.neighbors[start] do
         local tile=protectedMap.tiles[id]
         local terrain=Rules.terrains[tile.terrain]
-        local resource=if tile.resource then Rules.resources[tile.resource].yields else {food=0,production=0}
-        if terrain.passable and terrain.yields.food+resource.food>=2 and terrain.yields.production+resource.production>=1 then workTile=true end
+        local food,production=natural(tile)
+        if terrain.passable and food>=2 and production>=1 then workTile=true end
     end
     assert(workTile,string.format("Sphere Duel seed116784261 actor%d needs one same adjacent food/production work tile after both repairs",owner))
 end
@@ -64,6 +75,7 @@ print("Sphere Duel protected-neighbor seed116784261: both useful work tiles, act
 local names={"Duel","Tiny","Small","Medium","Large","Huge"}
 local seeds={0,1,2,42,73,99991}
 local seenTerrains: {[string]: boolean}={}
+local seenFeatures: {[string]: boolean}={}
 local scenarios=0
 for _,shape in {"Hex","Sphere"} do
     for _,name in names do
@@ -81,6 +93,7 @@ for _,shape in {"Hex","Sphere"} do
             for id,tile in map.tiles do
                 assert(tile.id==id and Rules.terrains[tile.terrain])
                 seenTerrains[tile.terrain]=true
+                if tile.feature then seenFeatures[tile.feature]=true; assert(table.find(Rules.features[tile.feature].terrains,tile.terrain),"a feature on one of its terrains") end
                 if tile.terrain=="Tundra" then assert(tile.resource==nil) end
                 if shape=="Sphere" then assert(tile.x==nil and tile.y==nil)
                 else assert(tile.x~=nil and tile.y~=nil and Map.tileId(map,tile.x,tile.y)==id) end
@@ -93,9 +106,7 @@ for _,shape in {"Hex","Sphere"} do
                     local tile=map.tiles[id]; local rule=Rules.terrains[tile.terrain]
                     if rule.passable then
                         deployment+=1
-                        local resource=if tile.resource then Rules.resources[tile.resource].yields else {food=0,production=0}
-                        local tileFood=rule.yields.food+resource.food
-                        local tileProduction=rule.yields.production+resource.production
+                        local tileFood,tileProduction=natural(tile)
                         food=math.max(food,tileFood); production=math.max(production,tileProduction)
                         if tileFood>=2 and tileProduction>=1 then initialWorkTile=true end
                     end
@@ -141,7 +152,9 @@ for _,shape in {"Hex","Sphere"} do
         print(string.format("%s %s coherent worlds: %d seeds, legal deployment, founding, exact saves and AI %.2fms",shape,name,#seeds,(os.clock()-began)*1000))
     end
 end
-assert(seenTerrains.Tundra and seenTerrains.Water and seenTerrains.Mountain and seenTerrains.Forest and seenTerrains.Desert)
+-- Woods are a feature now: new worlds hold no Forest terrain (it stays valid for older saves) but every feature.
+assert(seenTerrains.Tundra and seenTerrains.Water and seenTerrains.Mountain and not seenTerrains.Forest and seenTerrains.Desert)
+for _,id in Rules.featureOrder do assert(seenFeatures[id],"worlds include "..id) end
 assert(Rules.terrains.Tundra.passable and Rules.terrains.Tundra.movement==1 and Rules.terrains.Tundra.defensePercent==0 and Rules.terrains.Tundra.yields.food==1)
 assert(not table.find(Rules.improvements.Farm.terrains,"Tundra"),"generation must not expand unrelated improvement balance")
 -- Existing public support includes frequency one, tiny-map capacity and finite safe integer seeds.
@@ -164,6 +177,7 @@ for _,shape in {"Hex","Sphere"} do
     for id,tile in saved.state.tiles do
         tile.terrain=if id%5==0 then "Water" elseif id%3==0 then "Forest" else "Plains"
         tile.resource=if tile.terrain=="Forest" then "Deer" else nil
+        tile.feature=nil; tile.river=nil
     end
     for _,u in saved.state.units do saved.state.tiles[u.tileId].terrain="Plains"; saved.state.tiles[u.tileId].resource=nil end
     assert(Save.valid(saved) and not equal(saved.state.tiles,state.tiles))

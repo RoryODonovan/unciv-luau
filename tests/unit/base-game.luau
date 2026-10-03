@@ -27,6 +27,8 @@ local function firstCity(s: any,owner: number): any
 end
 local function founded(seed: number?,radius: number?): any
     local s=Game.new(seed or 1,{humanPlayers=2,radius=radius or 4})
+    -- These fixtures pin earlier rules on bare terrain: terrain features and rivers (G4) are removed from the whole map.
+    for _, t in s.tiles do t.feature=nil; t.river=nil end
     apply(s,1,{kind="FoundCity",unitId=firstUnit(s,1,"Settler").id})
     apply(s,1,{kind="EndTurn"})
     apply(s,2,{kind="FoundCity",unitId=firstUnit(s,2,"Settler").id})
@@ -210,7 +212,7 @@ local capped: any=Game.new(13,{humanPlayers=2,radius=7})
 apply(capped,1,{kind="FoundCity",unitId=firstUnit(capped,1,"Settler").id}); capped.players[1].gold=1000
 local occupiedTiles={}; for _, u in capped.units do occupiedTiles[u.tileId]=true end
 for _, tile in capped.tiles do
-    tile.terrain="Plains"
+    tile.terrain="Plains"; tile.feature=nil
     if not occupiedTiles[tile.id] then table.insert(capped.units,{id=capped.nextUnit,ownerId=1,kind="Warrior",tileId=tile.id,hp=100,moves=0,fortified=false,level=0}); capped.nextUnit += 1 end
 end
 assert(#capped.units==Rules.maxUnits)
