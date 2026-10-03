@@ -3,13 +3,22 @@
 -- Provenance-Kind: original
 -- Original bounded civilization balance; no copied Unciv ruleset or media.
 export type Yields = {food: number, production: number, gold: number, science: number, culture: number}
-export type UnitRule = {id: string, cost: number, purchaseCost: number, hp: number, moves: number, strength: number, rangedStrength: number, range: number, maintenance: number, technology: string?, resource: string?, resourceAmount: number?, upgradeTo: string?}
+-- unitClass: "Melee" (strength above zero, range 1; Scouts included), "Ranged" (range above 1) or "Civilian" (strength 0).
+-- It decides which promotions a unit may take.
+export type UnitRule = {id: string, cost: number, purchaseCost: number, hp: number, moves: number, strength: number, rangedStrength: number, range: number, maintenance: number, technology: string?, resource: string?, resourceAmount: number?, upgradeTo: string?, unitClass: string}
 export type BuildingRule = {id: string, cost: number, purchaseCost: number, maintenance: number, technology: string?, yields: Yields, happiness: number, defense: number}
 export type Technology = {id: string, name: string, cost: number, prerequisites: {string}}
 export type Policy = {id: string, name: string, cost: number, prerequisites: {string}, yields: Yields, happiness: number, maintenanceDiscount: number}
 export type Improvement = {id: string, technology: string?, terrains: {string}, resources: {string}, turns: number, yields: Yields, road: boolean}
 -- defensePercent: percentage added to a defender's strength on this terrain (Hills/Forest +25%).
-export type Terrain = {id: string, movement: number, passable: boolean, defensePercent: number, yields: Yields}
+-- rough: Hills and Forest (and impassable Mountain) are rough terrain for promotions (Drill); every other passable
+-- terrain is open (Shock).
+export type Terrain = {id: string, movement: number, passable: boolean, defensePercent: number, rough: boolean, yields: Yields}
+-- A promotion's percentages add to the unit's combat strength in one strike, in the same sum as the other modifiers:
+-- roughPercent when the strike's target tile is rough, openPercent when it is open, coverPercent while defending
+-- against a ranged attack, accuracyPercent on a ranged attack against a unit. adjacentHeal is extra healing for the
+-- owner's resting units next to this unit (several medics do not stack). All prerequisites must be taken first.
+export type Promotion = {id: string, name: string, prerequisites: {string}, classes: {string}, roughPercent: number, openPercent: number, coverPercent: number, accuracyPercent: number, adjacentHeal: number}
 export type Resource = {id: string, category: string, yields: Yields, happiness: number, improvement: string}
 local function yields(food: number?, production: number?, gold: number?, science: number?, culture: number?): Yields
     return {food=food or 0, production=production or 0, gold=gold or 0, science=science or 0, culture=culture or 0}
@@ -21,7 +30,8 @@ local function freeze(value: any)
 end
 local units: {[string]: UnitRule} = {}
 local function unit(id: string, cost: number, hp: number, moves: number, strength: number, technology: string?, rangedStrength: number?, range: number?, resource: string?)
-    units[id] = {id=id,cost=cost,purchaseCost=cost*4,hp=hp,moves=moves,strength=strength,rangedStrength=rangedStrength or 0,range=range or 1,maintenance=if strength > 0 then 1 else 0,technology=technology,resource=resource,resourceAmount=if resource then 1 else nil}
+    local class=if strength<=0 then "Civilian" elseif (range or 1)>1 then "Ranged" else "Melee"
+    units[id] = {id=id,cost=cost,purchaseCost=cost*4,hp=hp,moves=moves,strength=strength,rangedStrength=rangedStrength or 0,range=range or 1,maintenance=if strength > 0 then 1 else 0,technology=technology,resource=resource,resourceAmount=if resource then 1 else nil,unitClass=class}
 end
 unit("Scout",9,60,3,4); unit("Warrior",12,100,2,10); unit("Settler",24,50,2,0); unit("Worker",16,50,2,0)
 unit("Archer",18,70,2,5,"Archery",12,2); unit("Swordsman",28,100,2,18,"IronWorking",nil,nil,"Iron")
@@ -53,14 +63,14 @@ local policies: {[string]: Policy} = {
     Patronage={id="Patronage",name="Patronage",cost=65,prerequisites={"Commerce"},yields=yields(0,0,0,0,3),happiness=2,maintenanceDiscount=0},
 }
 local terrains: {[string]: Terrain} = {
-    Plains={id="Plains",movement=1,passable=true,defensePercent=0,yields=yields(2,1)},
-    Grassland={id="Grassland",movement=1,passable=true,defensePercent=0,yields=yields(3)},
-    Hills={id="Hills",movement=2,passable=true,defensePercent=25,yields=yields(1,2)},
-    Forest={id="Forest",movement=2,passable=true,defensePercent=25,yields=yields(1,2)},
-    Desert={id="Desert",movement=1,passable=true,defensePercent=0,yields=yields(0,1)},
-    Tundra={id="Tundra",movement=1,passable=true,defensePercent=0,yields=yields(1)},
-    Water={id="Water",movement=1,passable=false,defensePercent=0,yields=yields(1,0,1)},
-    Mountain={id="Mountain",movement=1,passable=false,defensePercent=0,yields=yields()},
+    Plains={id="Plains",movement=1,passable=true,defensePercent=0,rough=false,yields=yields(2,1)},
+    Grassland={id="Grassland",movement=1,passable=true,defensePercent=0,rough=false,yields=yields(3)},
+    Hills={id="Hills",movement=2,passable=true,defensePercent=25,rough=true,yields=yields(1,2)},
+    Forest={id="Forest",movement=2,passable=true,defensePercent=25,rough=true,yields=yields(1,2)},
+    Desert={id="Desert",movement=1,passable=true,defensePercent=0,rough=false,yields=yields(0,1)},
+    Tundra={id="Tundra",movement=1,passable=true,defensePercent=0,rough=false,yields=yields(1)},
+    Water={id="Water",movement=1,passable=false,defensePercent=0,rough=false,yields=yields(1,0,1)},
+    Mountain={id="Mountain",movement=1,passable=false,defensePercent=0,rough=true,yields=yields()},
 }
 local resources: {[string]: Resource} = {
     Wheat={id="Wheat",category="Bonus",yields=yields(1),happiness=0,improvement="Farm"},
@@ -78,6 +88,17 @@ local improvements: {[string]: Improvement} = {
     Camp={id="Camp",technology="Archery",terrains={"Forest","Plains"},resources={"Deer"},turns=2,yields=yields(1),road=false},
     Road={id="Road",technology="Engineering",terrains={"Plains","Grassland","Hills","Forest","Desert","Tundra"},resources={},turns=2,yields=yields(),road=true},
 }
+local promotions: {[string]: Promotion} = {}
+local function promotion(id: string, name: string, prerequisites: {string}, classes: {string}, effect: {roughPercent: number?, openPercent: number?, coverPercent: number?, accuracyPercent: number?, adjacentHeal: number?})
+    promotions[id]={id=id,name=name,prerequisites=prerequisites,classes=classes,roughPercent=effect.roughPercent or 0,openPercent=effect.openPercent or 0,
+        coverPercent=effect.coverPercent or 0,accuracyPercent=effect.accuracyPercent or 0,adjacentHeal=effect.adjacentHeal or 0}
+end
+-- Four lines: Drill (rough terrain) and Shock (open terrain) for melee units, Accuracy for ranged units, and Cover
+-- leading to Medic for both.
+promotion("Drill1","Drill I",{},{"Melee"},{roughPercent=15}); promotion("Drill2","Drill II",{"Drill1"},{"Melee"},{roughPercent=15})
+promotion("Shock1","Shock I",{},{"Melee"},{openPercent=15}); promotion("Shock2","Shock II",{"Shock1"},{"Melee"},{openPercent=15})
+promotion("Accuracy1","Accuracy I",{},{"Ranged"},{accuracyPercent=15})
+promotion("Cover1","Cover I",{},{"Melee","Ranged"},{coverPercent=33}); promotion("Medic","Medic",{"Cover1"},{"Melee","Ranged"},{adjacentHeal=5})
 local productionCosts: {[string]: number}, purchaseCosts: {[string]: number} = {}, {}
 for id, rule in units do productionCosts[id]=rule.cost; purchaseCosts[id]=rule.purchaseCost end
 for id, rule in buildings do productionCosts[id]=rule.cost; purchaseCosts[id]=rule.purchaseCost end
@@ -101,6 +122,14 @@ local rules = {
     fortifyDefensePercent=50,flankingPercent=10,maxFlankingPercent=30,
     -- Hit points a unit regains at the start of its owner's turn after a turn without moving or attacking.
     healing={neutral=10,friendly=15,city=20},
+    -- Experience from combat: a melee attacker gains 5, a unit defending against melee 4, a ranged attacker 2 and a
+    -- unit hit by a ranged attack 2. A strike on a civilian gives none, and civilians never gain any. A unit reaches a
+    -- level at each cumulative threshold (as in Civ V: 10, 30, 60...), and each level earned and not yet spent lets it
+    -- choose one promotion. Experience stops at the last threshold.
+    experience={meleeAttack=5,meleeDefense=4,rangedAttack=2,rangedDefense=2},experienceThresholds={10,30,60,100,150,210},maxExperience=210,
+    promotions=promotions,promotionOrder={"Drill1","Drill2","Shock1","Shock2","Accuracy1","Cover1","Medic"},
+    -- Taking a promotion heals this percentage of the unit's maximum hit points and ends its movement this turn.
+    promotionHealPercent=50,
 }
 freeze(rules)
 return rules

@@ -129,12 +129,23 @@ function BaseSave.valid(saved: any): boolean
     end
     local units,occupancy={},{}
     for _,u in s.units do
-        if not object(u,"id ownerId kind tileId hp moves fortified level work") or not id(u.id) or u.id>=s.nextUnit or units[u.id] or not owner(u.ownerId) or not integer(u.tileId,1,#s.tiles) or occupancy[u.tileId] then return false end
+        if not object(u,"id ownerId kind tileId hp moves fortified level xp promotions work") or not id(u.id) or u.id>=s.nextUnit or units[u.id] or not owner(u.ownerId) or not integer(u.tileId,1,#s.tiles) or occupancy[u.tileId] then return false end
         if type(u.kind)~="string" or not Rules.units[u.kind] then return false end
         local rule=Rules.units[u.kind]
         if rule.technology and not table.find(s.players[u.ownerId].technologies,rule.technology) then return false end
-        if not Rules.terrains[tiles[u.tileId].terrain].passable or not integer(u.hp,1,rule.hp) or not number(u.moves,0,rule.moves) or not sixths(u.moves) or type(u.fortified)~="boolean" or not integer(u.level,0,3) then return false end
+        if not Rules.terrains[tiles[u.tileId].terrain].passable or not integer(u.hp,1,rule.hp) or not number(u.moves,0,rule.moves) or not sixths(u.moves) or type(u.fortified)~="boolean" or not integer(u.level,0,#Rules.experienceThresholds) then return false end
         if u.fortified and rule.strength==0 then return false end
+        -- Optional experience and promotions (absent in saves written before them: 0 and none). Each promotion is a
+        -- distinct known id open to the unit's class, with its prerequisites taken, and the unit's experience has
+        -- earned at least that many levels. Level counts the promotions taken, so it is at least their number; a level
+        -- above it is a veteran level from before promotions existed, which carries no effect.
+        if u.xp~=nil and (not integer(u.xp,0,Rules.maxExperience) or (rule.unitClass=="Civilian" and u.xp>0)) then return false end
+        if u.promotions~=nil then
+            if not strings(u.promotions,Rules.promotions,#Rules.promotionOrder) or #u.promotions>u.level or not knowledge(u.promotions,Rules.promotions) then return false end
+            local earned=0; for _,threshold in Rules.experienceThresholds do if (u.xp or 0)>=threshold then earned+=1 end end
+            if #u.promotions>earned then return false end
+            for _,promotion in u.promotions do if not table.find(Rules.promotions[promotion].classes,rule.unitClass) then return false end end
+        end
         if u.work~=nil then
             local w=u.work
             if not object(w,"improvement remaining") or u.kind~="Worker" or u.moves~=0 or type(w.improvement)~="string" or not Rules.improvements[w.improvement] or not integer(w.remaining,1,Rules.improvements[w.improvement].turns) then return false end
@@ -164,7 +175,7 @@ function BaseSave.valid(saved: any): boolean
     end
     if not array(s.log,24) or not array(s.events,64) then return false end
     for _,message in s.log do if not text(message,256) then return false end end
-    local kinds={Move=true,Attack=true,Capture=true,FoundCity=true,Production=true,Research=true,Growth=true,Starvation=true,Victory=true,Purchase=true,Upgrade=true,Improvement=true,Policy=true,War=true,Peace=true,Trade=true,Defeat=true,RangedAttack=true,Disband=true,UnitLost=true,CityLost=true,Eliminated=true}
+    local kinds={Move=true,Attack=true,Capture=true,FoundCity=true,Production=true,Research=true,Growth=true,Starvation=true,Victory=true,Purchase=true,Upgrade=true,Improvement=true,Policy=true,War=true,Peace=true,Trade=true,Defeat=true,RangedAttack=true,Disband=true,UnitLost=true,CityLost=true,Eliminated=true,Promotion=true}
     local causes={Combat=true,Ranged=true,Upkeep=true,Captured=true,NoCities=true,NeverFounded=true,CapitalsLost=true}
     local previous=0
     for _,e in s.events do

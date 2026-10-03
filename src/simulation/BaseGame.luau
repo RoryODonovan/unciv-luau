@@ -15,8 +15,14 @@ export type Command = {kind: "MoveUnit" | "RangedAttack", unitId: number, tileId
     | {kind: "DeclareWar" | "OfferPeace" | "AcceptPeace", targetId: number}
     | {kind: "ProposeTrade", targetId: number, giveGold: number, receiveGold: number}
     | {kind: "AcceptTrade" | "CancelTrade", tradeId: number} | {kind: "EndTurn"}
+    | {kind: "PromoteUnit", unitId: number, promotion: string}
 export type Tile = {id: number, x: number?, y: number?, terrain: string, resource: string?, ownerId: number?, improvement: string?, road: boolean?}
-export type Unit = {id: number, ownerId: number, kind: string, tileId: number, hp: number, moves: number, fortified: boolean, level: number, work: {improvement: string, remaining: number}?}
+-- `xp` and `promotions` are optional (absent means 0 and none). `level` counts the promotions taken.
+export type Unit = {id: number, ownerId: number, kind: string, tileId: number, hp: number, moves: number, fortified: boolean, level: number, xp: number?, promotions: {string}?, work: {improvement: string, remaining: number}?}
+-- A unit in a snapshot. Every listed unit carries `level` and `promotions` (visible, as in Civ V). Only the actor's own
+-- units carry `xp`, `nextLevelXp` (the next threshold, absent at the last level) and `promotionsAvailable` (the ids
+-- PromoteUnit accepts now, empty while the actor cannot act).
+export type UnitView = {id: number, ownerId: number, kind: string, tileId: number, hp: number, moves: number, fortified: boolean, level: number, promotions: {string}, xp: number?, nextLevelXp: number?, promotionsAvailable: {string}?, work: {improvement: string, remaining: number}?}
 export type City = {id: number, ownerId: number, originalOwnerId: number, capital: boolean, tileId: number, name: string, population: number, food: number, production: number, queue: string, hp: number, buildings: {string}, focus: string}
 export type Research = {id: string, progress: number, cost: number}
 export type Player = {id: number, human: boolean, gold: number, science: number, culture: number, happiness: number, technologies: {string}, policies: {string}, research: Research?, explored: {number}, resources: {[string]: number}, income: {food: number, production: number, gold: number, science: number, culture: number, maintenance: number}}
@@ -33,9 +39,10 @@ export type AttackPreview = {unitId: number, tileId: number, target: string, ran
 export type MovePreview = {unitId: number, tileId: number, path: {number}, movesSpent: number, movesLeft: number, endsMovement: boolean, zoneOfControl: boolean}
 export type Technology = Rules.Technology
 export type Policy = Rules.Policy
+export type Promotion = Rules.Promotion
 export type State = {seed: number, radius: number?, mapShape: string?, frequency: number?, difficulty: string, humanPlayers: number, forest: boolean, maxTurns: number, cultureVictoryPolicies: number?, policyCostIncrease: number?, turn: number, revision: number, activePlayerId: number, phase: string, winner: number?, reason: string?, victoryType: string?, tiles: {Tile}, units: {Unit}, cities: {City}, players: {Player}, diplomacy: Diplomacy, trades: {Trade}, events: {Event}, nextEvent: number, nextUnit: number, nextCity: number, nextTrade: number, log: {string}}
 export type CityForecast = {food: number, production: number, gold: number, science: number, culture: number, growthTurns: number?, productionTurns: number?, productionBlocked: ("NotAvailable" | "NoSpace")?}
-export type View = {cityForecasts: {[string]: CityForecast}, seed: number?, radius: number?, mapShape: string?, frequency: number?, difficulty: string, humanPlayers: number, turn: number, revision: number, activePlayerId: number, actorId: number, canAct: boolean, phase: string, winner: number?, reason: string?, victoryType: string?, gold: number, science: number, culture: number, happiness: number, research: Research?, technologies: {string}, policies: {string}, resources: {[string]: number}, income: {food: number, production: number, gold: number, science: number, culture: number, maintenance: number}, tiles: {TileView}, units: {Unit}, cities: {CityView}, events: {Event}, log: {string}, legalMoves: {[string]: {number}}, availableProduction: {string}, availableProductionByCity: {[string]: {string}}, availablePurchasesByCity: {[string]: {string}}, availableResearch: {Technology}, availablePolicies: {Policy}, availableImprovements: {[string]: {string}}, productionCosts: {[string]: number}, purchaseCosts: {[string]: number}, scores: {number}, statistics: {Statistics}, progress: {Progress}, cultureVictoryPolicies: number, policyCostIncrease: number, attackPreviews: {[string]: {AttackPreview}}, diplomacy: Diplomacy, trades: {Trade}, objectives: {string}}
+export type View = {cityForecasts: {[string]: CityForecast}, seed: number?, radius: number?, mapShape: string?, frequency: number?, difficulty: string, humanPlayers: number, turn: number, revision: number, activePlayerId: number, actorId: number, canAct: boolean, phase: string, winner: number?, reason: string?, victoryType: string?, gold: number, science: number, culture: number, happiness: number, research: Research?, technologies: {string}, policies: {string}, resources: {[string]: number}, income: {food: number, production: number, gold: number, science: number, culture: number, maintenance: number}, tiles: {TileView}, units: {UnitView}, cities: {CityView}, events: {Event}, log: {string}, legalMoves: {[string]: {number}}, availableProduction: {string}, availableProductionByCity: {[string]: {string}}, availablePurchasesByCity: {[string]: {string}}, availableResearch: {Technology}, availablePolicies: {Policy}, availableImprovements: {[string]: {string}}, productionCosts: {[string]: number}, purchaseCosts: {[string]: number}, scores: {number}, statistics: {Statistics}, progress: {Progress}, cultureVictoryPolicies: number, policyCostIncrease: number, attackPreviews: {[string]: {AttackPreview}}, diplomacy: Diplomacy, trades: {Trade}, objectives: {string}}
 local BaseGame = {}
 local R: any = Rules
 local W: any = WorldMap
@@ -348,20 +355,75 @@ local function flankingPercent(s: any, unit: any, target: number, units: any): n
     end
     return math.min(R.maxFlankingPercent,count*R.flankingPercent)
 end
+-- Experience and promotions. A unit has earned one level for each threshold its experience has reached; `level`
+-- counts the promotions it has taken, so each earned level beyond `level` lets it choose one promotion.
+local function earnedLevels(u: any): number
+    local earned=0; for _, threshold in R.experienceThresholds do if (u.xp or 0)>=threshold then earned += 1 end end; return earned
+end
+local function gainExperience(u: any, amount: number)
+    if R.units[u.kind].unitClass=="Civilian" then return end
+    u.xp=math.min(R.maxExperience,(u.xp or 0)+amount)
+end
+-- Whether the unit may take this promotion now: a pending level, open to its class, not taken, prerequisites taken.
+local function promotionAllowed(u: any, id: string): boolean
+    local rule=R.promotions[id]
+    if not rule or earnedLevels(u)<=u.level or not has(rule.classes,R.units[u.kind].unitClass) then return false end
+    local taken=u.promotions or {}
+    if has(taken,id) then return false end
+    for _, prerequisite in rule.prerequisites do if not has(taken,prerequisite) then return false end end
+    return true
+end
+local function promotionsAvailable(u: any): {string}
+    local ids={}; for _, id in R.promotionOrder do if promotionAllowed(u,id) then table.insert(ids,id) end end; return ids
+end
+-- Taking a promotion raises the level, heals half the unit's maximum hit points (never above it) and ends its
+-- movement this turn. Fortification is kept.
+local function promote(s: any, u: any, id: string)
+    local taken=u.promotions or {}; table.insert(taken,id); u.promotions=taken; u.level += 1
+    local maxHp=R.units[u.kind].hp
+    u.hp=math.min(maxHp,u.hp+math.floor(maxHp*R.promotionHealPercent/100)); u.moves=0
+    event(s,"Promotion","Unit promoted: "..R.promotions[id].name..".",u.tileId,u.id,u.ownerId,nil,nil,nil,nil,u.kind)
+end
+-- The AI takes the promotion line that suits the terrain it stands on (Drill on rough, Shock on open), otherwise the
+-- first available promotion in rule order (Accuracy, then Cover, then Medic for ranged units).
+local function aiPromotion(s: any, u: any): string?
+    local options=promotionsAvailable(u); if #options==0 then return nil end
+    local rough=R.terrains[s.tiles[u.tileId].terrain].rough
+    for _, id in options do local p=R.promotions[id]; if (if rough then p.roughPercent else p.openPercent)>0 then return id end end
+    return options[1]
+end
+-- The percentage a unit's promotions add to its strength in one strike. The strike's target tile decides rough or
+-- open terrain for both sides. Cover counts while defending against a ranged attack, Accuracy on a ranged attack
+-- against a unit. A unit's promotions are visible with the unit, so the preview may read the defender's.
+local function promotionPercent(s: any, u: any, target: number, attacking: boolean, rangedStrike: boolean, againstUnit: boolean): number
+    local taken=u.promotions; if not taken then return 0 end
+    local rough=R.terrains[s.tiles[target].terrain].rough
+    local total=0
+    for _, id in taken do
+        local p=R.promotions[id]
+        total += if rough then p.roughPercent else p.openPercent
+        if attacking then
+            if rangedStrike and againstUnit then total += p.accuracyPercent end
+        elseif rangedStrike then total += p.coverPercent end
+    end
+    return total
+end
 -- Deterministic damage for one strike, given the target city's building defence and the tile-to-unit occupancy.
--- Attack: base strength (+3 per level) x (0.5 + hp/200) x (100 + flanking%)/100; flanking applies only to melee
--- attacks on a defending unit. Defence of a unit: max(3, strength) x (100 + terrain% + fortified%)/100 x
--- (0.5 + hp/200); of an undefended city: (14 + population) x (100 + terrain%)/100. City buildings (Walls) add a
--- flat amount on top in both cases, so damage stays monotonic in the hidden building defence.
+-- Attack: base strength x (0.5 + hp/200) x (100 + flanking% + promotion%)/100; flanking applies only to melee
+-- attacks on a defending unit. Defence of a unit: max(3, strength) x (100 + terrain% + fortified% + promotion%)/100
+-- x (0.5 + hp/200); of an undefended city: (14 + population) x (100 + terrain%)/100. City buildings (Walls) add a
+-- flat amount on top in both cases, so damage stays monotonic in the hidden building defence. `level` adds nothing
+-- itself (it was +3 strength per level before promotions); the promotions it counts carry the bonuses.
 local function strike(s: any, unit: any, defender: any, city: any, target: number, cityDefense: number, units: any): (number, number, boolean)
     local ranged=(R.units[unit.kind].range or 1)>1
     local attack=if ranged then R.units[unit.kind].rangedStrength else R.units[unit.kind].strength
     local flanking=if ranged or not defender then 0 else flankingPercent(s,unit,target,units)
-    attack=math.max(1,attack+unit.level*3)*(0.5+unit.hp/200)*(100+flanking)/100
+    local promoted=promotionPercent(s,unit,target,true,ranged,defender~=nil)
+    attack=math.max(1,attack)*(0.5+unit.hp/200)*(100+flanking+promoted)/100
     local terrain=R.terrains[s.tiles[target].terrain].defensePercent or 0
     local defense: number
     if defender then
-        local modifier=terrain+(if defender.fortified then R.fortifyDefensePercent else 0)
+        local modifier=terrain+(if defender.fortified then R.fortifyDefensePercent else 0)+promotionPercent(s,defender,target,false,ranged,true)
         defense=math.max(3,R.units[defender.kind].strength)*(100+modifier)/100*(0.5+defender.hp/200)
     else
         defense=(14+(city.population or 1))*(100+terrain)/100
@@ -378,6 +440,12 @@ local function combat(s: any, unit: any, target: number)
     unit.hp -= received; unit.moves=0; unit.fortified=false; unit.work=nil
     if defender then defender.hp -= dealt
     else city.hp=math.max(0,city.hp-dealt) end
+    -- Experience: both sides of a strike on a military unit, and the attacker of a strike on a city. A strike on a
+    -- civilian gives none. A unit that dies is removed below, so only survivors keep what they gained.
+    if not defender or R.units[defender.kind].strength>0 then
+        gainExperience(unit,if ranged then R.experience.rangedAttack else R.experience.meleeAttack)
+        if defender then gainExperience(defender,if ranged then R.experience.rangedDefense else R.experience.meleeDefense) end
+    end
     event(s,"Attack","Battle dealt "..dealt.." damage.",target,unit.id,unit.ownerId,dealt)
     if defender and defender.hp<=0 then removeUnit(s,defender.id); unitLost(s,defender,target,if ranged then "Ranged" else "Combat",unit.ownerId,dealt) end
     if unit.hp<=0 then removeUnit(s,unit.id); unitLost(s,unit,unit.tileId,"Combat",enemyOwner,received); return end
@@ -566,13 +634,26 @@ local function healing(s: any, u: any, cities: any): number
     if s.tiles[u.tileId].ownerId==u.ownerId then return R.healing.friendly end
     return R.healing.neutral
 end
+-- The extra healing the owner's medics give a resting unit next to them: the largest one, as medics do not stack.
+local function medicTiles(s: any, owner: number): {[number]: number}
+    local tiles: {[number]: number}={}
+    for _, u in s.units do
+        if u.ownerId~=owner or not u.promotions then continue end
+        for _, id in u.promotions do local heal=R.promotions[id].adjacentHeal; if heal>0 then tiles[u.tileId]=math.max(tiles[u.tileId] or 0,heal) end end
+    end
+    return tiles
+end
+local function medicBonus(s: any, u: any, medics: {[number]: number}): number
+    local best=0; for _, id in mapFor(s).neighbors[u.tileId] do best=math.max(best,medics[id] or 0) end; return best
+end
 local function beginTurn(s: any, owner: number)
     s.activePlayerId=owner
-    local _,cities=occupants(s)
+    local _,cities=occupants(s); local medics=medicTiles(s,owner)
     for _, u in s.units do
         if u.ownerId~=owner then continue end
-        -- Healing reads last turn's remaining movement, so it runs before movement refreshes.
-        if rested(u) then u.hp=math.min(R.units[u.kind].hp,u.hp+healing(s,u,cities)) end
+        -- Healing reads last turn's remaining movement, so it runs before movement refreshes. A medic next to a
+        -- resting unit adds its bonus; a unit that does not rest gets none.
+        if rested(u) then u.hp=math.min(R.units[u.kind].hp,u.hp+healing(s,u,cities)+medicBonus(s,u,medics)) end
         u.moves=if u.work then 0 else R.units[u.kind].moves
     end
     refreshVision(s)
@@ -631,6 +712,12 @@ local function ai(s: any, owner: number)
             if rank>bestRank or (rank==bestRank and (not best or tileId<best)) then best=tileId; bestRank=rank end
         end
         if best then moveUnit(s,u,best) end
+    end
+    -- After its units have acted, the AI spends every pending level (promoting ends a unit's movement).
+    for _, u in s.units do
+        if u.ownerId~=owner then continue end
+        local choice=aiPromotion(s,u)
+        while choice do promote(s,u,choice); choice=aiPromotion(s,u) end
     end
     for _, c in s.cities do
         if c.ownerId~=owner then continue end
@@ -696,7 +783,7 @@ function BaseGame.new(seed: number?, options: Options?): State
     refreshVision(s); refreshEconomyState(s); return s :: State
 end
 local function finiteId(value: any): boolean return type(value)=="number" and value==value and value%1==0 and value>=1 and value<=1000000 end
-local schemas: any={MoveUnit={unitId=true,tileId=true},RangedAttack={unitId=true,tileId=true},FoundCity={unitId=true},FortifyUnit={unitId=true},UpgradeUnit={unitId=true},BuildImprovement={unitId=true,improvement=true},SetProduction={cityId=true,item=true},Purchase={cityId=true,item=true},SetCityFocus={cityId=true,focus=true},Research={technology=true},AdoptPolicy={policy=true},DeclareWar={targetId=true},OfferPeace={targetId=true},AcceptPeace={targetId=true},ProposeTrade={targetId=true,giveGold=true,receiveGold=true},AcceptTrade={tradeId=true},CancelTrade={tradeId=true},EndTurn={}}
+local schemas: any={MoveUnit={unitId=true,tileId=true},RangedAttack={unitId=true,tileId=true},FoundCity={unitId=true},FortifyUnit={unitId=true},UpgradeUnit={unitId=true},BuildImprovement={unitId=true,improvement=true},SetProduction={cityId=true,item=true},Purchase={cityId=true,item=true},SetCityFocus={cityId=true,focus=true},Research={technology=true},AdoptPolicy={policy=true},DeclareWar={targetId=true},OfferPeace={targetId=true},AcceptPeace={targetId=true},ProposeTrade={targetId=true,giveGold=true,receiveGold=true},AcceptTrade={tradeId=true},CancelTrade={tradeId=true},EndTurn={},PromoteUnit={unitId=true,promotion=true}}
 function BaseGame.apply(state: State, actorId: number, command: Command): {ok: boolean, message: string}
     local s: any=state; local cmd: any=command
     local function reject(message: string): {ok: boolean,message: string} return {ok=false,message=message} end
@@ -731,6 +818,9 @@ function BaseGame.apply(state: State, actorId: number, command: Command): {ok: b
         elseif cmd.kind=="BuildImprovement" then
             if type(cmd.improvement)~="string" or not improvementAvailable(s,u,cmd.improvement) then return reject("Improvement is unavailable on this tile.") end
             u.work={improvement=cmd.improvement,remaining=R.improvements[cmd.improvement].turns}; u.moves=0
+        elseif cmd.kind=="PromoteUnit" then
+            if type(cmd.promotion)~="string" or not promotionAllowed(u,cmd.promotion) then return reject("That promotion is unavailable for this unit.") end
+            promote(s,u,cmd.promotion)
         end
     elseif cmd.cityId~=nil then
         if not finiteId(cmd.cityId) then return reject("Invalid city identifier.") end
@@ -809,7 +899,16 @@ function BaseGame.snapshot(state: State, actorId: number): View
     local occupancyUnits,occupancyCities=occupants(s)
     local canAct=s.phase=="Playing" and s.activePlayerId==actorId and p.human
     for _, u in s.units do
-        if u.ownerId==actorId or seen[u.tileId] then table.insert(units,copy(u)) end
+        if u.ownerId==actorId or seen[u.tileId] then
+            -- Level and promotions are visible with the unit (the combat preview reads them). Experience and pending
+            -- choices are the owner's alone.
+            local view=copy(u); view.promotions=copy(u.promotions or {})
+            if u.ownerId==actorId then
+                view.xp=u.xp or 0; view.nextLevelXp=R.experienceThresholds[earnedLevels(u)+1]
+                view.promotionsAvailable=if canAct then promotionsAvailable(u) else {}
+            else view.xp=nil end
+            table.insert(units,view)
+        end
         if u.ownerId==actorId then
             local targets,unitPreviews={},{}
             if canAct then
