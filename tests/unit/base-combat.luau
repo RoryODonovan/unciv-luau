@@ -53,11 +53,13 @@ local function field(s: any): (number,{number})
     end
     error("no open field")
 end
--- Independent statement of the G2 formula (percentages written out, not read from the rules).
+-- Independent statement of the G2 formula (percentages written out, not read from the rules). Since G5 promotions,
+-- `level` adds nothing by itself (it was +3 strength per level); the sweep still varies it to show that.
 local function reference(attackerKind: string,attackerHp: number,level: number,defenderKind: string,defenderHp: number,fortified: boolean,terrain: string,flankers: number): (number,number)
     local a=Rules.units[attackerKind]; local ranged=a.range>1
     local flank=if ranged then 0 else math.min(30,10*flankers)
-    local attack=math.max(1,(if ranged then a.rangedStrength else a.strength)+level*3)*(0.5+attackerHp/200)*(100+flank)/100
+    local _=level
+    local attack=math.max(1,if ranged then a.rangedStrength else a.strength)*(0.5+attackerHp/200)*(100+flank)/100
     local percent=(if terrain=="Hills" or terrain=="Forest" then 25 else 0)+(if fortified then 50 else 0)
     local defense=math.max(3,Rules.units[defenderKind].strength)*(100+percent)/100*(0.5+defenderHp/200)
     local dealt=math.clamp(math.floor(30*attack/math.max(1,defense)+0.5),8,65)
@@ -374,7 +376,7 @@ do
     assert(unitById(restored,2).hp==40,"moved before the save: no heal")
     assert(unitById(restored,3).hp==60,"fortified in its city: +20")
     assert(unitById(restored,4).hp==35,"rested in friendly territory: +15")
-    -- New saves keep the exact unit schema: no new required (or optional) unit fields.
+    -- New saves keep the exact unit schema: no new required fields, and the optional G5 xp/promotions appear only after combat or a promotion.
     local saved=Game.serialize(restored)
     local allowed={id=true,ownerId=true,kind=true,tileId=true,hp=true,moves=true,fortified=true,level=true,work=true}
     for _, u in saved.state.units do for key in u do assert(allowed[key],"unexpected unit field "..tostring(key)) end end

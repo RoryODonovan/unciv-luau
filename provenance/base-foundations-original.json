@@ -6,11 +6,12 @@
     "src/simulation/WorldMap.luau",
     "src/simulation/BaseSave.luau"
   ],
-  "description": "Original bounded civilization balance, including passable food-yielding Tundra, indexed integration of original coherent terrain/resource generation, weighted shortest paths, visibility projection and strict versioned save schema (unit movement in multiples of 1/6, accepting every earlier whole/half-move save). Uses separately attributed HexMath; not converted Unciv rules or map generation and no copied media or full parity claim.",
+  "description": "Original bounded civilization balance, including an original promotion set with experience thresholds, passable food-yielding Tundra, indexed integration of original coherent terrain/resource generation, weighted shortest paths, visibility projection and strict versioned save schema (optional unit experience and validated promotions, unit movement in multiples of 1/6, accepting every earlier whole/half-move save). Uses separately attributed HexMath; not converted Unciv rules or map generation and no copied media or full parity claim.",
   "testPaths": [
     "tests/unit/base-foundations.luau",
     "tests/unit/base-save.luau",
-    "tests/unit/world-game.luau"
+    "tests/unit/world-game.luau",
+    "tests/unit/base-promotions.luau"
   ],
   "documentationPath": "docs/base-foundations.md",
   "additionalDocumentationPaths": [
