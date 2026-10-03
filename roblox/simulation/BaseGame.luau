@@ -1,6 +1,6 @@
 --!strict
 -- Generated module-only Roblox form. Source: src/simulation/BaseGame.luau
--- Source SHA-256: c9240636cff5c5e83b8d422d50788aa6e1d69160f40bc8c12db231f7e3965de2
+-- Source SHA-256: fbc959dfbc9cfe0aab8724993483469f81f283500955c1fa4f8c6b9cf84c6dd6
 -- Reproduce with tools/roblox-export.mjs; preserve MPL notices below.
 -- Covered source: https://github.com/RoryODonovan/unciv-luau
 -- This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
@@ -37,8 +37,13 @@ export type UnitView = {id: number, ownerId: number, kind: string, tileId: numbe
 -- round). Absent means the city has never used one.
 export type City = {id: number, ownerId: number, originalOwnerId: number, capital: boolean, tileId: number, name: string, population: number, food: number, production: number, queue: string, hp: number, buildings: {string}, focus: string, strikeTurn: number?}
 export type Research = {id: string, progress: number, cost: number}
-export type Player = {id: number, human: boolean, gold: number, science: number, culture: number, happiness: number, technologies: {string}, policies: {string}, research: Research?, explored: {number}, resources: {[string]: number}, income: {food: number, production: number, gold: number, science: number, culture: number, maintenance: number}}
-export type Event = {id: number, kind: string, message: string, tileId: number?, unitId: number?, ownerId: number?, amount: number?, public: boolean?, cause: string?, byOwnerId: number?, unitKind: string?, cityId: number?}
+-- A civilization's golden-age record (optional; absent means an empty meter, no golden age and none so far): the meter's
+-- `progress`, the owner economy steps the current golden age still lasts (`turnsLeft`, 0 outside one) and the number of
+-- golden ages begun so far (`ages`), which raises the next threshold.
+export type GoldenAge = {progress: number, turnsLeft: number, ages: number}
+export type Player = {id: number, human: boolean, gold: number, science: number, culture: number, happiness: number, technologies: {string}, policies: {string}, research: Research?, explored: {number}, resources: {[string]: number}, income: {food: number, production: number, gold: number, science: number, culture: number, maintenance: number}, goldenAge: GoldenAge?}
+-- `wonder` names the world wonder of a WonderBuilt or WonderLost event, or the wonder that started a golden age.
+export type Event = {id: number, kind: string, message: string, tileId: number?, unitId: number?, ownerId: number?, amount: number?, public: boolean?, cause: string?, byOwnerId: number?, unitKind: string?, cityId: number?, wonder: string?}
 export type Diplomacy = {status: string, peaceOfferBy: number?, peaceUntil: number}
 export type Trade = {id: number, fromId: number, toId: number, giveGold: number, receiveGold: number, expires: number}
 -- An explored tile shows its terrain, resource, `feature` and `river` mask (static knowledge, like terrain); an unexplored
@@ -66,7 +71,15 @@ export type Policy = Rules.Policy
 export type Promotion = Rules.Promotion
 export type State = {seed: number, radius: number?, mapShape: string?, frequency: number?, difficulty: string, humanPlayers: number, forest: boolean, maxTurns: number, cultureVictoryPolicies: number?, policyCostIncrease: number?, turn: number, revision: number, activePlayerId: number, phase: string, winner: number?, reason: string?, victoryType: string?, tiles: {Tile}, units: {Unit}, cities: {City}, players: {Player}, diplomacy: Diplomacy, trades: {Trade}, events: {Event}, nextEvent: number, nextUnit: number, nextCity: number, nextTrade: number, log: {string}}
 export type CityForecast = {food: number, production: number, gold: number, science: number, culture: number, growthTurns: number?, productionTurns: number?, productionBlocked: ("NotAvailable" | "NoSpace")?}
-export type View = {cityForecasts: {[string]: CityForecast}, seed: number?, radius: number?, mapShape: string?, frequency: number?, difficulty: string, humanPlayers: number, turn: number, revision: number, activePlayerId: number, actorId: number, canAct: boolean, phase: string, winner: number?, reason: string?, victoryType: string?, gold: number, science: number, culture: number, happiness: number, research: Research?, technologies: {string}, policies: {string}, resources: {[string]: number}, income: {food: number, production: number, gold: number, science: number, culture: number, maintenance: number}, tiles: {TileView}, units: {UnitView}, cities: {CityView}, events: {Event}, log: {string}, legalMoves: {[string]: {number}}, availableProduction: {string}, availableProductionByCity: {[string]: {string}}, availablePurchasesByCity: {[string]: {string}}, availableResearch: {Technology}, availablePolicies: {Policy}, availableImprovements: {[string]: {string}}, productionCosts: {[string]: number}, purchaseCosts: {[string]: number}, scores: {number}, statistics: {Statistics}, progress: {Progress}, cultureVictoryPolicies: number, policyCostIncrease: number, attackPreviews: {[string]: {AttackPreview}}, cityStrikePreviews: {[string]: {CityStrikePreview}}, diplomacy: Diplomacy, trades: {Trade}, objectives: {string}}
+-- A completed world wonder, public to both civilizations: its id and the civilization whose city holds it now. The
+-- holding city (`cityId`, `tileId`, `cityName`) is given only to that city's owner and to an actor who can see the city
+-- tile now.
+export type WonderView = {id: string, ownerId: number, cityId: number?, tileId: number?, cityName: string?}
+-- The actor's own golden age: whether one is active, the owner economy steps it still lasts, the meter's progress and
+-- threshold, the golden ages begun so far, what the next step adds to the meter (the current happiness when positive
+-- and no golden age is active, otherwise 0) and how many steps a new golden age lasts in this match.
+export type GoldenAgeView = {active: boolean, turnsLeft: number, progress: number, threshold: number, ages: number, progressPerTurn: number, turns: number}
+export type View = {cityForecasts: {[string]: CityForecast}, seed: number?, radius: number?, mapShape: string?, frequency: number?, difficulty: string, humanPlayers: number, turn: number, revision: number, activePlayerId: number, actorId: number, canAct: boolean, phase: string, winner: number?, reason: string?, victoryType: string?, gold: number, science: number, culture: number, happiness: number, research: Research?, technologies: {string}, policies: {string}, resources: {[string]: number}, income: {food: number, production: number, gold: number, science: number, culture: number, maintenance: number}, tiles: {TileView}, units: {UnitView}, cities: {CityView}, events: {Event}, log: {string}, legalMoves: {[string]: {number}}, availableProduction: {string}, availableProductionByCity: {[string]: {string}}, availablePurchasesByCity: {[string]: {string}}, availableResearch: {Technology}, availablePolicies: {Policy}, availableImprovements: {[string]: {string}}, productionCosts: {[string]: number}, purchaseCosts: {[string]: number}, scores: {number}, statistics: {Statistics}, progress: {Progress}, cultureVictoryPolicies: number, policyCostIncrease: number, attackPreviews: {[string]: {AttackPreview}}, cityStrikePreviews: {[string]: {CityStrikePreview}}, diplomacy: Diplomacy, trades: {Trade}, objectives: {string}, wonders: {WonderView}, goldenAge: GoldenAgeView}
 local BaseGame = {}
 local R: any = Rules
 local W: any = WorldMap
@@ -97,9 +110,10 @@ local function occupants(s: any): (any, any)
     local units, cities = {}, {}; for _, u in s.units do units[u.tileId] = u end; for _, c in s.cities do cities[c.tileId] = c end; return units, cities
 end
 -- Event kinds the ring keeps longest (each player must reliably learn of its losses and the result).
-local RETAINED={UnitLost=true, CityLost=true, Eliminated=true, Victory=true}
-local function event(s: any, kind: string, message: string, tileId: number?, unitId: number?, ownerId: number?, amount: number?, public: boolean?, cause: string?, byOwnerId: number?, unitKind: string?, cityId: number?)
-    table.insert(s.events, {id=s.nextEvent, kind=kind, message=message, tileId=tileId, unitId=unitId, ownerId=ownerId, amount=amount, public=public, cause=cause, byOwnerId=byOwnerId, unitKind=unitKind, cityId=cityId})
+-- Wonder and golden-age events are rare (a few per match) and are kept too, so a burst cannot evict them either.
+local RETAINED={UnitLost=true, CityLost=true, Eliminated=true, Victory=true, WonderBuilt=true, WonderLost=true, GoldenAgeStarted=true, GoldenAgeEnded=true}
+local function event(s: any, kind: string, message: string, tileId: number?, unitId: number?, ownerId: number?, amount: number?, public: boolean?, cause: string?, byOwnerId: number?, unitKind: string?, cityId: number?, wonder: string?)
+    table.insert(s.events, {id=s.nextEvent, kind=kind, message=message, tileId=tileId, unitId=unitId, ownerId=ownerId, amount=amount, public=public, cause=cause, byOwnerId=byOwnerId, unitKind=unitKind, cityId=cityId, wonder=wonder})
     s.nextEvent += 1
     if #s.events > 64 then
         -- One command (an EndTurn running the AI and both economies) can emit more than 64 events, so
@@ -117,8 +131,44 @@ end
 -- The culture victory threshold and per-adoption policy cost growth are stored per game.
 -- A state without them (saved by an earlier library version) keeps the original flat rule.
 local function cultureThreshold(s: any): number return s.cultureVictoryPolicies or R.cultureVictoryPolicies or 6 end
+-- World wonders. A wonder is built when a city holds it; cities are never destroyed, so the holding city is the whole
+-- record (no separate state). Its empire effects serve whoever owns that city now.
+local function isWonder(id: string): boolean local rule=R.buildings[id]; return rule~=nil and rule.wonder==true end
+local function wonderCity(s: any, id: string): any
+    for _, c in s.cities do if has(c.buildings,id) then return c end end; return nil
+end
+-- The empire effects of the wonders the owner's cities hold. The economy reads them once at the start of a step (like
+-- its happiness), so a wonder completed during the step takes effect from the next one and the forecast stays exact.
+local function empireBonus(s: any, owner: number): any
+    local bonus={yields={food=0,production=0,gold=0,science=0,culture=0},sciencePercent=0,policyCostPercent=0,unitExperience=0,golden=false}
+    for _, c in s.cities do
+        if c.ownerId~=owner then continue end
+        for _, id in c.buildings do
+            local rule=R.buildings[id]
+            if not rule.wonder then continue end
+            for key,value in rule.globalYields do bonus.yields[key] += value end
+            bonus.sciencePercent += rule.sciencePercent; bonus.policyCostPercent += rule.policyCostPercent; bonus.unitExperience += rule.unitExperience
+        end
+    end
+    bonus.policyCostPercent=math.min(90,bonus.policyCostPercent); bonus.unitExperience=math.min(R.maxExperience,bonus.unitExperience)
+    return bonus
+end
+-- Golden ages. The pace percentage scales the threshold and the length with the round limit (120 rounds is 100%).
+local function pacePercent(s: any): number
+    local g=R.goldenAge
+    return math.clamp(math.floor(s.maxTurns*100/g.paceTurns+0.5),g.minPacePercent,g.maxPacePercent)
+end
+local function goldenAgeTurns(s: any): number return math.max(1,math.floor(R.goldenAge.turns*pacePercent(s)/100+0.5)) end
+local function goldenAgeThreshold(s: any, ages: number): number
+    return math.floor((R.goldenAge.threshold+R.goldenAge.thresholdIncrease*ages)*pacePercent(s)/100)
+end
+local function goldenActive(p: any): boolean return p.goldenAge~=nil and p.goldenAge.turnsLeft>0 end
+-- A policy's culture cost: escalated by the policies already adopted, then reduced by the owner's wonders (Oracle).
 local function policyCost(s: any, p: any, policy: any): number
-    return math.floor(policy.cost*(100+(s.policyCostIncrease or 0)*#p.policies)/100)
+    local cost=math.floor(policy.cost*(100+(s.policyCostIncrease or 0)*#p.policies)/100)
+    local discount=empireBonus(s,p.id).policyCostPercent
+    if discount>0 then cost=math.floor(cost*(100-discount)/100) end
+    return cost
 end
 local function visible(s: any, owner: number): any
     local centers = {}; for _, u in s.units do if u.ownerId == owner then table.insert(centers, u.tileId) end end
@@ -135,10 +185,12 @@ end
 local function removeUnit(s: any, id: number)
     for i,u in s.units do if u.id == id then table.remove(s.units,i); return end end
 end
-local function addUnit(s: any, owner: number, kind: string, tileId: number)
+local function addUnit(s: any, owner: number, kind: string, tileId: number): any
     local stats = R.units[kind]
-    table.insert(s.units, {id=s.nextUnit, ownerId=owner, kind=kind, tileId=tileId, hp=stats.hp, moves=0, fortified=false, level=0})
+    local u={id=s.nextUnit, ownerId=owner, kind=kind, tileId=tileId, hp=stats.hp, moves=0, fortified=false, level=0}
+    table.insert(s.units, u)
     s.nextUnit += 1
+    return u
 end
 -- Claims unowned tiles around a city for its owner. With `overlay`, the state is untouched and each tile the
 -- claim would take is marked in the overlay instead (the forecast's virtual claims for the city's own owner).
@@ -197,6 +249,8 @@ local function productionAvailable(s: any, city: any, item: string, extra: {any}
     local player=s.players[city.ownerId]
     if entry.technology and not has(player.technologies,entry.technology) then return false end
     if R.buildings[item] and has(city.buildings,item) then return false end
+    -- A world wonder can be completed once per world. Completion is public, so this check reveals nothing hidden.
+    if isWonder(item) and wonderCity(s,item) then return false end
     if R.units[item] and #s.units >= R.maxUnits then return false end
     if entry.resource then
         local used=0; for _, u in s.units do if u.ownerId==city.ownerId and R.units[u.kind].resource==entry.resource then used += R.units[u.kind].resourceAmount or 1 end end
@@ -216,10 +270,39 @@ local function spawnTile(s: any, city: any, extra: {any}?): number?
     end
     return nil
 end
-local function complete(s: any, city: any, item: string, spawn: number?)
+-- Whether a city may choose an item now (SetProduction, the AI and the production menus): it must be available, and a
+-- wonder must not already be queued in another of the owner's cities (one city races for each wonder, as in Civ V).
+-- The economy's completion check uses productionAvailable alone, so a queue never stalls on this rule.
+local function canChoose(s: any, city: any, item: string): boolean
+    if not productionAvailable(s,city,item) then return false end
+    if isWonder(item) then for _, c in s.cities do if c~=city and c.ownerId==city.ownerId and c.queue==item then return false end end end
+    return true
+end
+-- A completed world wonder: a public WonderBuilt event (its location is projected only to those who can see the city;
+-- see the snapshot), then every other city queuing the same wonder loses the race. Such a city keeps all its
+-- accumulated production for its next item, its queue falls back to Warrior (as after any completed building) and its
+-- owner gets a private WonderLost event without a tile. `converted` marks those cities so an economy step in progress
+-- does not complete anything in them this step.
+local function wonderBuilt(s: any, city: any, item: string, converted: {[number]: boolean}?)
+    local name=R.buildings[item].name
+    event(s,"WonderBuilt",name.." was completed by civilization "..city.ownerId..".",city.tileId,nil,city.ownerId,nil,true,nil,nil,nil,city.id,item)
+    local losers: {any}={}; for _, c in s.cities do if c~=city and c.queue==item then table.insert(losers,c) end end
+    table.sort(losers,function(a: any,b: any) return a.id<b.id end)
+    for _, c in losers do
+        c.queue="Warrior"; if converted then converted[c.id]=true end
+        local message=if c.ownerId==city.ownerId then "Another of your cities completed "..name.." first; production is kept." else "A rival completed "..name.." first; production is kept."
+        event(s,"WonderLost",message,nil,nil,c.ownerId,c.production,nil,nil,city.ownerId,nil,c.id,item)
+    end
+end
+local function complete(s: any, city: any, item: string, spawn: number?, converted: {[number]: boolean}?)
     if R.buildings[item] then table.insert(city.buildings,item); if city.queue==item then city.queue="Warrior" end
-    else assert(spawn); addUnit(s,city.ownerId,item,spawn) end
+    else
+        assert(spawn); local u=addUnit(s,city.ownerId,item,spawn)
+        -- New military units start with the experience the owner's wonders give (Terracotta Army); civilians never gain any.
+        if R.units[item].unitClass~="Civilian" then local xp=empireBonus(s,city.ownerId).unitExperience; if xp>0 then u.xp=xp end end
+    end
     event(s,"Production","Completed "..item..".",city.tileId,nil,city.ownerId)
+    if isWonder(item) then wonderBuilt(s,city,item,converted) end
 end
 local function finish(s: any, winner: number, kind: string)
     s.phase="Finished"; s.winner=winner; s.victoryType=kind; s.reason=kind.." victory for civilization "..winner.."."
@@ -231,7 +314,11 @@ local function scores(s: any): (any,any)
         local p=s.players[owner]; stats[owner]={cities=0,units=0,population=0,technologies=#p.technologies,policies=#p.policies}
         values[owner]=#p.technologies*R.score.technology+#p.policies*R.score.policy
     end
-    for _, c in s.cities do stats[c.ownerId].cities += 1; stats[c.ownerId].population += c.population; values[c.ownerId] += R.score.city+c.population*R.score.population end
+    for _, c in s.cities do
+        stats[c.ownerId].cities += 1; stats[c.ownerId].population += c.population; values[c.ownerId] += R.score.city+c.population*R.score.population
+        -- Each world wonder scores for the civilization holding it.
+        for _, id in c.buildings do if isWonder(id) then values[c.ownerId] += R.score.wonder or 0 end end
+    end
     for _, u in s.units do stats[u.ownerId].units += 1; values[u.ownerId] += R.score.unit end
     return values,stats
 end
@@ -657,8 +744,10 @@ end
 -- One city's yields this turn: the free center, each citizen on the best distinct nearby owned tile for its
 -- focus (marking `worked`), buildings, policies and the Science/Culture production conversion. Pure apart
 -- from `worked`; returns the yields and the buildings' maintenance. Shared by the economy and the forecast.
--- `claimed` marks tiles the forecast treats as already owned by `owner` (its virtual claims).
-local function cityYields(s: any, p: any, owner: number, c: any, worked: any, cityTiles: any, claimed: {[number]: boolean}?): (any, number)
+-- `claimed` marks tiles the forecast treats as already owned by `owner` (its virtual claims). `bonus` is the owner's
+-- empireBonus at the start of the step plus `golden` (a golden age is active): the owner's wonders add their global
+-- yields and science percentage, and a golden age adds tileGold to the centre and to every worked tile yielding gold.
+local function cityYields(s: any, p: any, owner: number, c: any, worked: any, cityTiles: any, bonus: any, claimed: {[number]: boolean}?): (any, number)
     local candidates: {any}={}
     for _, id in nearby(s,c.tileId,R.cityWorkRadius) do
         local tile=s.tiles[id]; if (tile.ownerId==owner or (claimed~=nil and claimed[id]==true)) and not cityTiles[id] and not worked[id] then table.insert(candidates,{id=id,yields=yieldFor(tile)}) end
@@ -671,20 +760,28 @@ local function cityYields(s: any, p: any, owner: number, c: any, worked: any, ci
     end
     table.sort(candidates,function(a: any,b: any) local first,second=rank(a.yields),rank(b.yields); return if first==second then a.id<b.id else first>second end)
     local yields: {[string]: number}=copy(R.cityBaseYields); yields.science += c.population
-    for index=1,math.min(c.population,#candidates) do local row=candidates[index]; worked[row.id]=true; for key,value in row.yields do yields[key] += value end end
+    local tileGold=if bonus.golden then R.goldenAge.tileGold else 0
+    if yields.gold>=1 then yields.gold += tileGold end
+    for index=1,math.min(c.population,#candidates) do
+        local row=candidates[index]; worked[row.id]=true; for key,value in row.yields do yields[key] += value end
+        if row.yields.gold>=1 then yields.gold += tileGold end
+    end
     local maintenance=0
     for _, building in c.buildings do local b=R.buildings[building]; maintenance += b.maintenance; for key,value in b.yields do yields[key] += value end end
     for _, policy in p.policies do for key,value in R.policies[policy].yields do yields[key] += value end end
+    for key,value in bonus.yields do yields[key] += value end
     if c.focus=="Science" or c.focus=="Culture" then
         local converted=math.floor(yields.production/2); yields.production -= converted; yields[string.lower(c.focus)] += converted
     end
+    if bonus.sciencePercent>0 then yields.science=math.floor(yields.science*(100+bonus.sciencePercent)/100) end
     return yields, maintenance
 end
--- Net food and production a city adds per turn after happiness (and AI difficulty) adjustments.
-local function cityNet(s: any, p: any, c: any, yields: any, happiness: number): (number, number)
+-- Net food and production a city adds per turn after golden-age, happiness (and AI difficulty) adjustments.
+local function cityNet(s: any, p: any, c: any, yields: any, happiness: number, bonus: any): (number, number)
     local food=yields.food-c.population*R.foodPerPopulation
     if happiness<0 and food>0 then food=math.floor(food/2) end
     local production=yields.production
+    if bonus.golden then production=math.floor(production*(100+R.goldenAge.productionPercent)/100) end
     if happiness<=-5 then production=math.max(1,math.floor(production/2)) end
     if not p.human then production=math.max(1,math.floor(production*(if s.difficulty=="Easy" then 0.75 elseif s.difficulty=="Hard" then 1.25 else 1))) end
     return food, production
@@ -699,6 +796,30 @@ local function stepHappiness(s: any, owner: number, resources: any): (number, nu
     local discount=0; for _, policy in p.policies do happiness += R.policies[policy].happiness or 0; discount += R.policies[policy].maintenanceDiscount or 0 end
     return happiness-cityCount*R.unhappinessPerCity-population*R.unhappinessPerPopulation, discount
 end
+-- The end of an owner's economy step for its golden age. `golden` is whether an age was active at the start of the step
+-- (its effects applied to the whole step) and `granted` the steps a wonder completed during the step grants.
+-- An active age counts down one step; outside one the step's positive happiness fills the meter. A granted age starts
+-- (or extends one still running, with no new event). When the meter reaches the threshold outside an age it is spent
+-- and a new age begins. A new age takes effect from the next step, and every age begun raises the next threshold.
+local function goldenStep(s: any, p: any, owner: number, golden: boolean, happiness: number, granted: number, grantedBy: string?)
+    local g: any=if p.goldenAge then p.goldenAge else {progress=0,turnsLeft=0,ages=0}
+    if golden then g.turnsLeft -= 1 elseif happiness>0 then g.progress += happiness end
+    if granted>0 then
+        if golden or g.turnsLeft>0 then g.turnsLeft += granted
+        else
+            g.turnsLeft=granted; g.ages += 1
+            event(s,"GoldenAgeStarted","A golden age begins for "..granted.." turns.",nil,nil,owner,granted,nil,"Wonder",nil,nil,nil,grantedBy)
+        end
+    end
+    if golden and g.turnsLeft==0 then event(s,"GoldenAgeEnded","The golden age has ended.",nil,nil,owner) end
+    local threshold=goldenAgeThreshold(s,g.ages)
+    if not golden and g.turnsLeft==0 and g.progress>=threshold then
+        g.progress -= threshold; g.ages += 1; g.turnsLeft=goldenAgeTurns(s)
+        event(s,"GoldenAgeStarted","A golden age begins for "..g.turnsLeft.." turns.",nil,nil,owner,g.turnsLeft,nil,"Happiness")
+    end
+    -- The record is stored once anything is non-zero, so a civilization that never fills its meter writes no field.
+    if p.goldenAge or g.progress>0 or g.turnsLeft>0 or g.ages>0 then p.goldenAge=g end
+end
 local function economy(s: any, owner: number)
     local p=s.players[owner]; p.resources=resourceInventory(s,owner)
     local happiness,discount=stepHappiness(s,owner,p.resources); p.happiness=happiness
@@ -706,12 +827,15 @@ local function economy(s: any, owner: number)
     local worked={}; local _,cityTiles=occupants(s)
     local cityOrder: {any}={}; for _, city in s.cities do table.insert(cityOrder,city) end
     table.sort(cityOrder,function(a: any,b: any) return a.id<b.id end)
+    -- Wonder effects and the golden age are fixed at the start of the step, like its happiness.
+    local bonus=empireBonus(s,owner); local golden=goldenActive(p); bonus.golden=golden
+    local converted: {[number]: boolean}={}; local granted,grantedBy=0,nil
     for _, c in cityOrder do
         if c.ownerId~=owner then continue end
         -- The city center is free; each citizen works one distinct nearby owned tile.
         claim(s,c)
-        local yields,maintenance=cityYields(s,p,owner,c,worked,cityTiles); income.maintenance += maintenance
-        local food,production=cityNet(s,p,c,yields,p.happiness)
+        local yields,maintenance=cityYields(s,p,owner,c,worked,cityTiles,bonus); income.maintenance += maintenance
+        local food,production=cityNet(s,p,c,yields,p.happiness,bonus)
         c.food += food
         local threshold=R.growthBase+c.population*R.growthPerPopulation
         if c.food>=threshold and p.happiness>=0 and c.population<R.maxPopulation then c.food -= threshold; c.population += 1; event(s,"Growth","City grew.",c.tileId,nil,owner,c.population)
@@ -721,9 +845,13 @@ local function economy(s: any, owner: number)
         end
         c.production += production; c.hp=math.min(R.cityHp,c.hp+5)
         for key,value in yields do income[key] += value end
-        if productionAvailable(s,c,c.queue) and c.production>=(R.productionCosts[c.queue] or math.huge) then
+        -- A city that lost a wonder race earlier in this step completes nothing until its next step.
+        if not converted[c.id] and productionAvailable(s,c,c.queue) and c.production>=(R.productionCosts[c.queue] or math.huge) then
             local spawn=spawnTile(s,c)
-            if R.buildings[c.queue] or spawn then local item=c.queue; c.production -= R.productionCosts[item]; complete(s,c,item,spawn) end
+            if R.buildings[c.queue] or spawn then
+                local item=c.queue; c.production -= R.productionCosts[item]; complete(s,c,item,spawn,converted)
+                if R.buildings[item] and R.buildings[item].startsGoldenAge then granted += goldenAgeTurns(s); grantedBy=item end
+            end
         end
     end
     for _, u in s.units do if u.ownerId==owner then income.maintenance += R.units[u.kind].maintenance end end
@@ -760,6 +888,7 @@ local function economy(s: any, owner: number)
             u.work=nil; event(s,"Improvement","Completed "..id..".",tile.id,u.id,owner)
         end
     end
+    goldenStep(s,p,owner,golden,happiness,granted,grantedBy)
     p.resources=resourceInventory(s,owner)
 end
 -- Whether a unit spent its owner's previous turn without moving or attacking, derived from saved fields (no
@@ -804,6 +933,30 @@ local function foundAllowed(s: any, unit: any): boolean
     local t=s.tiles[unit.tileId]; if t.ownerId and t.ownerId~=unit.ownerId then return false end
     for _, c in s.cities do if W.inRange(mapFor(s),c.tileId,unit.tileId,2) then return false end end
     return true
+end
+-- The AI races for at most one world wonder at a time, in one city. It keeps a wonder it is already building while that
+-- wonder is still available. Otherwise it picks its city with the most net production (lowest id on ties) and the first
+-- wonder in rule order (earliest first) that city may choose and can finish within AI_WONDER_TURNS at its current rate,
+-- so a slow city never sinks its production into a wonder it cannot finish. The wonder goes after that city's core
+-- buildings and settler and before military units. A lost race switches the queue, and the next AI turn plans again.
+local AI_WONDER_TURNS=30
+local function aiWonderPlan(s: any, owner: number): (number?, string?)
+    local p=s.players[owner]
+    local own: {any}={}; for _, c in s.cities do if c.ownerId==owner then table.insert(own,c) end end
+    table.sort(own,function(a: any,b: any) return a.id<b.id end)
+    for _, c in own do if isWonder(c.queue) and productionAvailable(s,c,c.queue) then return c.id,c.queue end end
+    local bonus=empireBonus(s,owner); bonus.golden=goldenActive(p); local _,cityTiles=occupants(s)
+    local mood=stepHappiness(s,owner,resourceInventory(s,owner))
+    local best: any=nil; local bestMade=0
+    for _, c in own do
+        local yields=cityYields(s,p,owner,c,{},cityTiles,bonus); local _,made=cityNet(s,p,c,yields,mood,bonus)
+        if made>bestMade then best=c; bestMade=made end
+    end
+    if not best then return nil,nil end
+    for _, id in R.wonderOrder do
+        if canChoose(s,best,id) and math.ceil(math.max(0,R.productionCosts[id]-best.production)/bestMade)<=AI_WONDER_TURNS then return best.id,id end
+    end
+    return nil,nil
 end
 local function ai(s: any, owner: number)
     local p=s.players[owner]
@@ -864,6 +1017,7 @@ local function ai(s: any, owner: number)
         local choice=aiPromotion(s,u)
         while choice do promote(s,u,choice); choice=aiPromotion(s,u) end
     end
+    local wonderCityId,wonderId=aiWonderPlan(s,owner)
     for _, c in s.cities do
         if c.ownerId~=owner then continue end
         local counts: {[string]: number}={}; for _, u in s.units do if u.ownerId==owner then counts[u.kind]=(counts[u.kind] or 0)+1 end end
@@ -873,8 +1027,9 @@ local function ai(s: any, owner: number)
         for _, item in {"Monument","Granary","Library","Market","Colosseum","Workshop","University"} do table.insert(priorities,item) end
         local ownCities=0; for _, city in s.cities do if city.ownerId==owner then ownCities += 1 end end
         if ownCities<3 and not counts.Settler then table.insert(priorities,"Settler") end
+        if wonderId and c.id==wonderCityId then table.insert(priorities,wonderId) end
         for i=#R.unitOrder,1,-1 do local item=R.unitOrder[i]; if R.units[item].strength>0 then table.insert(priorities,item) end end
-        for _, item in priorities do if productionAvailable(s,c,item) then c.queue=item; break end end
+        for _, item in priorities do if canChoose(s,c,item) then c.queue=item; break end end
     end
     refreshVision(s)
 end
@@ -981,8 +1136,9 @@ function BaseGame.apply(state: State, actorId: number, command: Command): {ok: b
             if not target or not strikeTargetAllowed(s,c,target,visible(s,actorId),cities) then return reject("Choose a visible enemy unit within the city's range.") end
             cityStrike(s,c,target,units)
         else
-            if type(cmd.item)~="string" or not productionAvailable(s,c,cmd.item) then return reject("Production item is unavailable.") end
+            if type(cmd.item)~="string" or not canChoose(s,c,cmd.item) then return reject("Production item is unavailable.") end
             if cmd.kind=="Purchase" then
+                if isWonder(cmd.item) then return reject("World wonders cannot be purchased.") end
                 local cost=R.purchaseCosts[cmd.item]; local spawn=spawnTile(s,c)
                 if p.gold<cost or (not R.buildings[cmd.item] and not spawn) then return reject("Purchase needs gold and a free deployment tile.") end
                 p.gold -= cost; complete(s,c,cmd.item,spawn)
@@ -1088,7 +1244,15 @@ function BaseGame.snapshot(state: State, actorId: number): View
             table.insert(cities,view)
         elseif seen[c.tileId] then table.insert(cities,{id=c.id,ownerId=c.ownerId,tileId=c.tileId,name=c.name,population=c.population,hp=c.hp,capital=c.capital,originalOwnerId=c.originalOwnerId}) end
     end
-    for _, e in s.events do if e.public or e.ownerId==actorId then table.insert(events,copy(e)) elseif e.tileId and seen[e.tileId] then table.insert(events,copy(e)) end end
+    for _, e in s.events do
+        if e.public or e.ownerId==actorId or (e.tileId and seen[e.tileId]) then
+            local view=copy(e)
+            -- Every civilization learns that a wonder was completed and by whom, but the city only while it can see the
+            -- city tile (or built the wonder itself), as for the `wonders` list.
+            if e.kind=="WonderBuilt" and e.ownerId~=actorId and not (e.tileId and seen[e.tileId]) then view.tileId=nil; view.cityId=nil end
+            table.insert(events,view)
+        end
+    end
     local research,policies,production={},{},{}
     local productionByCity: {[string]: {string}},purchasesByCity: {[string]: {string}}={},{}
     for _, c in s.cities do if c.ownerId==actorId then productionByCity[tostring(c.id)]={}; purchasesByCity[tostring(c.id)]={} end end
@@ -1098,9 +1262,9 @@ function BaseGame.snapshot(state: State, actorId: number): View
     for _, id in productionOrder do
         local added=false
         for _, c in s.cities do
-            if c.ownerId==actorId and productionAvailable(s,c,id) then
+            if c.ownerId==actorId and canChoose(s,c,id) then
                 table.insert(productionByCity[tostring(c.id)],id)
-                if p.gold>=R.purchaseCosts[id] and (R.buildings[id] or spawnTile(s,c)) then table.insert(purchasesByCity[tostring(c.id)],id) end
+                if not isWonder(id) and p.gold>=R.purchaseCosts[id] and (R.buildings[id] or spawnTile(s,c)) then table.insert(purchasesByCity[tostring(c.id)],id) end
                 if not added then table.insert(production,id); added=true end
             end
         end
@@ -1130,28 +1294,48 @@ function BaseGame.snapshot(state: State, actorId: number): View
     do
         local actor=s.players[actorId]; local worked,claimed,added={},{},{}; local _,cityTiles=occupants(s)
         local stepMood=stepHappiness(s,actorId,resourceInventory(s,actorId))
+        local bonus=empireBonus(s,actorId); bonus.golden=goldenActive(actor)
+        -- Wonders earlier own cities complete in this step: a later city queuing one loses the race and completes nothing.
+        local wondersNow: {[string]: boolean}={}
         local own: {any}={}; for _, c in s.cities do if c.ownerId==actorId then table.insert(own,c) end end
         table.sort(own,function(a: any,b: any) return a.id<b.id end)
         for _, c in own do
             claim(s,c,claimed)
-            local yields=cityYields(s,actor,actorId,c,worked,cityTiles,claimed); local food,made=cityNet(s,actor,c,yields,stepMood)
+            local yields=cityYields(s,actor,actorId,c,worked,cityTiles,bonus,claimed); local food,made=cityNet(s,actor,c,yields,stepMood,bonus)
             local growAt=R.growthBase+c.population*R.growthPerPopulation; local cost=R.productionCosts[c.queue]
             local canGrow=stepMood>=0 and c.population<R.maxPopulation
             -- The economy completes the queue only when it is still available and a unit has a free deployment tile.
             local blocked: ("NotAvailable" | "NoSpace")?=nil; local spawn: number?=nil
-            if not productionAvailable(s,c,c.queue,added,claimed) or (R.units[c.queue] and #units+#added>=R.maxUnits) then blocked="NotAvailable"
+            if wondersNow[c.queue] or not productionAvailable(s,c,c.queue,added,claimed) or (R.units[c.queue] and #units+#added>=R.maxUnits) then blocked="NotAvailable"
             elseif R.units[c.queue] then spawn=spawnTile(s,c,added); if not spawn then blocked="NoSpace" end end
             local turns: number?=nil
             if not blocked and cost then
                 if c.production+made>=cost then turns=1 elseif made>0 then turns=math.ceil((cost-c.production)/made) end
                 if turns==1 and spawn then table.insert(added,{ownerId=actorId,kind=c.queue,tileId=spawn}) end
+                if turns==1 and isWonder(c.queue) then wondersNow[c.queue]=true end
             end
             forecasts[tostring(c.id)]={food=food,production=made,gold=yields.gold,science=yields.science,culture=yields.culture,
                 growthTurns=if not canGrow then nil elseif c.food+food>=growAt then 1 elseif food>0 then math.ceil((growAt-c.food)/food) else nil,
                 productionTurns=turns,productionBlocked=blocked}
         end
     end
-    return {cityForecasts=forecasts,seed=if s.humanPlayers==1 or s.phase=="Finished" then s.seed else nil,radius=s.radius,mapShape=s.mapShape,frequency=s.frequency,difficulty=s.difficulty,humanPlayers=s.humanPlayers,turn=s.turn,revision=s.revision,activePlayerId=s.activePlayerId,actorId=actorId,canAct=canAct,phase=s.phase,winner=s.winner,reason=s.reason,victoryType=s.victoryType,gold=p.gold,science=p.science,culture=p.culture,happiness=p.happiness,research=copy(p.research),technologies=copy(p.technologies),policies=copy(p.policies),resources=copy(resourceInventory(s,actorId)),income=copy(p.income),tiles=tiles,units=units,cities=cities,events=events,log={},legalMoves=legal,availableProduction=production,availableProductionByCity=productionByCity,availablePurchasesByCity=purchasesByCity,availableResearch=research,availablePolicies=policies,availableImprovements=improvements,productionCosts=copy(R.productionCosts),purchaseCosts=copy(R.purchaseCosts),scores=score,statistics=stats,progress=progress,cultureVictoryPolicies=threshold,policyCostIncrease=s.policyCostIncrease or 0,attackPreviews=previews,cityStrikePreviews=strikePreviews,diplomacy=copy(s.diplomacy),trades=copy(s.trades),objectives={"Found cities, develop resources and maintain happiness.","Control both original capitals for domination.","Build SpaceProject after Rocketry for science victory.","Adopt "..threshold.." "..(if threshold==1 then "policy" else "policies").." for culture victory.","Highest score wins at the round limit; ties favor civilization 1."}}
+    -- Completed world wonders in rule order. Completion and the holder are public (both civilizations always learn of a
+    -- WonderBuilt and of a capture between them); the city only to its owner or while its tile is visible.
+    local wonders={}
+    for _, id in R.wonderOrder do
+        local c=wonderCity(s,id)
+        if not c then continue end
+        local entry: any={id=id,ownerId=c.ownerId}
+        if c.ownerId==actorId or seen[c.tileId] then entry.cityId=c.id; entry.tileId=c.tileId; entry.cityName=c.name end
+        table.insert(wonders,entry)
+    end
+    -- The actor's own golden age (private). progressPerTurn is what its next economy step adds to the meter: the step's
+    -- happiness when positive, computed as the step computes it, and 0 during a golden age.
+    local age=p.goldenAge or {progress=0,turnsLeft=0,ages=0}
+    local mood=stepHappiness(s,actorId,resourceInventory(s,actorId))
+    local goldenAge={active=age.turnsLeft>0,turnsLeft=age.turnsLeft,progress=age.progress,threshold=goldenAgeThreshold(s,age.ages),ages=age.ages,
+        progressPerTurn=if age.turnsLeft>0 then 0 else math.max(0,mood),turns=goldenAgeTurns(s)}
+    return {wonders=wonders,goldenAge=goldenAge,cityForecasts=forecasts,seed=if s.humanPlayers==1 or s.phase=="Finished" then s.seed else nil,radius=s.radius,mapShape=s.mapShape,frequency=s.frequency,difficulty=s.difficulty,humanPlayers=s.humanPlayers,turn=s.turn,revision=s.revision,activePlayerId=s.activePlayerId,actorId=actorId,canAct=canAct,phase=s.phase,winner=s.winner,reason=s.reason,victoryType=s.victoryType,gold=p.gold,science=p.science,culture=p.culture,happiness=p.happiness,research=copy(p.research),technologies=copy(p.technologies),policies=copy(p.policies),resources=copy(resourceInventory(s,actorId)),income=copy(p.income),tiles=tiles,units=units,cities=cities,events=events,log={},legalMoves=legal,availableProduction=production,availableProductionByCity=productionByCity,availablePurchasesByCity=purchasesByCity,availableResearch=research,availablePolicies=policies,availableImprovements=improvements,productionCosts=copy(R.productionCosts),purchaseCosts=copy(R.purchaseCosts),scores=score,statistics=stats,progress=progress,cultureVictoryPolicies=threshold,policyCostIncrease=s.policyCostIncrease or 0,attackPreviews=previews,cityStrikePreviews=strikePreviews,diplomacy=copy(s.diplomacy),trades=copy(s.trades),objectives={"Found cities, develop resources and maintain happiness.","Control both original capitals for domination.","Build SpaceProject after Rocketry for science victory.","Adopt "..threshold.." "..(if threshold==1 then "policy" else "policies").." for culture victory.","Highest score wins at the round limit; ties favor civilization 1."}}
 end
 -- Pure, fog-safe query for one attack the actor's unit could make now. It never mutates the
 -- state and answers the same generic message for hidden, empty or out-of-range targets.

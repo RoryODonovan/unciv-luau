@@ -1,6 +1,6 @@
 --!strict
 -- Generated module-only Roblox form. Source: src/simulation/BaseRules.luau
--- Source SHA-256: 3ba8bf6efd64ee7eb48f53293eb52358f32f8549de9e86530b880d589f12b5c7
+-- Source SHA-256: 26cab5b7e7af488352914b6db45253c017155700c0b76c9aee5b33f7b3e62310
 -- Reproduce with tools/roblox-export.mjs; preserve MPL notices below.
 -- Covered source: https://github.com/RoryODonovan/unciv-luau
 -- This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
@@ -14,7 +14,16 @@ export type Yields = {food: number, production: number, gold: number, science: n
 -- It decides which promotions a unit may take. siegePercent is added to the unit's attack when it strikes a tile holding
 -- an enemy city (Civ V's siege bonus against cities); it is 0 for every unit except the Catapult.
 export type UnitRule = {id: string, cost: number, purchaseCost: number, hp: number, moves: number, strength: number, rangedStrength: number, range: number, maintenance: number, technology: string?, resource: string?, resourceAmount: number?, upgradeTo: string?, unitClass: string, siegePercent: number}
-export type BuildingRule = {id: string, cost: number, purchaseCost: number, maintenance: number, technology: string?, yields: Yields, happiness: number, defense: number}
+-- A building's `yields` go to its own city and its `happiness` to its owner. A world wonder (`wonder=true`) can be
+-- completed once per world. Its empire effects follow the city that holds it (a captured wonder serves its captor):
+-- `globalYields` add to every city of the owner, `sciencePercent` raises every city's science, `policyCostPercent` comes
+-- off every policy's culture cost, `unitExperience` is given to each new military unit the owner builds or buys, and
+-- `startsGoldenAge` starts (or extends) a golden age once, when the wonder is completed. Ordinary buildings have none
+-- of these (zero yields, 0 or false).
+export type BuildingRule = {id: string, name: string, cost: number, purchaseCost: number, maintenance: number, technology: string?, yields: Yields, happiness: number, defense: number,
+    wonder: boolean, globalYields: Yields, sciencePercent: number, policyCostPercent: number, unitExperience: number, startsGoldenAge: boolean}
+-- Golden-age numbers (see `goldenAge` in the rule table below).
+export type GoldenAgeRule = {threshold: number, thresholdIncrease: number, turns: number, tileGold: number, productionPercent: number, paceTurns: number, minPacePercent: number, maxPacePercent: number}
 export type Technology = {id: string, name: string, cost: number, prerequisites: {string}}
 export type Policy = {id: string, name: string, cost: number, prerequisites: {string}, yields: Yields, happiness: number, maintenanceDiscount: number}
 export type Improvement = {id: string, technology: string?, terrains: {string}, resources: {string}, turns: number, yields: Yields, road: boolean}
@@ -56,14 +65,36 @@ units.Warrior.upgradeTo="Swordsman"; units.Swordsman.upgradeTo="Musketman"; unit
 -- The Catapult is the roster's siege unit: +50% attack against cities.
 units.Catapult.siegePercent=50
 local buildings: {[string]: BuildingRule} = {}
+local buildingNames: {[string]: string}={GuildHall="Guild Hall",SpaceProject="Space Project"}
 local function building(id: string, cost: number, maintenance: number, technology: string?, effect: Yields, happiness: number?, defense: number?)
-    buildings[id]={id=id,cost=cost,purchaseCost=cost*4,maintenance=maintenance,technology=technology,yields=effect,happiness=happiness or 0,defense=defense or 0}
+    buildings[id]={id=id,name=buildingNames[id] or id,cost=cost,purchaseCost=cost*4,maintenance=maintenance,technology=technology,yields=effect,happiness=happiness or 0,defense=defense or 0,
+        wonder=false,globalYields=yields(),sciencePercent=0,policyCostPercent=0,unitExperience=0,startsGoldenAge=false}
 end
 building("Granary",16,1,"Agriculture",yields(2)); building("Monument",14,0,nil,yields(0,0,0,0,2))
 building("Library",22,1,"Writing",yields(0,0,0,3)); building("Workshop",28,2,"Engineering",yields(0,3))
 building("Market",24,1,"Currency",yields(0,0,4)); building("Walls",22,1,"Masonry",yields(),0,8)
 building("Temple",26,1,"Philosophy",yields(0,0,0,0,3),2); building("University",40,2,"Education",yields(0,0,0,6))
 building("SpaceProject",250,0,"Rocketry",yields()); building("Observatory",55,3,"Astronomy",yields(0,0,0,8)); building("GuildHall",48,2,"CivilService",yields(0,0,2,0,5))
+-- World wonders: original, Civ V-flavoured effects under generic historical names, spread along the technology tree.
+-- Each can be completed once per world, costs no maintenance and cannot be purchased.
+type WonderExtra = {happiness: number?, globalYields: Yields?, sciencePercent: number?, policyCostPercent: number?, unitExperience: number?, startsGoldenAge: boolean?}
+local function wonder(id: string, name: string, cost: number, technology: string, effect: Yields, extra: WonderExtra)
+    building(id,cost,0,technology,effect,extra.happiness)
+    local rule=buildings[id]; rule.name=name; rule.wonder=true; rule.globalYields=extra.globalYields or yields()
+    rule.sciencePercent=extra.sciencePercent or 0; rule.policyCostPercent=extra.policyCostPercent or 0
+    rule.unitExperience=extra.unitExperience or 0; rule.startsGoldenAge=extra.startsGoldenAge==true
+end
+wonder("HangingGardens","Hanging Gardens",60,"Agriculture",yields(2),{globalYields=yields(1)})
+wonder("Colossus","Colossus",70,"BronzeWorking",yields(0,0,3),{globalYields=yields(0,0,1)})
+wonder("GreatLibrary","Great Library",75,"Writing",yields(0,0,0,4,1),{})
+wonder("TerracottaArmy","Terracotta Army",90,"IronWorking",yields(),{unitExperience=15})
+wonder("Oracle","Oracle",100,"Philosophy",yields(0,0,0,0,3),{policyCostPercent=25})
+wonder("NotreDame","Notre Dame",120,"CivilService",yields(0,0,0,0,2),{happiness=4})
+wonder("HouseOfWisdom","House of Wisdom",140,"Education",yields(0,0,0,2),{sciencePercent=15})
+wonder("TajMahal","Taj Mahal",170,"Gunpowder",yields(0,0,0,0,2),{startsGoldenAge=true})
+local wonderOrder={"HangingGardens","Colossus","GreatLibrary","TerracottaArmy","Oracle","NotreDame","HouseOfWisdom","TajMahal"}
+local buildingOrder={"Monument","Granary","Library","Walls","Market","Workshop","Temple","University","GuildHall","Observatory","SpaceProject"}
+for _, id in wonderOrder do table.insert(buildingOrder,id) end
 local technologies: {[string]: Technology} = {}
 local technologyOrder = {"Agriculture","Mining","Archery","BronzeWorking","Writing","Masonry","IronWorking","Currency","Engineering","Philosophy","CivilService","Education","Astronomy","Gunpowder","Rifling","Rocketry"}
 local function tech(id: string, cost: number, prerequisites: {string}) technologies[id]={id=id,name=id,cost=cost,prerequisites=prerequisites} end
@@ -135,7 +166,7 @@ for id, rule in terrains do terrainYields[id]=rule.yields end
 local rules = {
     minRadius=3,maxRadius=40,maxTiles=4921,radius=4,maxTurns=120,maxPopulation=100,maxUnits=169,maxCities=24,
     units=units,unitStats=units,buildings=buildings,buildingEffects=buildings,technologies=technologies,technologyOrder=technologyOrder,
-    unitOrder={"Scout","Warrior","Settler","Worker","Archer","Swordsman","Pikeman","Knight","Catapult","Musketman","Rifleman"},buildingOrder={"Monument","Granary","Library","Walls","Market","Workshop","Temple","University","GuildHall","Observatory","SpaceProject"},
+    unitOrder={"Scout","Warrior","Settler","Worker","Archer","Swordsman","Pikeman","Knight","Catapult","Musketman","Rifleman"},buildingOrder=buildingOrder,wonderOrder=wonderOrder,
     policies=policies,policyOrder={"Tradition","Liberty","Honor","Commerce","Rationalism","Patronage"},
     terrains=terrains,terrainYields=terrainYields,features=features,featureOrder={"Forest","Jungle","Marsh","Oasis"},resources=resources,improvements=improvements,improvementOrder={"Farm","Mine","Pasture","Plantation","Camp","Road"},
     productionCosts=productionCosts,purchaseCosts=purchaseCosts,upgradeCost=40,workerTurns=2,
@@ -148,7 +179,7 @@ local rules = {
     -- movement unless both tiles have roads (the road bridges it), and a melee attack across a river loses
     -- riverAttackPercent of its attack (Civ V's -20%).
     riverGold=1,riverFarmFood=1,riverAttackPercent=20,
-    scienceVictoryTechnology="Rocketry",scienceVictoryBuilding="SpaceProject",cultureVictoryPolicies=6,score={city=10,population=3,unit=2,technology=5,policy=5},
+    scienceVictoryTechnology="Rocketry",scienceVictoryBuilding="SpaceProject",cultureVictoryPolicies=6,score={city=10,population=3,unit=2,technology=5,policy=5,wonder=10},
     maxTradeTurns=20,maxTradeDeals=16,maxEvents=64,maxLog=24,
     -- Combat percentages: fortification adds to the terrain percentage in one defence multiplier; each other
     -- friendly military unit next to a defending unit adds to a melee attack, up to the cap.
@@ -169,6 +200,13 @@ local rules = {
     -- Once per round a city may strike a visible enemy unit within cityStrikeRange with cityStrikePercent of its
     -- combat strength (rounded down) as its ranged strength; it takes no damage and gains no experience.
     cityBaseStrength=14,cityStrengthPerEra=3,garrisonPercent=25,cityStrikeRange=2,cityStrikePercent=60,
+    -- Golden ages. Each of its owner's economy steps outside a golden age adds the step's happiness, when positive, to
+    -- the civilization's meter. When the meter reaches the threshold (threshold + thresholdIncrease x golden ages so
+    -- far) it is spent and a golden age of `turns` owner steps begins with the next step. During one, every worked tile
+    -- and city centre yielding at least 1 gold yields `tileGold` more, and each city's production rises by
+    -- `productionPercent`. Both the threshold and the length scale with the match's round limit against `paceTurns`
+    -- (clamped from minPacePercent to maxPacePercent).
+    goldenAge={threshold=120,thresholdIncrease=60,turns=8,tileGold=1,productionPercent=20,paceTurns=120,minPacePercent=50,maxPacePercent=200} :: GoldenAgeRule,
 }
 freeze(rules)
 return rules
