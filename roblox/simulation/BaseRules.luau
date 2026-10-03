@@ -1,6 +1,6 @@
 --!strict
 -- Generated module-only Roblox form. Source: src/simulation/BaseRules.luau
--- Source SHA-256: 3f6a363bbf977d2f2b22bd1f51cb70c68f0c2f15828dcafdde071f09a04050f5
+-- Source SHA-256: c6399cb61b3e2c82ce13162f9ed73d58ae561ae13b533b4bcc52ee0b434141b6
 -- Reproduce with tools/roblox-export.mjs; preserve MPL notices below.
 -- Covered source: https://github.com/RoryODonovan/unciv-luau
 -- This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
@@ -10,21 +10,30 @@
 -- Provenance-Kind: original
 -- Original bounded civilization balance; no copied Unciv ruleset or media.
 export type Yields = {food: number, production: number, gold: number, science: number, culture: number}
+-- Combat values (G7). `attack` is the unit's melee attack strength, `defense` its defence strength and `rangedStrength`
+-- the strength of its ranged attack (0 for a unit without one). `strength` is the larger of attack and defence: the
+-- unit's headline combat strength, kept from the earlier single-value rules; 0 marks a civilian. Every unit from before
+-- G7 has attack = defence = strength, so it fights exactly as before.
 -- unitClass: "Melee" (strength above zero, range 1; Scouts included), "Ranged" (range above 1) or "Civilian" (strength 0).
--- It decides which promotions a unit may take. siegePercent is added to the unit's attack when it strikes a tile holding
--- an enemy city (Civ V's siege bonus against cities); it is 0 for every unit except the Catapult.
-export type UnitRule = {id: string, cost: number, purchaseCost: number, hp: number, moves: number, strength: number, rangedStrength: number, range: number, maintenance: number, technology: string?, resource: string?, resourceAmount: number?, upgradeTo: string?, unitClass: string, siegePercent: number}
+-- It decides which promotions a unit may take, and an upgrade never changes it. `role` is the combat type: "Civilian",
+-- "Recon", "Melee", "Mounted", "Archery", "Siege", "Gunpowder" or "Armor". `versus` maps a role to a percentage added to
+-- the unit's attack and defence in a strike against a unit of that role (the Spearman line's bonus against Mounted).
+-- siegePercent is added to the unit's attack when it strikes a tile holding an enemy city (Civ V's siege bonus against
+-- cities); only Siege units have it. A unit with `resource` needs `resourceAmount` of that strategic resource while it
+-- lives (see `resources[*].quantity`). `era` is the era of its technology (1 without one).
+export type UnitRule = {id: string, name: string, era: number, cost: number, purchaseCost: number, hp: number, moves: number, strength: number, attack: number, defense: number, rangedStrength: number, range: number, maintenance: number, technology: string?, resource: string?, resourceAmount: number?, upgradeTo: string?, unitClass: string, role: string, versus: {[string]: number}, siegePercent: number}
 -- A building's `yields` go to its own city and its `happiness` to its owner. A world wonder (`wonder=true`) can be
 -- completed once per world. Its empire effects follow the city that holds it (a captured wonder serves its captor):
 -- `globalYields` add to every city of the owner, `sciencePercent` raises every city's science, `policyCostPercent` comes
 -- off every policy's culture cost, `unitExperience` is given to each new military unit the owner builds or buys, and
 -- `startsGoldenAge` starts (or extends) a golden age once, when the wonder is completed. Ordinary buildings have none
--- of these (zero yields, 0 or false).
-export type BuildingRule = {id: string, name: string, cost: number, purchaseCost: number, maintenance: number, technology: string?, yields: Yields, happiness: number, defense: number,
+-- of these (zero yields, 0 or false). `era` is the era of its technology (1 without one).
+export type BuildingRule = {id: string, name: string, era: number, cost: number, purchaseCost: number, maintenance: number, technology: string?, yields: Yields, happiness: number, defense: number,
     wonder: boolean, globalYields: Yields, sciencePercent: number, policyCostPercent: number, unitExperience: number, startsGoldenAge: boolean}
 -- Golden-age numbers (see `goldenAge` in the rule table below).
 export type GoldenAgeRule = {threshold: number, thresholdIncrease: number, turns: number, tileGold: number, productionPercent: number, paceTurns: number, minPacePercent: number, maxPacePercent: number}
-export type Technology = {id: string, name: string, cost: number, prerequisites: {string}}
+-- `era` (1-6) indexes `eras`; a civilization's era is the highest era among the technologies it knows.
+export type Technology = {id: string, name: string, era: number, cost: number, prerequisites: {string}}
 export type Policy = {id: string, name: string, cost: number, prerequisites: {string}, yields: Yields, happiness: number, maintenanceDiscount: number}
 export type Improvement = {id: string, technology: string?, terrains: {string}, resources: {string}, turns: number, yields: Yields, road: boolean}
 -- defensePercent: percentage added to a defender's strength on this terrain (Hills/Forest +25%).
@@ -43,7 +52,9 @@ export type Feature = {id: string, terrains: {string}, movement: number, defense
 -- against a ranged attack, accuracyPercent on a ranged attack against a unit. adjacentHeal is extra healing for the
 -- owner's resting units next to this unit (several medics do not stack). All prerequisites must be taken first.
 export type Promotion = {id: string, name: string, prerequisites: {string}, classes: {string}, roughPercent: number, openPercent: number, coverPercent: number, accuracyPercent: number, adjacentHeal: number}
-export type Resource = {id: string, category: string, yields: Yields, happiness: number, improvement: string}
+-- `quantity`: what one improved tile of the resource supplies. For a strategic resource it is the number of units that
+-- tile supports (each living unit needing the resource uses its `resourceAmount`); bonus and luxury resources have 1.
+export type Resource = {id: string, name: string, category: string, quantity: number, yields: Yields, happiness: number, improvement: string}
 -- Barbarians: a non-playing hostile faction whose units carry `ownerId` (0, never a civilization's id). See `barbarians`
 -- in the rule table below for the meaning of each value.
 export type BarbarianRule = {ownerId: number, firstCampTurn: number, campInterval: number, spawnInterval: number, tilesPerCamp: number, maxCamps: number,
@@ -57,29 +68,82 @@ local function freeze(value: any)
     for _, child in value do freeze(child) end
     table.freeze(value)
 end
+-- Eras, earliest first; a technology's `era` indexes this list.
+local eras={"Ancient","Classical","Medieval","Renaissance","Industrial","Modern"}
 local units: {[string]: UnitRule} = {}
-local function unit(id: string, cost: number, hp: number, moves: number, strength: number, technology: string?, rangedStrength: number?, range: number?, resource: string?)
-    local class=if strength<=0 then "Civilian" elseif (range or 1)>1 then "Ranged" else "Melee"
-    units[id] = {id=id,cost=cost,purchaseCost=cost*4,hp=hp,moves=moves,strength=strength,rangedStrength=rangedStrength or 0,range=range or 1,maintenance=if strength > 0 then 1 else 0,technology=technology,resource=resource,resourceAmount=if resource then 1 else nil,unitClass=class,siegePercent=0}
+local unitOrder: {string}={}
+-- A unit's combat values. `strength` alone gives attack = defence = strength (every unit from before G7); `attack` and
+-- `defense` set them apart. `ranged` and `range` make a ranged unit, `siege` its bonus against cities.
+type UnitSpec = {name: string?, cost: number, hp: number, moves: number, role: string, strength: number?, attack: number?, defense: number?, ranged: number?, range: number?,
+    technology: string?, resource: string?, upgradeTo: string?, versus: {[string]: number}?, siege: number?}
+local function unit(id: string, spec: UnitSpec)
+    local attack=spec.attack or spec.strength or 0; local defense=spec.defense or spec.strength or 0
+    local strength=spec.strength or math.max(attack,defense); local range=spec.range or 1
+    local class=if strength<=0 then "Civilian" elseif range>1 then "Ranged" else "Melee"
+    units[id]={id=id,name=spec.name or id,era=1,cost=spec.cost,purchaseCost=spec.cost*4,hp=spec.hp,moves=spec.moves,strength=strength,attack=attack,defense=defense,
+        rangedStrength=spec.ranged or 0,range=range,maintenance=if strength>0 then 1 else 0,technology=spec.technology,resource=spec.resource,
+        resourceAmount=if spec.resource then 1 else nil,upgradeTo=spec.upgradeTo,unitClass=class,role=spec.role,versus=spec.versus or {},siegePercent=spec.siege or 0}
+    table.insert(unitOrder,id)
 end
-unit("Scout",9,60,3,4); unit("Warrior",12,100,2,10); unit("Settler",24,50,2,0); unit("Worker",16,50,2,0)
-unit("Archer",18,70,2,5,"Archery",12,2); unit("Swordsman",28,100,2,18,"IronWorking",nil,nil,"Iron")
-unit("Pikeman",30,100,2,20,"CivilService"); unit("Knight",42,100,3,26,"CivilService",nil,nil,"Horses")
-unit("Catapult",32,65,2,5,"Engineering",22,2); unit("Musketman",48,100,2,30,"Gunpowder"); unit("Rifleman",62,100,2,42,"Rifling")
-units.Warrior.upgradeTo="Swordsman"; units.Swordsman.upgradeTo="Musketman"; units.Musketman.upgradeTo="Rifleman"
--- The Catapult is the roster's siege unit: +50% attack against cities.
-units.Catapult.siegePercent=50
+-- The roster by era. The eleven units from before G7 keep their numbers (attack = defence = strength); the Pikeman gains
+-- the Spearman line's +50% against mounted units, and the Scout, Archer, Swordsman, Pikeman, Knight, Catapult and
+-- Rifleman gain upgrades. Original synthetic values under generic historical names.
+-- Ancient
+unit("Scout",{cost=9,hp=60,moves=3,strength=4,role="Recon",upgradeTo="Explorer"})
+unit("Warrior",{cost=12,hp=100,moves=2,strength=10,role="Melee",upgradeTo="Swordsman"})
+unit("Settler",{cost=24,hp=50,moves=2,strength=0,role="Civilian"})
+unit("Worker",{cost=16,hp=50,moves=2,strength=0,role="Civilian"})
+unit("Archer",{cost=18,hp=70,moves=2,strength=5,ranged=12,range=2,technology="Archery",role="Archery",upgradeTo="CompositeBowman"})
+unit("Chariot",{cost=22,hp=100,moves=3,attack=13,defense=8,technology="AnimalHusbandry",resource="Horses",role="Mounted",upgradeTo="Horseman"})
+-- Classical
+unit("Spearman",{cost=18,hp=100,moves=2,attack=12,defense=14,technology="BronzeWorking",role="Melee",versus={Mounted=50},upgradeTo="Pikeman"})
+unit("Horseman",{cost=30,hp=100,moves=3,attack=18,defense=11,technology="HorsebackRiding",resource="Horses",role="Mounted",upgradeTo="Knight"})
+unit("Swordsman",{cost=28,hp=100,moves=2,strength=18,technology="IronWorking",resource="Iron",role="Melee",upgradeTo="Longswordsman"})
+unit("CompositeBowman",{name="Composite Bowman",cost=26,hp=75,moves=2,attack=6,defense=8,ranged=16,range=2,technology="Mathematics",role="Archery",upgradeTo="Crossbowman"})
+unit("Catapult",{cost=32,hp=65,moves=2,strength=5,ranged=22,range=2,technology="Engineering",role="Siege",siege=50,upgradeTo="Trebuchet"})
+-- Medieval
+unit("Pikeman",{cost=30,hp=100,moves=2,strength=20,technology="CivilService",role="Melee",versus={Mounted=50},upgradeTo="Musketman"})
+unit("Knight",{cost=42,hp=100,moves=3,strength=26,technology="CivilService",resource="Horses",role="Mounted",upgradeTo="Lancer"})
+unit("Longswordsman",{cost=40,hp=100,moves=2,attack=25,defense=23,technology="Steel",resource="Iron",role="Melee",upgradeTo="Musketman"})
+unit("Crossbowman",{cost=36,hp=75,moves=2,attack=8,defense=11,ranged=20,range=2,technology="Machinery",role="Archery",upgradeTo="GatlingGun"})
+unit("Trebuchet",{cost=44,hp=70,moves=2,attack=6,defense=7,ranged=30,range=2,technology="Machinery",resource="Iron",role="Siege",siege=50,upgradeTo="Cannon"})
+-- Renaissance
+unit("Explorer",{cost=30,hp=80,moves=3,attack=8,defense=9,technology="Astronomy",role="Recon"})
+unit("Musketman",{cost=48,hp=100,moves=2,strength=30,technology="Gunpowder",role="Gunpowder",upgradeTo="Rifleman"})
+unit("Lancer",{cost=56,hp=100,moves=3,attack=34,defense=24,technology="Metallurgy",resource="Horses",role="Mounted",upgradeTo="Cavalry"})
+unit("Cannon",{cost=58,hp=70,moves=2,attack=8,defense=10,ranged=40,range=2,technology="Chemistry",resource="Saltpeter",role="Siege",siege=50,upgradeTo="Artillery"})
+-- Industrial
+unit("Rifleman",{cost=62,hp=100,moves=2,strength=42,technology="Rifling",role="Gunpowder",upgradeTo="Infantry"})
+unit("Cavalry",{cost=70,hp=100,moves=4,attack=46,defense=32,technology="MilitaryScience",resource="Horses",role="Mounted",upgradeTo="Tank"})
+unit("GatlingGun",{name="Gatling Gun",cost=68,hp=90,moves=2,attack=12,defense=32,ranged=34,range=2,technology="Industrialization",resource="Saltpeter",role="Archery",upgradeTo="MachineGun"})
+unit("Artillery",{cost=84,hp=70,moves=2,attack=10,defense=14,ranged=62,range=3,technology="Dynamite",resource="Saltpeter",role="Siege",siege=50,upgradeTo="RocketArtillery"})
+-- Modern
+unit("Infantry",{cost=90,hp=100,moves=2,attack=58,defense=60,technology="Ballistics",role="Gunpowder"})
+unit("MachineGun",{name="Machine Gun",cost=92,hp=90,moves=2,attack=14,defense=46,ranged=50,range=2,technology="Ballistics",resource="Saltpeter",role="Archery"})
+unit("AntiTankGun",{name="Anti-Tank Gun",cost=86,hp=100,moves=2,attack=40,defense=52,technology="Ballistics",role="Gunpowder",versus={Armor=75}})
+unit("Tank",{cost=110,hp=100,moves=4,attack=70,defense=54,technology="Combustion",resource="Oil",role="Armor",upgradeTo="BattleTank"})
+unit("RocketArtillery",{name="Rocket Artillery",cost=120,hp=75,moves=3,attack=14,defense=20,ranged=90,range=3,technology="Rocketry",resource="Oil",role="Siege",siege=50})
+unit("BattleTank",{name="Battle Tank",cost=150,hp=100,moves=4,attack=96,defense=76,technology="Computers",resource="Oil",role="Armor"})
 local buildings: {[string]: BuildingRule} = {}
-local buildingNames: {[string]: string}={GuildHall="Guild Hall",SpaceProject="Space Project"}
+local buildingNames: {[string]: string}={GuildHall="Guild Hall",SpaceProject="Space Project",StockExchange="Stock Exchange",PowerPlant="Power Plant",ResearchLab="Research Lab"}
 local function building(id: string, cost: number, maintenance: number, technology: string?, effect: Yields, happiness: number?, defense: number?)
-    buildings[id]={id=id,name=buildingNames[id] or id,cost=cost,purchaseCost=cost*4,maintenance=maintenance,technology=technology,yields=effect,happiness=happiness or 0,defense=defense or 0,
+    buildings[id]={id=id,name=buildingNames[id] or id,era=1,cost=cost,purchaseCost=cost*4,maintenance=maintenance,technology=technology,yields=effect,happiness=happiness or 0,defense=defense or 0,
         wonder=false,globalYields=yields(),sciencePercent=0,policyCostPercent=0,unitExperience=0,startsGoldenAge=false}
 end
+-- The eleven buildings from before G7 keep their values (the Space Project now needs Space Flight, the science victory's
+-- technology). Each new one has one or two plain effects through the existing city yields, happiness and defence.
 building("Granary",16,1,"Agriculture",yields(2)); building("Monument",14,0,nil,yields(0,0,0,0,2))
 building("Library",22,1,"Writing",yields(0,0,0,3)); building("Workshop",28,2,"Engineering",yields(0,3))
 building("Market",24,1,"Currency",yields(0,0,4)); building("Walls",22,1,"Masonry",yields(),0,8)
 building("Temple",26,1,"Philosophy",yields(0,0,0,0,3),2); building("University",40,2,"Education",yields(0,0,0,6))
-building("SpaceProject",250,0,"Rocketry",yields()); building("Observatory",55,3,"Astronomy",yields(0,0,0,8)); building("GuildHall",48,2,"CivilService",yields(0,0,2,0,5))
+building("SpaceProject",250,0,"SpaceFlight",yields()); building("Observatory",55,3,"Astronomy",yields(0,0,0,8)); building("GuildHall",48,2,"CivilService",yields(0,0,2,0,5))
+building("Shrine",18,1,"Pottery",yields(1),1); building("Forge",34,1,"IronWorking",yields(0,2))
+building("Aqueduct",38,1,"Engineering",yields(3)); building("Colosseum",36,1,"Construction",yields(),3)
+building("Monastery",46,2,"Theology",yields(0,0,0,2,2)); building("Castle",44,1,"Chivalry",yields(),0,6)
+building("Bank",60,1,"Banking",yields(0,0,5)); building("Theatre",66,2,"PrintingPress",yields(0,0,0,0,2),3)
+building("StockExchange",80,2,"Economics",yields(0,0,6)); building("Factory",96,3,"Industrialization",yields(0,6))
+building("Hospital",90,2,"Medicine",yields(4)); building("PowerPlant",110,3,"Electricity",yields(0,6))
+building("Stadium",104,2,"Radio",yields(),4); building("ResearchLab",120,3,"Computers",yields(0,0,0,10))
 -- World wonders: original, Civ V-flavoured effects under generic historical names, spread along the technology tree.
 -- Each can be completed once per world, costs no maintenance and cannot be purchased.
 type WonderExtra = {happiness: number?, globalYields: Yields?, sciencePercent: number?, policyCostPercent: number?, unitExperience: number?, startsGoldenAge: boolean?}
@@ -98,15 +162,53 @@ wonder("NotreDame","Notre Dame",120,"CivilService",yields(0,0,0,0,2),{happiness=
 wonder("HouseOfWisdom","House of Wisdom",140,"Education",yields(0,0,0,2),{sciencePercent=15})
 wonder("TajMahal","Taj Mahal",170,"Gunpowder",yields(0,0,0,0,2),{startsGoldenAge=true})
 local wonderOrder={"HangingGardens","Colossus","GreatLibrary","TerracottaArmy","Oracle","NotreDame","HouseOfWisdom","TajMahal"}
-local buildingOrder={"Monument","Granary","Library","Walls","Market","Workshop","Temple","University","GuildHall","Observatory","SpaceProject"}
+-- Ordinary buildings by era (each era's in a fixed order), then the wonders.
+local buildingOrder={"Monument","Granary","Shrine","Walls",
+    "Library","Market","Forge","Workshop","Aqueduct","Temple","Colosseum",
+    "University","GuildHall","Monastery","Castle",
+    "Observatory","Bank","Theatre","StockExchange",
+    "Factory","Hospital","PowerPlant",
+    "Stadium","ResearchLab","SpaceProject"}
 for _, id in wonderOrder do table.insert(buildingOrder,id) end
+-- Forty technologies in six eras. The sixteen from before G7 keep their ids, costs and prerequisites (so every earlier
+-- save's knowledge and research stay valid); the new ones join the tree around them and after them. Eras follow the
+-- tree: Classical opens with Bronze Working or Writing, Medieval with Civil Service, Theology or Machinery, Renaissance
+-- with Astronomy, Gunpowder, Banking or Printing Press, Industrial with Rifling and Modern with Rocketry.
+-- `technologyOrder` is the recommended research order, which the AI follows (the first technology it may research):
+-- the tree's main line first, with side branches after the era's core. It lists every prerequisite before the
+-- technologies needing it.
 local technologies: {[string]: Technology} = {}
-local technologyOrder = {"Agriculture","Mining","Archery","BronzeWorking","Writing","Masonry","IronWorking","Currency","Engineering","Philosophy","CivilService","Education","Astronomy","Gunpowder","Rifling","Rocketry"}
-local function tech(id: string, cost: number, prerequisites: {string}) technologies[id]={id=id,name=id,cost=cost,prerequisites=prerequisites} end
-tech("Agriculture",12,{}); tech("Mining",14,{}); tech("Archery",16,{"Agriculture"}); tech("BronzeWorking",22,{"Mining"})
-tech("Writing",24,{"Agriculture"}); tech("Masonry",22,{"Mining"}); tech("IronWorking",38,{"BronzeWorking"})
-tech("Currency",38,{"Writing"}); tech("Engineering",44,{"Masonry","BronzeWorking"}); tech("Philosophy",42,{"Writing"})
-tech("CivilService",60,{"Currency","Philosophy"}); tech("Education",70,{"Philosophy","Engineering"}); tech("Astronomy",100,{"Education"}); tech("Gunpowder",90,{"Engineering","Education"}); tech("Rifling",130,{"Gunpowder"}); tech("Rocketry",180,{"Astronomy","Rifling"})
+local technologyOrder: {string}={"Agriculture","Mining","Archery","BronzeWorking","Writing","Masonry","Pottery","IronWorking","Currency","Engineering","Philosophy",
+    "CivilService","AnimalHusbandry","Mathematics","Education","Construction","Astronomy","HorsebackRiding","Machinery","Theology","Gunpowder","Steel","Chivalry",
+    "Banking","PrintingPress","Rifling","Chemistry","Metallurgy","Economics","Industrialization","MilitaryScience","Medicine","Electricity","Dynamite","Rocketry",
+    "Radio","Combustion","Ballistics","Computers","SpaceFlight"}
+local technologyNames: {[string]: string}={BronzeWorking="Bronze Working",IronWorking="Iron Working",CivilService="Civil Service",AnimalHusbandry="Animal Husbandry",
+    HorsebackRiding="Horseback Riding",PrintingPress="Printing Press",MilitaryScience="Military Science",SpaceFlight="Space Flight"}
+local function tech(id: string, era: number, cost: number, prerequisites: {string})
+    technologies[id]={id=id,name=technologyNames[id] or id,era=era,cost=cost,prerequisites=prerequisites}
+end
+-- Ancient
+tech("Agriculture",1,12,{}); tech("Mining",1,14,{}); tech("Archery",1,16,{"Agriculture"}); tech("Masonry",1,22,{"Mining"})
+tech("Pottery",1,16,{"Agriculture"}); tech("AnimalHusbandry",1,18,{"Agriculture"})
+-- Classical
+tech("BronzeWorking",2,22,{"Mining"}); tech("Writing",2,24,{"Agriculture"}); tech("IronWorking",2,38,{"BronzeWorking"}); tech("Currency",2,38,{"Writing"})
+tech("Engineering",2,44,{"Masonry","BronzeWorking"}); tech("Philosophy",2,42,{"Writing"}); tech("HorsebackRiding",2,34,{"AnimalHusbandry"})
+tech("Mathematics",2,40,{"Archery","Writing"}); tech("Construction",2,46,{"Masonry","Pottery"})
+-- Medieval
+tech("CivilService",3,60,{"Currency","Philosophy"}); tech("Education",3,70,{"Philosophy","Engineering"}); tech("Theology",3,66,{"Philosophy"})
+tech("Machinery",3,68,{"Engineering","Mathematics"}); tech("Chivalry",3,72,{"CivilService","HorsebackRiding"}); tech("Steel",3,76,{"IronWorking","Machinery"})
+-- Renaissance
+tech("Astronomy",4,100,{"Education"}); tech("Gunpowder",4,90,{"Engineering","Education"}); tech("Banking",4,96,{"CivilService"}); tech("PrintingPress",4,100,{"Education","Machinery"})
+tech("Chemistry",4,106,{"Gunpowder","Astronomy"}); tech("Metallurgy",4,110,{"Gunpowder","Steel"}); tech("Economics",4,115,{"Banking","PrintingPress"})
+-- Industrial
+tech("Rifling",5,130,{"Gunpowder"}); tech("Industrialization",5,150,{"Economics","Metallurgy"}); tech("Medicine",5,140,{"Chemistry"})
+tech("MilitaryScience",5,155,{"Rifling","Metallurgy"}); tech("Dynamite",5,160,{"MilitaryScience","Chemistry"}); tech("Electricity",5,170,{"Industrialization"})
+-- Modern
+tech("Rocketry",6,180,{"Astronomy","Rifling"}); tech("Combustion",6,210,{"Electricity","Dynamite"}); tech("Ballistics",6,200,{"Dynamite","Electricity"})
+tech("Radio",6,215,{"Electricity"}); tech("Computers",6,250,{"Radio","Combustion"}); tech("SpaceFlight",6,300,{"Computers","Rocketry"})
+-- A unit's or building's era is its technology's (1 without one).
+for _, rule in units do if rule.technology then rule.era=technologies[rule.technology].era end end
+for _, rule in buildings do if rule.technology then rule.era=technologies[rule.technology].era end end
 local policies: {[string]: Policy} = {
     Tradition={id="Tradition",name="Tradition",cost=20,prerequisites={},yields=yields(1),happiness=1,maintenanceDiscount=0},
     Liberty={id="Liberty",name="Liberty",cost=25,prerequisites={},yields=yields(0,1),happiness=0,maintenanceDiscount=0},
@@ -134,17 +236,24 @@ local features: {[string]: Feature} = {
     Marsh={id="Marsh",terrains={"Grassland"},movement=2,defensePercent=-15,rough=true,yields=yields(-1),overrideYields=false,improvements={}},
     Oasis={id="Oasis",terrains={"Desert"},movement=1,defensePercent=-10,rough=false,yields=yields(3,0,1),overrideYields=true,improvements={}},
 }
+-- Strategic resources (G7 quantities): each improved tile supplies `quantity` of the resource, and every living unit
+-- needing it uses its `resourceAmount` (1). Saltpeter (gunpowder-era siege and machine guns) and Oil (armour and rocket
+-- artillery) are the two later strategic resources.
 local resources: {[string]: Resource} = {
-    Wheat={id="Wheat",category="Bonus",yields=yields(1),happiness=0,improvement="Farm"},
-    Iron={id="Iron",category="Strategic",yields=yields(0,1),happiness=0,improvement="Mine"},
-    Horses={id="Horses",category="Strategic",yields=yields(0,1),happiness=0,improvement="Pasture"},
-    Gold={id="Gold",category="Luxury",yields=yields(0,0,2),happiness=3,improvement="Mine"},
-    Spices={id="Spices",category="Luxury",yields=yields(0,0,1),happiness=3,improvement="Plantation"},
-    Deer={id="Deer",category="Bonus",yields=yields(1),happiness=0,improvement="Camp"},
+    Wheat={id="Wheat",name="Wheat",category="Bonus",quantity=1,yields=yields(1),happiness=0,improvement="Farm"},
+    Iron={id="Iron",name="Iron",category="Strategic",quantity=2,yields=yields(0,1),happiness=0,improvement="Mine"},
+    Horses={id="Horses",name="Horses",category="Strategic",quantity=2,yields=yields(0,1),happiness=0,improvement="Pasture"},
+    Saltpeter={id="Saltpeter",name="Saltpeter",category="Strategic",quantity=2,yields=yields(0,1),happiness=0,improvement="Mine"},
+    Oil={id="Oil",name="Oil",category="Strategic",quantity=2,yields=yields(0,1,1),happiness=0,improvement="Well"},
+    Gold={id="Gold",name="Gold",category="Luxury",quantity=1,yields=yields(0,0,2),happiness=3,improvement="Mine"},
+    Spices={id="Spices",name="Spices",category="Luxury",quantity=1,yields=yields(0,0,1),happiness=3,improvement="Plantation"},
+    Deer={id="Deer",name="Deer",category="Bonus",quantity=1,yields=yields(1),happiness=0,improvement="Camp"},
 }
 local improvements: {[string]: Improvement} = {
     Farm={id="Farm",technology="Agriculture",terrains={"Plains","Grassland"},resources={"Wheat"},turns=2,yields=yields(1),road=false},
-    Mine={id="Mine",technology="Mining",terrains={"Hills","Plains","Desert"},resources={"Iron","Gold"},turns=3,yields=yields(0,1),road=false},
+    Mine={id="Mine",technology="Mining",terrains={"Hills","Plains","Desert"},resources={"Iron","Gold","Saltpeter"},turns=3,yields=yields(0,1),road=false},
+    -- A Well always needs its Oil, like a Pasture its Horses.
+    Well={id="Well",technology="Combustion",terrains={"Plains","Desert","Tundra","Hills"},resources={"Oil"},turns=4,yields=yields(0,1),road=false},
     Pasture={id="Pasture",technology="Agriculture",terrains={"Plains","Grassland"},resources={"Horses"},turns=2,yields=yields(0,1),road=false},
     Plantation={id="Plantation",technology="Currency",terrains={"Plains","Grassland","Forest"},resources={"Spices"},turns=3,yields=yields(0,0,2),road=false},
     -- Camp lists Grassland and Tundra so Deer under a Forest feature on those terrains stays valid. A Camp always needs its
@@ -171,10 +280,14 @@ for id, rule in terrains do terrainYields[id]=rule.yields end
 local rules = {
     minRadius=3,maxRadius=40,maxTiles=4921,radius=4,maxTurns=120,maxPopulation=100,maxUnits=169,maxCities=24,
     units=units,unitStats=units,buildings=buildings,buildingEffects=buildings,technologies=technologies,technologyOrder=technologyOrder,
-    unitOrder={"Scout","Warrior","Settler","Worker","Archer","Swordsman","Pikeman","Knight","Catapult","Musketman","Rifleman"},buildingOrder=buildingOrder,wonderOrder=wonderOrder,
+    -- Units in era order (see the roster above); buildings by era, then the wonders.
+    unitOrder=unitOrder,buildingOrder=buildingOrder,wonderOrder=wonderOrder,eras=eras,
+    resourceOrder={"Wheat","Deer","Horses","Iron","Saltpeter","Oil","Gold","Spices"},
     policies=policies,policyOrder={"Tradition","Liberty","Honor","Commerce","Rationalism","Patronage"},
-    terrains=terrains,terrainYields=terrainYields,features=features,featureOrder={"Forest","Jungle","Marsh","Oasis"},resources=resources,improvements=improvements,improvementOrder={"Farm","Mine","Pasture","Plantation","Camp","Road"},
-    productionCosts=productionCosts,purchaseCosts=purchaseCosts,upgradeCost=40,workerTurns=2,
+    terrains=terrains,terrainYields=terrainYields,features=features,featureOrder={"Forest","Jungle","Marsh","Oasis"},resources=resources,improvements=improvements,improvementOrder={"Farm","Mine","Pasture","Plantation","Camp","Well","Road"},
+    -- UpgradeUnit costs max(upgradeMinimumGold, new cost - old cost) x upgradeCostMultiplier gold (upgradeCost is an unused
+    -- legacy field, kept for hosts that read it).
+    productionCosts=productionCosts,purchaseCosts=purchaseCosts,upgradeCost=40,upgradeMinimumGold=20,upgradeCostMultiplier=2,workerTurns=2,
     cityHp=150,cityBaseYields=yields(2,2,2,2,1),cityWorkRadius=2,foodPerPopulation=2,baseHappiness=9,unhappinessPerCity=2,unhappinessPerPopulation=1,
     growthBase=20,growthPerPopulation=8,starvationLoss=1,unitVision=2,cityVision=2,
     -- Moving between two road tiles costs a third of a move (Civ V), whatever the terrain.
@@ -184,7 +297,8 @@ local rules = {
     -- movement unless both tiles have roads (the road bridges it), and a melee attack across a river loses
     -- riverAttackPercent of its attack (Civ V's -20%).
     riverGold=1,riverFarmFood=1,riverAttackPercent=20,
-    scienceVictoryTechnology="Rocketry",scienceVictoryBuilding="SpaceProject",cultureVictoryPolicies=6,score={city=10,population=3,unit=2,technology=5,policy=5,wonder=10},
+    -- The science victory needs Space Flight, the last technology (G7; it was Rocketry), and a completed Space Project.
+    scienceVictoryTechnology="SpaceFlight",scienceVictoryBuilding="SpaceProject",cultureVictoryPolicies=6,score={city=10,population=3,unit=2,technology=5,policy=5,wonder=10},
     maxTradeTurns=20,maxTradeDeals=16,maxEvents=64,maxLog=24,
     -- Combat percentages: fortification adds to the terrain percentage in one defence multiplier; each other
     -- friendly military unit next to a defending unit adds to a melee attack, up to the cap.
@@ -200,7 +314,8 @@ local rules = {
     -- Taking a promotion heals this percentage of the unit's maximum hit points and ends its movement this turn.
     promotionHealPercent=50,
     -- City combat. A city's combat strength is cityBaseStrength + population + cityStrengthPerEra x (era - 1) + its
-    -- buildings' defence (Walls) + garrisonPercent of the strength of a military unit standing in it (rounded down).
+    -- buildings' defence (Walls, Castle) + garrisonPercent of the defence of a military unit standing in it (rounded
+    -- down). The era is the owner's: the highest era among its technologies (1-6).
     -- An undefended city still defends with (cityBaseStrength + population) x terrain percentage, plus Walls.
     -- Once per round a city may strike a visible enemy unit within cityStrikeRange with cityStrikePercent of its
     -- combat strength (rounded down) as its ranged strength; it takes no damage and gains no experience.
@@ -234,7 +349,8 @@ local rules = {
     barbarians={ownerId=0,firstCampTurn=10,campInterval=8,spawnInterval=6,tilesPerCamp=320,maxCamps=12,unitsPerCamp=3,maxUnits=30,
         campCityDistance=4,campSpacing=4,huntRadius=5,leashRadius=4,campGold=25,maxExperience=30,healing=10,
         difficultyPercent={Easy=150,Normal=100,Hard=75},
-        eraUnits={{"Warrior","Archer"},{"Swordsman","Archer"},{"Swordsman","Pikeman","Catapult"},{"Pikeman","Knight","Catapult"},{"Musketman","Knight","Catapult"}}} :: BarbarianRule,
+        eraUnits={{"Warrior","Archer"},{"Spearman","Swordsman","CompositeBowman","Horseman"},{"Pikeman","Longswordsman","Crossbowman","Knight"},{"Musketman","Lancer","Cannon"},
+            {"Rifleman","Cavalry","GatlingGun"},{"Infantry","MachineGun","Artillery"}}} :: BarbarianRule,
 }
 freeze(rules)
 return rules

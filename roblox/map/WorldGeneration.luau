@@ -1,6 +1,6 @@
 --!strict
 -- Generated module-only Roblox form. Source: src/map/WorldGeneration.luau
--- Source SHA-256: e29cf500350f1cc0405f62f4e69bd21567b3850209787de52bed9cc07424e6a4
+-- Source SHA-256: db49fc7567170d24e3e5efcbf054bc247f2d1ef1b5d9cffc18785923d1d05f01
 -- Reproduce with tools/roblox-export.mjs; preserve MPL notices below.
 -- Covered source: https://github.com/RoryODonovan/unciv-luau
 -- This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
@@ -49,7 +49,7 @@ local function production(tile: Tile): number
  local f=tile.feature
  local base=if f=='Forest' then 2 elseif f=='Jungle' or f=='Oasis' then 0
   elseif tile.terrain=='Hills' or tile.terrain=='Forest'then 2 elseif tile.terrain=='Plains' or tile.terrain=='Desert'then 1 else 0
- return base+(if tile.resource=='Iron' or tile.resource=='Horses'then 1 else 0)
+ return base+(if tile.resource=='Iron' or tile.resource=='Horses' or tile.resource=='Saltpeter' or tile.resource=='Oil' then 1 else 0)
 end
 -- Resources a feature keeps (their improvement may be built on it): Deer and Spices in Forest, Spices in Jungle.
 local function featureAllows(feature: string?,resource: string?): boolean
@@ -207,7 +207,7 @@ function Generation.generate(seed: number,centers: {Center},neighbors: {{number}
  local coastAmplitude=if count<=64 then .2 else .33+roll()*.16
  local rotation=roll()*math.pi*2;local cx,cz=(roll()-.5)*.35,(roll()-.5)*.35
  local cosine,sine=math.cos(rotation),math.sin(rotation)
- local tiles: {Tile}={};local moisture: {number}={};local temperature: {number}={};local elevation: {number}={};local resourceField: {number}={};local resourceKind: {number}={};local bog: {number}={};local spring: {number}={}
+ local tiles: {Tile}={};local moisture: {number}={};local temperature: {number}={};local elevation: {number}={};local resourceField: {number}={};local resourceKind: {number}={};local bog: {number}={};local spring: {number}={};local deposit: {number}={};local depositKind: {number}={}
  for id,p in centers do
   -- Cartesian domain warping has no longitude seam or pole coordinate singularity.
   local wx=p.x+noise(fieldSeed+11,p.x*1.8,p.y*1.8,p.z*1.8)*.18
@@ -251,6 +251,7 @@ function Generation.generate(seed: number,centers: {Center},neighbors: {{number}
   resourceKind[id]=noise(fieldSeed+233,wx*3.1,wy*3.1,wz*3.1)
   bog[id]=noise(fieldSeed+277,wx*4.6,wy*4.6,wz*4.6)
   spring[id]=noise(fieldSeed+283,wx*6.3,wy*6.3,wz*6.3)
+  deposit[id]=noise(fieldSeed+307,wx*4.8,wy*4.8,wz*4.8);depositKind[id]=noise(fieldSeed+313,wx*2.6,wy*2.6,wz*2.6)
  end
  if count<=20 then
   -- The existing frequency-one toy globe has graph diameter three. Preserve one
@@ -461,6 +462,51 @@ function Generation.generate(seed: number,centers: {Center},neighbors: {{number}
  if expanded then
   biggest=components(tiles,neighbors)
   distance=distances(tiles,neighbors,starts[1])
+ end
+ -- Later strategic deposits (Saltpeter and Oil) settle in bare, unreserved land once both starting regions are final, so
+ -- they never move a start or take a reserved plot: Oil in tundra and, where a second field is high, deserts and plains;
+ -- Saltpeter in the other deserts and, where that field is low, hills and plains. Each start then gets one of each within four steps (and at least two from
+ -- the capital, leaving its deployment ring as it was) when its region has none: on the nearest bare compatible site
+ -- (Oil may also go on hills), else the nearest bare grassland (which becomes plains), else in place of the nearest
+ -- unreserved featureless resource of a kind the region holds at least twice more (a deposit change, not a starting
+ -- repair; a dense resource region can leave no bare land).
+ local function bareSite(id: number): boolean
+  local tile=tiles[id];return passable(tile)and tile.resource==nil and tile.feature==nil and not protected[id]and not workedPlots[id]and id~=starts[1]and id~=starts[2]
+ end
+ for id,tile in tiles do
+  if deposit[id]<=.27 or not bareSite(id)then continue end
+  local k=depositKind[id]
+  if tile.terrain=='Tundra' or (tile.terrain=='Desert' and k>0)or(tile.terrain=='Plains' and k>.3)then tile.resource='Oil'
+  elseif tile.terrain=='Desert' or (tile.terrain=='Hills' and k<-.05)or(tile.terrain=='Plains' and k<-.2)then tile.resource='Saltpeter' end
+ end
+ local depositTerrains: {[string]: {[string]: boolean}}={Saltpeter={Hills=true,Desert=true,Plains=true},Oil={Desert=true,Tundra=true,Plains=true,Hills=true}}
+ for _,start in starts do
+  stamp+=1;local ids=disk(neighbors,start,4,marks,stamp,tiles)
+  for _,kind in {'Saltpeter','Oil'}do
+   local present=false;for _,id in ids do if tiles[id].resource==kind then present=true;break end end
+   if present then continue end
+   local inner: {[number]: boolean}={[start]=true};for _,id in neighbors[start]do inner[id]=true end
+   local held: {[string]: number}={};for _,id in ids do local r=tiles[id].resource;if r then held[r]=(held[r]or 0)+1 end end
+   local site: number?=nil
+   for pass=1,3 do
+    for _,id in ids do
+     local tile=tiles[id]
+     if inner[id]then continue end
+     local open=bareSite(id)
+     if pass==3 then
+      local r=tile.resource
+      open=r~=nil and r~='Saltpeter' and r~='Oil' and (held[r]or 0)>=3
+      if open then tile.resource=nil;open=bareSite(id);tile.resource=r end
+     end
+     if open and (depositTerrains[kind][tile.terrain]or (pass>=2 and tile.terrain=='Grassland'))then site=id;break end
+    end
+    if site then break end
+   end
+   if site then
+    if tiles[site].terrain=='Grassland' then tiles[site].terrain='Plains' end
+    tiles[site].resource=kind
+   end
+  end
  end
  -- Both regions may overlap on tiny worlds. Report the finished world, not a
  -- stale intermediate score from before the other region was repaired.

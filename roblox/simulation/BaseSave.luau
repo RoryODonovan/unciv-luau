@@ -1,6 +1,6 @@
 --!strict
 -- Generated module-only Roblox form. Source: src/simulation/BaseSave.luau
--- Source SHA-256: 9c8e68a2d3516d0f937ed624fb2cbb1a563fd73780c1e04de8fdb3b10af6db9d
+-- Source SHA-256: 3ef3687b50560f4ab03ab3107fdb8fefcede523ca2c2db04e007dd92c360cc3c
 -- Reproduce with tools/roblox-export.mjs; preserve MPL notices below.
 -- Covered source: https://github.com/RoryODonovan/unciv-luau
 -- This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
@@ -178,7 +178,8 @@ function BaseSave.valid(saved: any): boolean
         if not strings(p.technologies,Rules.technologies,#Rules.technologyOrder) or not strings(p.policies,Rules.policies,#Rules.policyOrder) or not knowledge(p.technologies,Rules.technologies) or not knowledge(p.policies,Rules.policies) then return false end
         if not array(p.explored,#s.tiles) then return false end
         local previous=0; for _,tileId in p.explored do if not integer(tileId,previous+1,#s.tiles) then return false end; previous=tileId end
-        if not object(p.resources,"Wheat Iron Horses Gold Spices Deer") then return false end
+        -- Improved resource tiles per resource (G7 adds Saltpeter and Oil). Strategic quantities are derived, never stored.
+        if not object(p.resources,"Wheat Iron Horses Saltpeter Oil Gold Spices Deer") then return false end
         for _,count in p.resources do if not integer(count,1,#s.tiles) then return false end end
         if not object(p.income,"food production gold science culture maintenance") then return false end
         for _,key in {"food","production","gold","science","culture","maintenance"} do if not integer(p.income[key],if key=="gold" then -1000000 else 0,1000000) then return false end end

@@ -1,6 +1,6 @@
 --!strict
 -- Generated module-only Roblox form. Source: src/simulation/BaseGame.luau
--- Source SHA-256: 1785eda02587fea5e75204c49dcc066e5c5afbabf3129f48c8b5837ea5d5d82c
+-- Source SHA-256: f5e3b3bf5fe3216ad90e45ad4d127891a8a5c622fd77584e33bdd17ca20a0889
 -- Reproduce with tools/roblox-export.mjs; preserve MPL notices below.
 -- Covered source: https://github.com/RoryODonovan/unciv-luau
 -- This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
@@ -32,7 +32,10 @@ export type Unit = {id: number, ownerId: number, kind: string, tileId: number, h
 -- A unit in a snapshot. Every listed unit carries `level` and `promotions` (visible, as in Civ V). Only the actor's own
 -- units carry `xp`, `nextLevelXp` (the next threshold, absent at the last level) and `promotionsAvailable` (the ids
 -- PromoteUnit accepts now, empty while the actor cannot act).
-export type UnitView = {id: number, ownerId: number, kind: string, tileId: number, hp: number, moves: number, fortified: boolean, level: number, promotions: {string}, xp: number?, nextLevelXp: number?, promotionsAvailable: {string}?, work: {improvement: string, remaining: number}?}
+-- Own units with an upgrade whose technology the owner knows also carry `upgradeKind` (the unit kind it becomes),
+-- `upgradeCost` (gold) and `canUpgrade` (UpgradeUnit accepts it now: movement left, the strategic resource and the
+-- gold, and the actor can act).
+export type UnitView = {id: number, ownerId: number, kind: string, tileId: number, hp: number, moves: number, fortified: boolean, level: number, promotions: {string}, xp: number?, nextLevelXp: number?, promotionsAvailable: {string}?, work: {improvement: string, remaining: number}?, upgradeKind: string?, upgradeCost: number?, canUpgrade: boolean?}
 -- `strikeTurn` is optional: the round whose ranged strike the city has used (it struck, or it was captured, that
 -- round). Absent means the city has never used one.
 export type City = {id: number, ownerId: number, originalOwnerId: number, capital: boolean, tileId: number, name: string, population: number, food: number, production: number, queue: string, hp: number, buildings: {string}, focus: string, strikeTurn: number?}
@@ -91,11 +94,15 @@ export type WonderView = {id: string, ownerId: number, cityId: number?, tileId: 
 -- threshold, the golden ages begun so far, what the next step adds to the meter (the current happiness when positive
 -- and no golden age is active, otherwise 0) and how many steps a new golden age lasts in this match.
 export type GoldenAgeView = {active: boolean, turnsLeft: number, progress: number, threshold: number, ages: number, progressPerTurn: number, turns: number}
-export type View = {barbarians: boolean, camps: {CampView}, cityForecasts: {[string]: CityForecast}, seed: number?, radius: number?, mapShape: string?, frequency: number?, difficulty: string, humanPlayers: number, turn: number, revision: number, activePlayerId: number, actorId: number, canAct: boolean, phase: string, winner: number?, reason: string?, victoryType: string?, gold: number, science: number, culture: number, happiness: number, research: Research?, technologies: {string}, policies: {string}, resources: {[string]: number}, income: {food: number, production: number, gold: number, science: number, culture: number, maintenance: number}, tiles: {TileView}, units: {UnitView}, cities: {CityView}, events: {Event}, log: {string}, legalMoves: {[string]: {number}}, riverMoves: {[string]: {number}}, availableProduction: {string}, availableProductionByCity: {[string]: {string}}, availablePurchasesByCity: {[string]: {string}}, availableResearch: {Technology}, availablePolicies: {Policy}, availableImprovements: {[string]: {string}}, productionCosts: {[string]: number}, purchaseCosts: {[string]: number}, scores: {number}, statistics: {Statistics}, progress: {Progress}, cultureVictoryPolicies: number, policyCostIncrease: number, attackPreviews: {[string]: {AttackPreview}}, cityStrikePreviews: {[string]: {CityStrikePreview}}, diplomacy: Diplomacy, trades: {Trade}, objectives: {string}, wonders: {WonderView}, goldenAge: GoldenAgeView}
+-- The actor's own strategic resource: `have` is what its improved tiles supply (tiles x quantity), `used` what its living
+-- units need. `used` can exceed `have` (after losing a tile); existing units are unaffected, but no new unit or upgrade
+-- needing the resource is possible until `have - used` covers it.
+export type StrategicView = {have: number, used: number}
+export type View = {strategic: {[string]: StrategicView}, barbarians: boolean, camps: {CampView}, cityForecasts: {[string]: CityForecast}, seed: number?, radius: number?, mapShape: string?, frequency: number?, difficulty: string, humanPlayers: number, turn: number, revision: number, activePlayerId: number, actorId: number, canAct: boolean, phase: string, winner: number?, reason: string?, victoryType: string?, gold: number, science: number, culture: number, happiness: number, research: Research?, technologies: {string}, policies: {string}, resources: {[string]: number}, income: {food: number, production: number, gold: number, science: number, culture: number, maintenance: number}, tiles: {TileView}, units: {UnitView}, cities: {CityView}, events: {Event}, log: {string}, legalMoves: {[string]: {number}}, riverMoves: {[string]: {number}}, availableProduction: {string}, availableProductionByCity: {[string]: {string}}, availablePurchasesByCity: {[string]: {string}}, availableResearch: {Technology}, availablePolicies: {Policy}, availableImprovements: {[string]: {string}}, productionCosts: {[string]: number}, purchaseCosts: {[string]: number}, scores: {number}, statistics: {Statistics}, progress: {Progress}, cultureVictoryPolicies: number, policyCostIncrease: number, attackPreviews: {[string]: {AttackPreview}}, cityStrikePreviews: {[string]: {CityStrikePreview}}, diplomacy: Diplomacy, trades: {Trade}, objectives: {string}, wonders: {WonderView}, goldenAge: GoldenAgeView}
 local BaseGame = {}
 local R: any = Rules
 local W: any = WorldMap
-local improvementOrder: {string} = R.improvementOrder or {"Farm","Mine","Pasture","Plantation","Camp","Road"}
+local improvementOrder: {string} = R.improvementOrder or {"Farm","Mine","Pasture","Plantation","Camp","Well","Road"}
 local topology: {[any]: any} = setmetatable({}, {__mode = "k"}) :: any
 local function copy(value: any): any
     if type(value) ~= "table" then return value end
@@ -294,10 +301,42 @@ local function refreshEconomyState(s: any)
         p.happiness=happiness
     end
 end
+-- Strategic resources (G7 quantities). A civilization has `quantity` of a strategic resource for each improved tile of
+-- it that it owns (with `claimed`, the forecast's virtual claims count as its own), and it uses each of its living
+-- units' `resourceAmount`. Both are derived from the state, so nothing is stored. `extra` adds units that do not exist
+-- yet (the forecast's earlier completions); `exclude` leaves out a unit being upgraded, whose own use ends.
+local function strategicHave(s: any, owner: number, claimed: {[number]: boolean}?): {[string]: number}
+    local result: {[string]: number}={}
+    for id, count in resourceInventory(s,owner,claimed) do
+        local rule=R.resources[id]; if rule.category=="Strategic" then result[id]=count*rule.quantity end
+    end
+    return result
+end
+local function strategicUsed(s: any, owner: number, extra: {any}?, exclude: any?): {[string]: number}
+    local result: {[string]: number}={}
+    local function add(u: any)
+        if u.ownerId~=owner or u==exclude then return end
+        local rule=R.units[u.kind]; if rule.resource then result[rule.resource]=(result[rule.resource] or 0)+(rule.resourceAmount or 1) end
+    end
+    for _, u in s.units do add(u) end
+    if extra then for _, u in extra do add(u) end end
+    return result
+end
+-- A civilization's strategic stock: `have` and `used` per resource. Hot callers (the snapshot's menus, the AI) compute
+-- it once and pass it on.
+local function strategicStock(s: any, owner: number, extra: {any}?, claimed: {[number]: boolean}?, exclude: any?): any
+    return {have=strategicHave(s,owner,claimed),used=strategicUsed(s,owner,extra,exclude)}
+end
+-- Whether the stock spares `entry`'s strategic resource for one more unit.
+local function resourceSpare(stock: any, entry: any): boolean
+    if not entry.resource then return true end
+    return (stock.have[entry.resource] or 0)-(stock.used[entry.resource] or 0)>=(entry.resourceAmount or 1)
+end
 -- For the forecast, `extra` lists the city owner's units that do not exist yet but would by then (earlier
 -- completions this step) and `claimed` the tiles its claims would own by then. Neither changes the global unit
--- cap check, which counts every unit (including unseen rival units) and so stays at the current count.
-local function productionAvailable(s: any, city: any, item: string, extra: {any}?, claimed: {[number]: boolean}?): boolean
+-- cap check, which counts every unit (including unseen rival units) and so stays at the current count. `stock` is the
+-- owner's precomputed strategic stock (only without `extra` and `claimed`).
+local function productionAvailable(s: any, city: any, item: string, extra: {any}?, claimed: {[number]: boolean}?, stock: any?): boolean
     local entry=R.units[item] or R.buildings[item]
     if not entry then return false end
     local player=s.players[city.ownerId]
@@ -306,11 +345,7 @@ local function productionAvailable(s: any, city: any, item: string, extra: {any}
     -- A world wonder can be completed once per world. Completion is public, so this check reveals nothing hidden.
     if isWonder(item) and wonderCity(s,item) then return false end
     if R.units[item] and #s.units >= R.maxUnits then return false end
-    if entry.resource then
-        local used=0; for _, u in s.units do if u.ownerId==city.ownerId and R.units[u.kind].resource==entry.resource then used += R.units[u.kind].resourceAmount or 1 end end
-        if extra then for _, u in extra do if u.ownerId==city.ownerId and R.units[u.kind].resource==entry.resource then used += R.units[u.kind].resourceAmount or 1 end end end
-        if (resourceInventory(s,city.ownerId,claimed)[entry.resource] or 0) < used+(entry.resourceAmount or 1) then return false end
-    end
+    if entry.resource and not resourceSpare(stock or strategicStock(s,city.ownerId,extra,claimed),entry) then return false end
     return true
 end
 local function spawnTile(s: any, city: any, extra: {any}?): number?
@@ -328,10 +363,56 @@ end
 -- Whether a city may choose an item now (SetProduction, the AI and the production menus): it must be available, and a
 -- wonder must not already be queued in another of the owner's cities (one city races for each wonder, as in Civ V).
 -- The economy's completion check uses productionAvailable alone, so a queue never stalls on this rule.
-local function canChoose(s: any, city: any, item: string): boolean
-    if not productionAvailable(s,city,item) then return false end
+local function canChoose(s: any, city: any, item: string, stock: any?): boolean
+    if not productionAvailable(s,city,item,nil,nil,stock) then return false end
     if isWonder(item) then for _, c in s.cities do if c~=city and c.ownerId==city.ownerId and c.queue==item then return false end end end
     return true
+end
+-- The refusal when a strategic resource is short: what one more unit needs, what the owner's improved tiles supply and
+-- what its living units use (all its own facts).
+local function shortageMessage(stock: any, entry: any): string
+    local id=entry.resource
+    return string.format("Not enough %s: needs %d, %d available and %d in use.",R.resources[id].name,entry.resourceAmount or 1,stock.have[id] or 0,stock.used[id] or 0)
+end
+-- Why SetProduction or Purchase refuses an item: the shortage message when the only obstacle is a unit's strategic
+-- resource, otherwise the general message.
+local function productionRefusal(s: any, city: any, item: string): string
+    local entry=R.units[item]
+    if entry and entry.resource and (not entry.technology or has(s.players[city.ownerId].technologies,entry.technology)) and #s.units<R.maxUnits then
+        local stock=strategicStock(s,city.ownerId)
+        if not resourceSpare(stock,entry) then return shortageMessage(stock,entry) end
+    end
+    return "Production item is unavailable."
+end
+-- Unit upgrades. A unit's upgrade is its rule's `upgradeTo` once its owner knows that kind's technology; it costs
+-- max(upgradeMinimumGold, new cost - old cost) x upgradeCostMultiplier gold. UpgradeUnit also needs movement left and the
+-- new kind's strategic resource, with the unit's own use counted as freed (a Knight becoming a Lancer keeps its Horses).
+-- The global unit cap does not apply, as no unit is added.
+local function upgradeKind(s: any, u: any): string?
+    local nextKind=R.units[u.kind].upgradeTo
+    if not nextKind or u.ownerId==BARBARIAN then return nil end
+    local technology=R.units[nextKind].technology
+    if technology and not has(s.players[u.ownerId].technologies,technology) then return nil end
+    return nextKind
+end
+local function upgradeCost(kind: string, nextKind: string): number
+    return math.max(R.upgradeMinimumGold,R.units[nextKind].cost-R.units[kind].cost)*R.upgradeCostMultiplier
+end
+-- Why UpgradeUnit refuses the unit now, or nil when it accepts it (turn ownership aside).
+local function upgradeRefusal(s: any, u: any): string?
+    local nextKind=upgradeKind(s,u)
+    if not nextKind or u.moves<=0 then return "Upgrade technology is unavailable." end
+    local stock=strategicStock(s,u.ownerId,nil,nil,u)
+    if not resourceSpare(stock,R.units[nextKind]) then return shortageMessage(stock,R.units[nextKind]) end
+    if s.players[u.ownerId].gold<upgradeCost(u.kind,nextKind) then return "Upgrade requires gold and strategic resources." end
+    return nil
+end
+-- Applies an accepted upgrade: the gold is spent, the kind changes and movement ends. Hit points, experience,
+-- promotions (an upgrade keeps the unit class) and fortification are kept.
+local function upgrade(s: any, u: any)
+    local nextKind=upgradeKind(s,u) :: string
+    s.players[u.ownerId].gold -= upgradeCost(u.kind,nextKind); u.kind=nextKind; u.moves=0
+    event(s,"Upgrade","Unit upgraded.",u.tileId,u.id,u.ownerId)
 end
 -- A completed world wonder: a public WonderBuilt event (its location is projected only to those who can see the city;
 -- see the snapshot), then every other city queuing the same wonder loses the race. Such a city keeps all its
@@ -407,8 +488,8 @@ local function evaluate(s: any)
         end
         local p=s.players[owner]
         if #p.policies >= cultureThreshold(s) then finish(s,owner,"Culture"); return end
-        if has(p.technologies,R.scienceVictoryTechnology or "Rocketry") then
-            for _, c in s.cities do if c.ownerId==owner and has(c.buildings,R.scienceVictoryBuilding or "SpaceProject") then finish(s,owner,"Science"); return end end
+        if has(p.technologies,R.scienceVictoryTechnology) then
+            for _, c in s.cities do if c.ownerId==owner and has(c.buildings,R.scienceVictoryBuilding) then finish(s,owner,"Science"); return end end
         end
     end
 end
@@ -620,33 +701,44 @@ local function promotionPercent(s: any, u: any, target: number, attacking: boole
     end
     return total
 end
--- A unit's defence on the target tile against one strike (ranged or melee): max(3, strength) x (100 + terrain% +
--- fortified% + promotion%)/100 x (0.5 + hp/200), where the terrain percentage includes the tile's feature. Shared by
+-- The percentage a unit's `versus` bonus adds against a unit of the given role (the Spearman line against Mounted
+-- units, the Anti-Tank Gun against Armor). Roles are visible with the unit, so previews may read it.
+local function versusPercent(u: any, otherRole: string?): number
+    if not otherRole then return 0 end
+    return R.units[u.kind].versus[otherRole] or 0
+end
+-- A unit's defence on the target tile against one strike (ranged or melee): max(3, defense) x (100 + terrain% +
+-- fortified% + promotion% + versus%)/100 x (0.5 + hp/200), where the terrain percentage includes the tile's feature and
+-- versus% is the defender's bonus against the attacker's role (none for a city strike: `attackerRole` is nil). Shared by
 -- unit strikes and city strikes.
-local function unitDefense(s: any, defender: any, target: number, rangedStrike: boolean): number
+local function unitDefense(s: any, defender: any, target: number, rangedStrike: boolean, attackerRole: string?): number
     local terrain=defensePercentAt(s,target)
-    local modifier=terrain+(if defender.fortified then R.fortifyDefensePercent else 0)+promotionPercent(s,defender,target,false,rangedStrike,true)
-    return math.max(3,R.units[defender.kind].strength)*(100+modifier)/100*(0.5+defender.hp/200)
+    local modifier=terrain+(if defender.fortified then R.fortifyDefensePercent else 0)+promotionPercent(s,defender,target,false,rangedStrike,true)+versusPercent(defender,attackerRole)
+    return math.max(3,R.units[defender.kind].defense)*(100+modifier)/100*(0.5+defender.hp/200)
 end
 -- Deterministic damage for one strike, given the target city's building defence and the tile-to-unit occupancy.
--- Attack: base strength x (0.5 + hp/200) x (100 + flanking% + promotion% + siege% - river%)/100; flanking applies only to
--- melee attacks on a defending unit, siege only when the target tile holds an (enemy) city, the river penalty only to a
--- melee attack across a river edge (the attacker's tile and the target share one). Defence of a unit: see
--- unitDefense; of an undefended city: (cityBaseStrength 14 + population) x (100 + terrain%)/100. City buildings (Walls)
--- add a flat amount on top in both cases, so damage stays monotonic in the hidden building defence. `level` adds nothing
--- itself (it was +3 strength per level before promotions); the promotions it counts carry the bonuses.
+-- Attack: base x (0.5 + hp/200) x (100 + flanking% + promotion% + siege% + versus% - river%)/100, where the base is the
+-- unit's rangedStrength for a ranged unit and its `attack` otherwise (G7: separate from its defence); flanking applies
+-- only to melee attacks on a defending unit, siege only when the target tile holds an (enemy) city, versus only against
+-- a defending unit of the bonus's role, the river penalty only to a melee attack across a river edge (the attacker's
+-- tile and the target share one). Defence of a unit: see unitDefense (its `defense`); of an undefended city:
+-- (cityBaseStrength 14 + population) x (100 + terrain%)/100. City buildings (Walls, Castle) add a flat amount on top in
+-- both cases, so damage stays monotonic in the hidden building defence. `level` adds nothing itself (it was +3 strength
+-- per level before promotions); the promotions it counts carry the bonuses.
 local function strike(s: any, unit: any, defender: any, city: any, target: number, cityDefense: number, units: any): (number, number, boolean)
-    local ranged=(R.units[unit.kind].range or 1)>1
-    local attack=if ranged then R.units[unit.kind].rangedStrength else R.units[unit.kind].strength
+    local rule=R.units[unit.kind]
+    local ranged=(rule.range or 1)>1
+    local attack=if ranged then rule.rangedStrength else rule.attack
     local flanking=if ranged or not defender then 0 else flankingPercent(s,unit,target,units)
     local promoted=promotionPercent(s,unit,target,true,ranged,defender~=nil)
-    local siege=if city then R.units[unit.kind].siegePercent else 0
+    local siege=if city then rule.siegePercent else 0
     local river=if not ranged and riverBetween(s,unit.tileId,target) then R.riverAttackPercent else 0
-    attack=math.max(1,attack)*(0.5+unit.hp/200)*(100+flanking+promoted+siege-river)/100
+    local versus=if defender then versusPercent(unit,R.units[defender.kind].role) else 0
+    attack=math.max(1,attack)*(0.5+unit.hp/200)*(100+flanking+promoted+siege+versus-river)/100
     local terrain=defensePercentAt(s,target)
     local defense: number
     if defender then
-        defense=unitDefense(s,defender,target,ranged)
+        defense=unitDefense(s,defender,target,ranged,rule.role)
     else
         defense=(R.cityBaseStrength+(city.population or 1))*(100+terrain)/100
     end
@@ -721,16 +813,20 @@ local function previewFor(s: any, unit: any, target: number, units: any, cities:
         attackerDefeated=outcome(attackerLow,attackerHigh),defenderDefeated=if defender then outcome(defenderLow,defenderHigh) else "No",
         captures=outcome(captureLow,captureHigh)}
 end
--- City combat. A civilization's era is 1 + floor(technologies / 4) (1-5), the same coarse value `progress` makes public.
-local function era(s: any, owner: number): number return 1+math.floor(#s.players[owner].technologies/4) end
--- A military unit (strength above zero) of the city's owner standing in the city adds garrisonPercent of its strength.
+-- A civilization's era (G7): the highest era among the technologies it knows (1-6; 1 with none), the coarse value
+-- `progress` makes public. It was 1 + floor(technologies / 4) before G7.
+local function eraOf(technologies: {string}): number
+    local result=1; for _, id in technologies do result=math.max(result,R.technologies[id].era) end; return result
+end
+local function era(s: any, owner: number): number return eraOf(s.players[owner].technologies) end
+-- A military unit (strength above zero) of the city's owner standing in the city adds garrisonPercent of its defence.
 local function garrisonStrength(city: any, units: any): number
     local garrison=units[city.tileId]
     if not garrison or garrison.ownerId~=city.ownerId or R.units[garrison.kind].strength<=0 then return 0 end
-    return math.floor(R.units[garrison.kind].strength*R.garrisonPercent/100)
+    return math.floor(R.units[garrison.kind].defense*R.garrisonPercent/100)
 end
--- City combat strength: cityBaseStrength + population + cityStrengthPerEra x (era - 1) + building defence (Walls) +
--- garrison. Its ranged strike uses cityStrikePercent of it, rounded down. Both are whole numbers.
+-- City combat strength: cityBaseStrength + population + cityStrengthPerEra x (era - 1) + building defence (Walls,
+-- Castle) + garrison. Its ranged strike uses cityStrikePercent of it, rounded down. Both are whole numbers.
 local function cityStrength(s: any, city: any, units: any): number
     return R.cityBaseStrength+city.population+R.cityStrengthPerEra*(era(s,city.ownerId)-1)+buildingDefense(city)+garrisonStrength(city,units)
 end
@@ -758,7 +854,7 @@ end
 -- fortification, terrain and Drill/Shock on the target's tile all count. The city takes no damage.
 local function cityStrikeDamage(s: any, city: any, target: any, units: any): number
     local attack=math.max(1,cityRangedStrength(s,city,units))
-    return math.clamp(math.floor(30*attack/math.max(1,unitDefense(s,target,target.tileId,true))+0.5),8,65)
+    return math.clamp(math.floor(30*attack/math.max(1,unitDefense(s,target,target.tileId,true,nil))+0.5),8,65)
 end
 -- The fog-safe preview of one strike. It reads the actor's own city and garrison, the owner's era and the visible
 -- target (kind, hp, fortification, promotions) and terrain, and calls the same damage function as the strike.
@@ -805,7 +901,7 @@ local function improvementAvailable(s: any, unit: any, improvement: string): boo
     -- Features cannot be removed, so only the improvements a feature lists may be built on it.
     if tile.feature and not has(R.features[tile.feature].improvements,improvement) then return false end
     if #rule.resources>0 and tile.resource and not has(rule.resources,tile.resource) then return false end
-    if (improvement=="Pasture" or improvement=="Plantation" or improvement=="Camp") and not tile.resource then return false end
+    if (improvement=="Pasture" or improvement=="Plantation" or improvement=="Camp" or improvement=="Well") and not tile.resource then return false end
     return true
 end
 -- A tile's yields: its terrain's, replaced by (or, for Marsh, added to) its feature's, then its resource and improvement;
@@ -1229,6 +1325,155 @@ local function aiWonderPlan(s: any, owner: number): (number?, string?)
     end
     return nil,nil
 end
+-- AI production (G7). The AI's ordinary buildings for growth, production, gold and science, in the order it builds them
+-- once their technologies are known. Every id is a building in the rules (the list before G7 named a "Colosseum" that did
+-- not exist, so that entry never applied). Happiness buildings come first, but only while the AI's happiness is below
+-- AI_CONTENT, so it builds a Colosseum when its cities need contentment and never when they do not. They are the ordinary
+-- buildings with happiness and no culture yield (Colosseum, Shrine, Stadium), ranked by happiness per production cost;
+-- the Temple and Theatre are left out so that contentment does not hurry the AI's culture victory (the AI never built a
+-- Temple before G7 either). Defence buildings (Walls, Castle) come first in a threatened city: one with a visible hostile
+-- military unit within AI_THREAT_RADIUS hexes. A city's full order: the science-victory building (once its technology
+-- is known), a worker (when the AI has none), defence buildings (threatened), a military unit (at war with fewer military
+-- units than cities plus one), its wonder (when already racing for it), happiness buildings (when needed), the economy
+-- list with a settler after the Monument (fewer than three cities, no settler yet), its planned wonder, then the upkeep
+-- fallback: a military unit while the AI can pay for one, otherwise a worker (while it has fewer than two workers per
+-- city, as workers cost no upkeep), then a military unit after all (a queue always holds something the city can build).
+local AI_ECONOMY={"Monument","Granary","Library","Market","Forge","Workshop","Aqueduct","University","Bank","Observatory","StockExchange","Factory","Hospital","PowerPlant","ResearchLab"}
+local AI_CONTENT=1
+local AI_THREAT_RADIUS=3
+-- Upkeep budget: the last economy step's net gold less the upkeep of what the AI's other cities are already producing
+-- (their queues will add it when they complete). A building with upkeep is affordable when its own gold covers its
+-- upkeep (Market, Bank, Stock Exchange), when the budget covers it, or when the treasury holds AI_GOLD_RESERVE and the
+-- budget is not negative; a further military unit (1 upkeep) needs the same, unless the AI is below its wartime
+-- minimum. So the AI's cities do not all commit the same spare gold, and new upkeep does not push it into insolvency
+-- (which retires units).
+local AI_GOLD_RESERVE=60
+-- The AI upgrades a unit standing in its own territory when its gold stays at AI_UPGRADE_RESERVE or more afterwards.
+local AI_UPGRADE_RESERVE=40
+local aiHappinessBuildings: {string}, aiDefenseBuildings: {string}={},{}
+for _, id in R.buildingOrder do
+    local rule=R.buildings[id]
+    if rule.wonder then continue end
+    if rule.happiness>0 and rule.yields.culture<=0 then table.insert(aiHappinessBuildings,id) end
+    if rule.defense>0 then table.insert(aiDefenseBuildings,id) end
+end
+table.sort(aiHappinessBuildings,function(a: string,b: string): boolean
+    local x,y=R.buildings[a],R.buildings[b]
+    local first,second=x.happiness*y.cost,y.happiness*x.cost
+    if first~=second then return first>second end
+    return a<b
+end)
+-- A unit's value for the AI's choice: a ranged unit's ranged strength plus half its defence, otherwise attack plus
+-- defence.
+local function aiUnitValue(rule: any): number
+    if rule.range>1 then return rule.rangedStrength+rule.defense/2 end
+    return rule.attack+rule.defense
+end
+-- A unit's group for the AI's army mix: Siege, Archery (ranged), Mobile (mounted and armour) or Line (the rest).
+local function aiUnitGroup(rule: any): string
+    if rule.role=="Siege" or rule.role=="Archery" then return rule.role end
+    if rule.role=="Mounted" or rule.role=="Armor" then return "Mobile" end
+    return "Line"
+end
+-- The AI's military unit for a city: the best available unit of the group it lacks most (a siege unit when it is at war
+-- with at least four military units and none of them is siege, a ranged unit while ranged units are fewer than a third
+-- of its army, a mounted or armour unit while those are fewer than a quarter, otherwise a line unit), or the best of any
+-- group when none of that group is available (a mounted unit needs Horses). Recon units are never chosen. Ties go to the
+-- later unit in unitOrder.
+local function aiMilitaryChoice(s: any, city: any, groups: {[string]: number}, military: number, stock: any): string?
+    local wanted="Line"
+    if s.diplomacy.status=="War" and military>=4 and (groups.Siege or 0)==0 then wanted="Siege"
+    elseif (groups.Archery or 0)*3<military then wanted="Archery"
+    elseif (groups.Mobile or 0)*4<military then wanted="Mobile" end
+    local best: string?,bestValue,fallback: string?,fallbackValue=nil,-math.huge,nil,-math.huge
+    for _, id in R.unitOrder do
+        local rule=R.units[id]
+        if rule.strength<=0 or rule.role=="Recon" or not canChoose(s,city,id,stock) then continue end
+        local value=aiUnitValue(rule)
+        if aiUnitGroup(rule)==wanted and value>=bestValue then best=id; bestValue=value end
+        if value>=fallbackValue then fallback=id; fallbackValue=value end
+    end
+    return best or fallback
+end
+-- The AI's gold focus: while its net gold is negative, one more of its cities (the lowest id not yet on it) takes the
+-- Gold focus each turn; once the net gold reaches AI_GOLD_RECOVERED, one city (the highest id on it) returns to Balanced.
+local AI_GOLD_RECOVERED=8
+local function aiGoldFocus(s: any, owner: number)
+    local p=s.players[owner]
+    local own: {any}={}; for _, c in s.cities do if c.ownerId==owner then table.insert(own,c) end end
+    table.sort(own,function(a: any,b: any) return a.id<b.id end)
+    if p.income.gold<0 then
+        for _, c in own do if c.focus~="Gold" then c.focus="Gold"; return end end
+    elseif p.income.gold>=AI_GOLD_RECOVERED then
+        for i=#own,1,-1 do if own[i].focus=="Gold" then own[i].focus="Balanced"; return end end
+    end
+end
+local function aiProduction(s: any, owner: number)
+    local p=s.players[owner]
+    aiGoldFocus(s,owner)
+    local wonderCityId,wonderId=aiWonderPlan(s,owner)
+    local counts: {[string]: number}={}; local groups: {[string]: number}={}; local military=0
+    for _, u in s.units do
+        if u.ownerId~=owner then continue end
+        local rule=R.units[u.kind]; counts[u.kind]=(counts[u.kind] or 0)+1
+        if rule.strength>0 then military += 1; local group=aiUnitGroup(rule); groups[group]=(groups[group] or 0)+1 end
+    end
+    local ownCities=0; for _, city in s.cities do if city.ownerId==owner then ownCities += 1 end end
+    local seen=visible(s,owner); local stock=strategicStock(s,owner)
+    local threats: {number}={}
+    for _, u in s.units do if seen[u.tileId] and R.units[u.kind].strength>0 and hostile(s,owner,u.ownerId) then table.insert(threats,u.tileId) end end
+    local function upkeep(item: string): number
+        local rule=R.units[item] or R.buildings[item]; return if rule then rule.maintenance else 0
+    end
+    local pending=0; for _, c in s.cities do if c.ownerId==owner then pending += upkeep(c.queue) end end
+    local atWar=s.diplomacy.status=="War"
+    for _, c in s.cities do
+        if c.ownerId~=owner then continue end
+        local budget=p.income.gold-(pending-upkeep(c.queue))
+        local function affordable(id: string): boolean
+            local rule=R.buildings[id]
+            return rule.maintenance<=0 or rule.yields.gold>=rule.maintenance or budget>=rule.maintenance or (p.gold>=AI_GOLD_RESERVE and budget>=0)
+        end
+        local unitsAffordable=budget>=1 or (p.gold>=AI_GOLD_RESERVE and budget>=0) or (atWar and military<ownCities+1)
+        local priorities: {string}={}
+        if has(p.technologies,R.scienceVictoryTechnology) then table.insert(priorities,R.scienceVictoryBuilding) end
+        if not counts.Worker then table.insert(priorities,"Worker") end
+        local threatened=false
+        for _, tileId in threats do if W.inRange(mapFor(s),c.tileId,tileId,AI_THREAT_RADIUS) then threatened=true; break end end
+        if threatened then for _, id in aiDefenseBuildings do table.insert(priorities,id) end end
+        -- At war with fewer military units than cities plus one, a unit comes before buildings.
+        local unit=aiMilitaryChoice(s,c,groups,military,stock)
+        if atWar and military<ownCities+1 and unit then table.insert(priorities,unit) end
+        -- A city already racing for its planned wonder keeps racing ahead of new buildings.
+        if wonderId and c.id==wonderCityId and c.queue==wonderId then table.insert(priorities,wonderId) end
+        if p.happiness<AI_CONTENT then for _, id in aiHappinessBuildings do if affordable(id) then table.insert(priorities,id) end end end
+        -- A settler (while the AI has fewer than three cities) follows the first economy building, the Monument.
+        for index, id in AI_ECONOMY do
+            if affordable(id) then table.insert(priorities,id) end
+            if index==1 and ownCities<3 and not counts.Settler then table.insert(priorities,"Settler") end
+        end
+        if wonderId and c.id==wonderCityId then table.insert(priorities,wonderId) end
+        if unit and unitsAffordable then table.insert(priorities,unit) end
+        if (counts.Worker or 0)<2*ownCities then table.insert(priorities,"Worker") end
+        if unit then table.insert(priorities,unit) end
+        local previous=c.queue
+        for _, item in priorities do if canChoose(s,c,item,stock) then c.queue=item; break end end
+        pending += upkeep(c.queue)-upkeep(previous)
+    end
+end
+-- The AI's upgrades, before its units act: each military unit in its own territory, in id order, whose upgrade
+-- UpgradeUnit would accept while leaving at least AI_UPGRADE_RESERVE gold, and only while its net gold is not negative
+-- (the upgrade ends that unit's movement).
+local function aiUpgrades(s: any, owner: number)
+    local p=s.players[owner]
+    local ids={}; for _, u in s.units do if u.ownerId==owner and R.units[u.kind].strength>0 then table.insert(ids,u.id) end end
+    table.sort(ids)
+    for _, id in ids do
+        local u=unitById(s,id)
+        if s.tiles[u.tileId].ownerId~=owner or upgradeRefusal(s,u) then continue end
+        if p.income.gold>=0 and p.gold-upgradeCost(u.kind,upgradeKind(s,u) :: string)>=AI_UPGRADE_RESERVE then upgrade(s,u) end
+    end
+end
 local function ai(s: any, owner: number)
     local p=s.players[owner]
     if not p.research then for _, id in R.technologyOrder do local tech=R.technologies[id]; if eligible(p,tech,p.technologies) then p.research={id=id,progress=0,cost=tech.cost}; break end end end
@@ -1250,6 +1495,7 @@ local function ai(s: any, owner: number)
     local strikers: {any}={}; for _, c in s.cities do if c.ownerId==owner and strikeReady(s,c) then table.insert(strikers,c) end end
     table.sort(strikers,function(a: any,b: any) return a.id<b.id end)
     for _, c in strikers do aiCityStrike(s,c) end
+    aiUpgrades(s,owner)
     local units={}; for _, u in s.units do if u.ownerId==owner then table.insert(units,u.id) end end
     for _, id in units do
         local u=unitById(s,id); if not u then continue end
@@ -1308,20 +1554,7 @@ local function ai(s: any, owner: number)
         local choice=aiPromotion(s,u)
         while choice do promote(s,u,choice); choice=aiPromotion(s,u) end
     end
-    local wonderCityId,wonderId=aiWonderPlan(s,owner)
-    for _, c in s.cities do
-        if c.ownerId~=owner then continue end
-        local counts: {[string]: number}={}; for _, u in s.units do if u.ownerId==owner then counts[u.kind]=(counts[u.kind] or 0)+1 end end
-        local priorities: {string}={}
-        if has(p.technologies,"Rocketry") then table.insert(priorities,"SpaceProject") end
-        if not counts.Worker then table.insert(priorities,"Worker") end
-        for _, item in {"Monument","Granary","Library","Market","Colosseum","Workshop","University"} do table.insert(priorities,item) end
-        local ownCities=0; for _, city in s.cities do if city.ownerId==owner then ownCities += 1 end end
-        if ownCities<3 and not counts.Settler then table.insert(priorities,"Settler") end
-        if wonderId and c.id==wonderCityId then table.insert(priorities,wonderId) end
-        for i=#R.unitOrder,1,-1 do local item=R.unitOrder[i]; if R.units[item].strength>0 then table.insert(priorities,item) end end
-        for _, item in priorities do if canChoose(s,c,item) then c.queue=item; break end end
-    end
+    aiProduction(s,owner)
     refreshVision(s)
 end
 local function endTurn(s: any, owner: number)
@@ -1410,12 +1643,9 @@ function BaseGame.apply(state: State, actorId: number, command: Command): {ok: b
             if u.moves<=0 or u.fortified or R.units[u.kind].strength<=0 then return reject("A military unit needs movement to fortify.") end
             u.fortified=true; u.moves=0
         elseif cmd.kind=="UpgradeUnit" then
-            local nextKind=R.units[u.kind].upgradeTo
-            if not nextKind or u.moves<=0 or not has(p.technologies,R.units[nextKind].technology or "") then return reject("Upgrade technology is unavailable.") end
-            local city={ownerId=actorId,buildings={}}
-            local cost=math.max(20,R.units[nextKind].cost-R.units[u.kind].cost)*2
-            if not productionAvailable(s,city,nextKind) or p.gold<cost then return reject("Upgrade requires gold and strategic resources.") end
-            p.gold -= cost; u.kind=nextKind; u.moves=0; event(s,"Upgrade","Unit upgraded.",u.tileId,u.id,actorId)
+            local refusal=upgradeRefusal(s,u)
+            if refusal then return reject(refusal) end
+            upgrade(s,u)
         elseif cmd.kind=="BuildImprovement" then
             if type(cmd.improvement)~="string" or not improvementAvailable(s,u,cmd.improvement) then return reject("Improvement is unavailable on this tile.") end
             u.work={improvement=cmd.improvement,remaining=R.improvements[cmd.improvement].turns}; u.moves=0
@@ -1437,7 +1667,8 @@ function BaseGame.apply(state: State, actorId: number, command: Command): {ok: b
             if not target or not strikeTargetAllowed(s,c,target,visible(s,actorId),cities) then return reject("Choose a visible enemy unit within the city's range.") end
             cityStrike(s,c,target,units)
         else
-            if type(cmd.item)~="string" or not canChoose(s,c,cmd.item) then return reject("Production item is unavailable.") end
+            if type(cmd.item)~="string" then return reject("Production item is unavailable.") end
+            if not canChoose(s,c,cmd.item) then return reject(productionRefusal(s,c,cmd.item)) end
             if cmd.kind=="Purchase" then
                 if isWonder(cmd.item) then return reject("World wonders cannot be purchased.") end
                 local cost=R.purchaseCosts[cmd.item]; local spawn=spawnTile(s,c)
@@ -1515,6 +1746,9 @@ function BaseGame.snapshot(state: State, actorId: number): View
             if u.ownerId==actorId then
                 view.xp=u.xp or 0; view.nextLevelXp=R.experienceThresholds[earnedLevels(u)+1]
                 view.promotionsAvailable=if canAct then promotionsAvailable(u) else {}
+                -- The upgrade the owner's technology opens, its gold cost and whether UpgradeUnit accepts it now.
+                local nextKind=upgradeKind(s,u)
+                if nextKind then view.upgradeKind=nextKind; view.upgradeCost=upgradeCost(u.kind,nextKind); view.canUpgrade=canAct and upgradeRefusal(s,u)==nil end
             else view.xp=nil end
             table.insert(units,view)
         end
@@ -1569,10 +1803,15 @@ function BaseGame.snapshot(state: State, actorId: number): View
     for _, id in R.technologyOrder do if eligible(p,R.technologies[id],p.technologies) then table.insert(research,copy(R.technologies[id])) end end
     for _, id in R.policyOrder do if eligible(p,R.policies[id],p.policies) then local entry=copy(R.policies[id]); entry.cost=policyCost(s,p,R.policies[id]); table.insert(policies,entry) end end
     local productionOrder=copy(R.unitOrder); for _, id in R.buildingOrder do table.insert(productionOrder,id) end
+    -- The actor's strategic stock, computed once for every menu below and reported as `strategic`: for each strategic
+    -- resource in resourceOrder, `have` (its improved tiles' supply) and `used` (its living units' needs).
+    local stock=strategicStock(s,actorId)
+    local strategic: {[string]: {have: number, used: number}}={}
+    for _, id in R.resourceOrder do if R.resources[id].category=="Strategic" then strategic[id]={have=stock.have[id] or 0,used=stock.used[id] or 0} end end
     for _, id in productionOrder do
         local added=false
         for _, c in s.cities do
-            if c.ownerId==actorId and canChoose(s,c,id) then
+            if c.ownerId==actorId and canChoose(s,c,id,stock) then
                 table.insert(productionByCity[tostring(c.id)],id)
                 if not isWonder(id) and p.gold>=R.purchaseCosts[id] and (R.buildings[id] or spawnTile(s,c)) then table.insert(purchasesByCity[tostring(c.id)],id) end
                 if not added then table.insert(production,id); added=true end
@@ -1650,7 +1889,7 @@ function BaseGame.snapshot(state: State, actorId: number): View
     local mood=stepHappiness(s,actorId,resourceInventory(s,actorId))
     local goldenAge={active=age.turnsLeft>0,turnsLeft=age.turnsLeft,progress=age.progress,threshold=goldenAgeThreshold(s,age.ages),ages=age.ages,
         progressPerTurn=if age.turnsLeft>0 then 0 else math.max(0,mood),turns=goldenAgeTurns(s)}
-    return {barbarians=s.barbarians~=nil,camps=camps,wonders=wonders,goldenAge=goldenAge,cityForecasts=forecasts,seed=if s.humanPlayers==1 or s.phase=="Finished" then s.seed else nil,radius=s.radius,mapShape=s.mapShape,frequency=s.frequency,difficulty=s.difficulty,humanPlayers=s.humanPlayers,turn=s.turn,revision=s.revision,activePlayerId=s.activePlayerId,actorId=actorId,canAct=canAct,phase=s.phase,winner=s.winner,reason=s.reason,victoryType=s.victoryType,gold=p.gold,science=p.science,culture=p.culture,happiness=p.happiness,research=copy(p.research),technologies=copy(p.technologies),policies=copy(p.policies),resources=copy(resourceInventory(s,actorId)),income=copy(p.income),tiles=tiles,units=units,cities=cities,events=events,log={},legalMoves=legal,riverMoves=riverMoves,availableProduction=production,availableProductionByCity=productionByCity,availablePurchasesByCity=purchasesByCity,availableResearch=research,availablePolicies=policies,availableImprovements=improvements,productionCosts=copy(R.productionCosts),purchaseCosts=copy(R.purchaseCosts),scores=score,statistics=stats,progress=progress,cultureVictoryPolicies=threshold,policyCostIncrease=s.policyCostIncrease or 0,attackPreviews=previews,cityStrikePreviews=strikePreviews,diplomacy=copy(s.diplomacy),trades=copy(s.trades),objectives={"Found cities, develop resources and maintain happiness.","Control both original capitals for domination.","Build SpaceProject after Rocketry for science victory.","Adopt "..threshold.." "..(if threshold==1 then "policy" else "policies").." for culture victory.","Highest score wins at the round limit; ties favor civilization 1."}}
+    return {strategic=strategic,barbarians=s.barbarians~=nil,camps=camps,wonders=wonders,goldenAge=goldenAge,cityForecasts=forecasts,seed=if s.humanPlayers==1 or s.phase=="Finished" then s.seed else nil,radius=s.radius,mapShape=s.mapShape,frequency=s.frequency,difficulty=s.difficulty,humanPlayers=s.humanPlayers,turn=s.turn,revision=s.revision,activePlayerId=s.activePlayerId,actorId=actorId,canAct=canAct,phase=s.phase,winner=s.winner,reason=s.reason,victoryType=s.victoryType,gold=p.gold,science=p.science,culture=p.culture,happiness=p.happiness,research=copy(p.research),technologies=copy(p.technologies),policies=copy(p.policies),resources=copy(resourceInventory(s,actorId)),income=copy(p.income),tiles=tiles,units=units,cities=cities,events=events,log={},legalMoves=legal,riverMoves=riverMoves,availableProduction=production,availableProductionByCity=productionByCity,availablePurchasesByCity=purchasesByCity,availableResearch=research,availablePolicies=policies,availableImprovements=improvements,productionCosts=copy(R.productionCosts),purchaseCosts=copy(R.purchaseCosts),scores=score,statistics=stats,progress=progress,cultureVictoryPolicies=threshold,policyCostIncrease=s.policyCostIncrease or 0,attackPreviews=previews,cityStrikePreviews=strikePreviews,diplomacy=copy(s.diplomacy),trades=copy(s.trades),objectives={"Found cities, develop resources and maintain happiness.","Control both original capitals for domination.","Build "..R.buildings[R.scienceVictoryBuilding].name.." after "..R.technologies[R.scienceVictoryTechnology].name.." for science victory.","Adopt "..threshold.." "..(if threshold==1 then "policy" else "policies").." for culture victory.","Highest score wins at the round limit; ties favor civilization 1."}}
 end
 -- Pure, fog-safe query for one attack the actor's unit could make now. It never mutates the
 -- state and answers the same generic message for hidden, empty or out-of-range targets.

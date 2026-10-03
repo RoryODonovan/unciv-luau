@@ -1388,8 +1388,22 @@ local function aiMilitaryChoice(s: any, city: any, groups: {[string]: number}, m
     end
     return best or fallback
 end
+-- The AI's gold focus: while its net gold is negative, one more of its cities (the lowest id not yet on it) takes the
+-- Gold focus each turn; once the net gold reaches AI_GOLD_RECOVERED, one city (the highest id on it) returns to Balanced.
+local AI_GOLD_RECOVERED=8
+local function aiGoldFocus(s: any, owner: number)
+    local p=s.players[owner]
+    local own: {any}={}; for _, c in s.cities do if c.ownerId==owner then table.insert(own,c) end end
+    table.sort(own,function(a: any,b: any) return a.id<b.id end)
+    if p.income.gold<0 then
+        for _, c in own do if c.focus~="Gold" then c.focus="Gold"; return end end
+    elseif p.income.gold>=AI_GOLD_RECOVERED then
+        for i=#own,1,-1 do if own[i].focus=="Gold" then own[i].focus="Balanced"; return end end
+    end
+end
 local function aiProduction(s: any, owner: number)
     local p=s.players[owner]
+    aiGoldFocus(s,owner)
     local wonderCityId,wonderId=aiWonderPlan(s,owner)
     local counts: {[string]: number}={}; local groups: {[string]: number}={}; local military=0
     for _, u in s.units do

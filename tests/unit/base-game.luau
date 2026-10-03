@@ -117,7 +117,7 @@ apply(workerState,1,{kind="Purchase",cityId=home.id,item="Swordsman"})
 apply(workerState,1,{kind="Purchase",cityId=home.id,item="Swordsman"})
 assert(equal(Game.snapshot(workerState,1).strategic.Iron,{have=2,used=2}))
 rejected(workerState,1,{kind="Purchase",cityId=home.id,item="Swordsman"})
-assert(Game.apply(workerState,1,{kind="Purchase",cityId=home.id,item="Swordsman"}).message=="Not enough Iron: needs 1, 2 available and 2 in use.")
+assert(Game.apply(workerState,1,{kind="Purchase",cityId=home.id,item="Swordsman"} :: any).message=="Not enough Iron: needs 1, 2 available and 2 in use.")
 local upgrade=founded(4); local upgradeUnit=firstUnit(upgrade,1,"Warrior"); local upgradeTile=upgrade.tiles[firstUnit(upgrade,1,"Worker").tileId]
 upgradeTile.ownerId=1; upgradeTile.terrain="Plains"; upgradeTile.resource="Iron"; upgradeTile.improvement="Mine"
 upgrade.players[1].technologies={"Mining","BronzeWorking","IronWorking"}; upgrade.players[1].gold=1000
