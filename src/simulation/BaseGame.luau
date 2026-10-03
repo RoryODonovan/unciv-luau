@@ -1033,8 +1033,9 @@ local function distancesWithin(s: any, center: number, limit: number): {[number]
     return result
 end
 -- A camp adds a unit: on its own tile when that is free (the new unit becomes its guard and is the first kind of the
--- era), otherwise on its free passable neighbour with the lowest id that holds no city or other camp. Barbarians never
--- take the last places under the global unit cap or exceed their own cap. Returns whether a unit was added.
+-- era), otherwise on its free passable neighbour with the lowest id that holds no city or other camp. A unit is added
+-- only while the world holds fewer units than the global cap and the barbarians fewer than their own cap. Returns
+-- whether a unit was added.
 local function campSpawn(s: any, camp: any): boolean
     if #s.units>=R.maxUnits or barbarianCount(s)>=R.barbarians.maxUnits then return false end
     local units,cities=occupants(s); local camps=campTiles(s); local kinds=barbarianKinds(s)
