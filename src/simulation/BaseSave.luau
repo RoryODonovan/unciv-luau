@@ -155,7 +155,13 @@ function BaseSave.valid(saved: any): boolean
     end
     if not rivers(s,sphere) then return false end
     for index,p in s.players do
-        if not object(p,"id human gold science culture happiness technologies policies research explored resources income") or p.id~=index or p.human~=(index<=s.humanPlayers) then return false end
+        if not object(p,"id human gold science culture happiness technologies policies research explored resources income goldenAge") or p.id~=index or p.human~=(index<=s.humanPlayers) then return false end
+        -- Optional golden-age record (absent in saves written before golden ages: an empty meter, none active, none so far).
+        if p.goldenAge~=nil then
+            local g=p.goldenAge
+            if not object(g,"progress turnsLeft ages") or not integer(g.progress,0,1000000000) or not integer(g.turnsLeft,0,1000) or not integer(g.ages,0,1000) then return false end
+            if g.turnsLeft>0 and g.ages==0 then return false end
+        end
         if not integer(p.gold,0,1000000000) or not integer(p.science,0,1000000000) or not integer(p.culture,0,1000000000) or not integer(p.happiness,-10000,10000) then return false end
         if not strings(p.technologies,Rules.technologies,#Rules.technologyOrder) or not strings(p.policies,Rules.policies,#Rules.policyOrder) or not knowledge(p.technologies,Rules.technologies) or not knowledge(p.policies,Rules.policies) then return false end
         if not array(p.explored,#s.tiles) then return false end
@@ -200,7 +206,7 @@ function BaseSave.valid(saved: any): boolean
         end
         units[u.id]=u; occupancy[u.tileId]=u
     end
-    local cities,cityTiles,capitalOwners={},{},{}
+    local cities,cityTiles,capitalOwners,wonders={},{},{},{}
     local focuses={Balanced=true,Food=true,Production=true,Gold=true,Science=true,Culture=true}
     for _,c in s.cities do
         if not object(c,"id ownerId originalOwnerId capital tileId name population food production queue hp buildings focus strikeTurn") or not id(c.id) or c.id>=s.nextCity or cities[c.id] or not owner(c.ownerId) or not owner(c.originalOwnerId) or type(c.capital)~="boolean" or not integer(c.tileId,1,#s.tiles) or cityTiles[c.tileId] then return false end
@@ -210,8 +216,14 @@ function BaseSave.valid(saved: any): boolean
         -- whose ranged strike the city used, never later than the current round.
         if c.strikeTurn~=nil and not integer(c.strikeTurn,1,s.turn) then return false end
         if c.capital then if capitalOwners[c.originalOwnerId] then return false end; capitalOwners[c.originalOwnerId]=true end
+        -- A world wonder stands in at most one city of the world.
+        for _,building in c.buildings do
+            if Rules.buildings[building].wonder then if wonders[building] then return false end; wonders[building]=true end
+        end
         cities[c.id]=c; cityTiles[c.tileId]=true
     end
+    -- No city queues a wonder that has been completed (completion switches every such queue).
+    for _,c in s.cities do if wonders[c.queue] then return false end end
     local d=s.diplomacy
     if not object(d,"status peaceOfferBy peaceUntil") or (d.status~="Peace" and d.status~="War") or not integer(d.peaceUntil,0,s.maxTurns+8) then return false end
     if d.peaceOfferBy~=nil and (not owner(d.peaceOfferBy) or d.status~="War") then return false end
@@ -223,11 +235,11 @@ function BaseSave.valid(saved: any): boolean
     end
     if not array(s.log,24) or not array(s.events,64) then return false end
     for _,message in s.log do if not text(message,256) then return false end end
-    local kinds={Move=true,Attack=true,Capture=true,FoundCity=true,Production=true,Research=true,Growth=true,Starvation=true,Victory=true,Purchase=true,Upgrade=true,Improvement=true,Policy=true,War=true,Peace=true,Trade=true,Defeat=true,RangedAttack=true,Disband=true,UnitLost=true,CityLost=true,Eliminated=true,Promotion=true,CityStrike=true}
-    local causes={Combat=true,Ranged=true,Upkeep=true,Captured=true,NoCities=true,NeverFounded=true,CapitalsLost=true,CityStrike=true}
+    local kinds={Move=true,Attack=true,Capture=true,FoundCity=true,Production=true,Research=true,Growth=true,Starvation=true,Victory=true,Purchase=true,Upgrade=true,Improvement=true,Policy=true,War=true,Peace=true,Trade=true,Defeat=true,RangedAttack=true,Disband=true,UnitLost=true,CityLost=true,Eliminated=true,Promotion=true,CityStrike=true,WonderBuilt=true,WonderLost=true,GoldenAgeStarted=true,GoldenAgeEnded=true}
+    local causes={Combat=true,Ranged=true,Upkeep=true,Captured=true,NoCities=true,NeverFounded=true,CapitalsLost=true,CityStrike=true,Happiness=true,Wonder=true}
     local previous=0
     for _,e in s.events do
-        if not object(e,"id kind message tileId unitId ownerId amount public cause byOwnerId unitKind cityId") or not integer(e.id,previous+1,s.nextEvent-1) or type(e.kind)~="string" or not (kinds :: any)[e.kind] or not text(e.message,256) then return false end
+        if not object(e,"id kind message tileId unitId ownerId amount public cause byOwnerId unitKind cityId wonder") or not integer(e.id,previous+1,s.nextEvent-1) or type(e.kind)~="string" or not (kinds :: any)[e.kind] or not text(e.message,256) then return false end
         if e.tileId~=nil and not integer(e.tileId,1,#s.tiles) then return false end
         if e.unitId~=nil and (not id(e.unitId) or e.unitId>=s.nextUnit) then return false end
         if e.ownerId~=nil and not owner(e.ownerId) then return false end
@@ -237,6 +249,8 @@ function BaseSave.valid(saved: any): boolean
         if e.byOwnerId~=nil and not owner(e.byOwnerId) then return false end
         if e.unitKind~=nil and (type(e.unitKind)~="string" or not Rules.units[e.unitKind]) then return false end
         if e.cityId~=nil and (not id(e.cityId) or e.cityId>=s.nextCity) then return false end
+        -- Optional wonder id (WonderBuilt, WonderLost and a wonder's GoldenAgeStarted): a known world wonder.
+        if e.wonder~=nil and (type(e.wonder)~="string" or not Rules.buildings[e.wonder] or not Rules.buildings[e.wonder].wonder) then return false end
         previous=e.id
     end
     if #s.events==0 then if s.nextEvent~=1 then return false end

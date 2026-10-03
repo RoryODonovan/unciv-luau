@@ -6,14 +6,15 @@
     "src/simulation/WorldMap.luau",
     "src/simulation/BaseSave.luau"
   ],
-  "description": "Original bounded civilization balance, including an original promotion set with experience thresholds, original city-combat values and a Catapult siege percentage, original terrain-feature and river values, passable food-yielding Tundra, indexed integration of original coherent terrain/resource generation, weighted shortest paths, visibility projection and strict versioned save schema (optional unit experience and validated promotions, an optional city strike round and city-strike event fields, optional tile features and symmetric river edge masks validated against hex or sphere topology, unit movement in multiples of 1/6, accepting every earlier whole/half-move save). Uses separately attributed HexMath; not converted Unciv rules or map generation and no copied media or full parity claim.",
+  "description": "Original bounded civilization balance, including an original promotion set with experience thresholds, original city-combat values and a Catapult siege percentage, original terrain-feature and river values, eight original world wonders with empire effects and golden-age values, passable food-yielding Tundra, indexed integration of original coherent terrain/resource generation, weighted shortest paths, visibility projection and strict versioned save schema (optional unit experience and validated promotions, an optional city strike round and city-strike event fields, optional tile features and symmetric river edge masks validated against hex or sphere topology, an optional per-player golden-age record, optional wonder event fields and once-per-world wonder placement, unit movement in multiples of 1/6, accepting every earlier whole/half-move save). Uses separately attributed HexMath; not converted Unciv rules or map generation and no copied media or full parity claim.",
   "testPaths": [
     "tests/unit/base-foundations.luau",
     "tests/unit/base-save.luau",
     "tests/unit/world-game.luau",
     "tests/unit/base-promotions.luau",
     "tests/unit/base-city-combat.luau",
-    "tests/unit/base-features.luau"
+    "tests/unit/base-features.luau",
+    "tests/unit/base-wonders.luau"
   ],
   "documentationPath": "docs/base-foundations.md",
   "additionalDocumentationPaths": [
