@@ -37,6 +37,11 @@ export type Feature = {id: string, terrains: {string}, movement: number, defense
 -- owner's resting units next to this unit (several medics do not stack). All prerequisites must be taken first.
 export type Promotion = {id: string, name: string, prerequisites: {string}, classes: {string}, roughPercent: number, openPercent: number, coverPercent: number, accuracyPercent: number, adjacentHeal: number}
 export type Resource = {id: string, category: string, yields: Yields, happiness: number, improvement: string}
+-- Barbarians: a non-playing hostile faction whose units carry `ownerId` (0, never a civilization's id). See `barbarians`
+-- in the rule table below for the meaning of each value.
+export type BarbarianRule = {ownerId: number, firstCampTurn: number, campInterval: number, spawnInterval: number, tilesPerCamp: number, maxCamps: number,
+    unitsPerCamp: number, maxUnits: number, campCityDistance: number, campSpacing: number, huntRadius: number, leashRadius: number, campGold: number,
+    maxExperience: number, healing: number, difficultyPercent: {[string]: number}, eraUnits: {{string}}}
 local function yields(food: number?, production: number?, gold: number?, science: number?, culture: number?): Yields
     return {food=food or 0, production=production or 0, gold=gold or 0, science=science or 0, culture=culture or 0}
 end
@@ -200,6 +205,29 @@ local rules = {
     -- `productionPercent`. Both the threshold and the length scale with the match's round limit against `paceTurns`
     -- (clamped from minPacePercent to maxPacePercent).
     goldenAge={threshold=120,thresholdIncrease=60,turns=8,tileGold=1,productionPercent=20,paceTurns=120,minPacePercent=50,maxPacePercent=200} :: GoldenAgeRule,
+    -- Barbarians (an original, Civ V-flavoured "barbarians-lite"). Their units carry ownerId 0, which no civilization
+    -- uses; every civilization is always at war with them, and they have no cities, diplomacy, score or research.
+    -- Rounds are scaled by the match pace (the golden-age pace: the round limit against 120 rounds, 50-200%) and by
+    -- difficultyPercent: a value of `n` rounds becomes max(1, round(n x pace% x difficulty% / 10000)).
+    -- * Encampments. The first may appear at round firstCampTurn and one more every campInterval rounds after it, up
+    --   to max(1, min(maxCamps, floor(tiles / tilesPerCamp))) camps (Tiny 1, Small 2, Medium 3, Large 8, Huge 12). A
+    --   camp stands on passable land no civilization can see, with no unit or city, at least campCityDistance hexes
+    --   from every city and campSpacing hexes from every other camp; tiles neither civilization has explored are
+    --   preferred. The tile is chosen deterministically from the seed and the round.
+    -- * Units. A new camp starts with a guard. Every spawnInterval rounds a camp adds a unit (on the camp tile if it is
+    --   free, which makes that unit its guard, otherwise beside it) while there are fewer than unitsPerCamp barbarian
+    --   units per camp and fewer than maxUnits in all. eraUnits lists the kinds for the lower of the two
+    --   civilizations' eras (the public era); a guard is always the first kind.
+    -- * Behaviour. A unit on a camp tile guards it: it never moves and attacks only from range. Other units hunt the
+    --   nearest civilization unit or city within huntRadius hexes and attack when the strike is favourable; without
+    --   a target they wander within leashRadius of their nearest camp. They can damage cities but never capture them.
+    --   A resting barbarian heals `healing` hit points at the start of its phase.
+    -- * Clearing. A civilization's military unit that enters a camp destroys it and earns campGold gold, scaled by
+    --   the match pace (rounded down). Experience from fighting barbarians stops at maxExperience (Civ V's cap).
+    barbarians={ownerId=0,firstCampTurn=10,campInterval=8,spawnInterval=6,tilesPerCamp=320,maxCamps=12,unitsPerCamp=3,maxUnits=30,
+        campCityDistance=4,campSpacing=4,huntRadius=5,leashRadius=4,campGold=25,maxExperience=30,healing=10,
+        difficultyPercent={Easy=150,Normal=100,Hard=75},
+        eraUnits={{"Warrior","Archer"},{"Swordsman","Archer"},{"Swordsman","Pikeman","Catapult"},{"Pikeman","Knight","Catapult"},{"Musketman","Knight","Catapult"}}} :: BarbarianRule,
 }
 freeze(rules)
 return rules
