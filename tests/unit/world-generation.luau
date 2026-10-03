@@ -37,7 +37,7 @@ local function natural(tile: Generator.Tile): (number,number)
  if tile.resource then local yields=Rules.resources[tile.resource].yields;f+=yields.food;p+=yields.production end
  return f,p
 end
-local featureTypes: {[string]: boolean}={};local riverMaps=0
+local featureTypes: {[string]: boolean}={}
 local function passable(tile: Generator.Tile): boolean return tile.terrain~='Water' and tile.terrain~='Mountain'end
 local function bfs(fixture: Fixture,tiles: {Generator.Tile},start: number,limit: number?): ({number},{number})
  local ids={start};local distances: {number}={[start]=0};local head=1

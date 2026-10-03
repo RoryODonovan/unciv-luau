@@ -12,8 +12,10 @@ for _,radius in {7,40} do
     print("radius "..radius)
     measure("generation",10,function() Map.generate(42,radius) end)
     local map=Map.generate(42,radius)
-    local start=Map.tileId(map,-radius+1,0) :: number
-    local goal=Map.tileId(map,radius-1,0) :: number
+    -- Coherent generation can put water or mountains between fixed coordinates; the generated starting sites always
+    -- share a passable land component, so the path between them exists.
+    local starts=map.startIds :: {number}
+    local start,goal=starts[1],starts[2]
     measure("opposite-start path",3,function() local path=Map.shortestPath(map,start,goal); assert(path) end)
     local state=Game.new(42,{radius=radius})
     for _,u in state.units do if u.ownerId==1 and u.kind=="Settler" then assert(Game.apply(state,1,{kind="FoundCity",unitId=u.id}).ok); break end end

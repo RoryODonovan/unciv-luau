@@ -153,8 +153,8 @@ local function addCity(s: any, owner: number, tileId: number): any
     for _, c in s.cities do if c.originalOwnerId == owner then founded += 1; if c.capital then capital=false end end end
     local names=CITY_NAMES[owner]; local name=names and names[founded+1] or "City "..s.nextCity
     local c = {id=s.nextCity, ownerId=owner, originalOwnerId=owner, capital=capital, tileId=tileId, name=name, population=1, food=0, production=0, queue="Warrior", hp=R.cityHp, buildings={}, focus="Balanced"}
-    -- Founding a city clears the tile's feature, as in Civ V; its resource and any river stay.
-    s.tiles[tileId].feature=nil
+    -- The tile keeps its feature (unlike Civ V, which clears it): features never change after generation, so an explored
+    -- tile's projected feature and natural yields cannot reveal an unseen city.
     s.nextCity += 1; table.insert(s.cities,c); claim(s,c); return c
 end
 local function eligible(player: any, entry: any, list: any): boolean

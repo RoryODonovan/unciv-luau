@@ -562,14 +562,21 @@ do
     for _=1,2 do apply(f,1,{kind="EndTurn"}); apply(f,2,{kind="EndTurn"}) end
     assert(f.tiles[fc].improvement=="Farm")
     local view=Game.snapshot(f,1).tiles[fc]; assert(view.food==4 and view.gold==1)
-    -- Founding on a Forest with Deer and a river clears the Forest and keeps the Deer and the river.
+    -- Founding on a Forest with Deer and a river keeps all three: features never change after generation (see the fog
+    -- regression below). An undefended city there defends with the Forest's +25%.
     local h,hc,hg=arena(543)
     local t=h.tiles[hc]; t.terrain="Grassland"; t.feature="Forest"; t.resource="Deer"
     setRiver(h,hg,hc,hg.neighbors[hc][1],true)
     local mask=t.river
     local settler=place(h,1,"Settler",hc)
     apply(h,1,{kind="FoundCity",unitId=settler.id})
-    assert(t.feature==nil and t.resource=="Deer" and t.river==mask and Save.valid(Game.serialize(h)))
+    assert(t.feature=="Forest" and t.resource=="Deer" and t.river==mask and Save.valid(Game.serialize(h)))
+    -- Warrior against the undefended size-1 city: defence (14 + 1) x 1.25 = 18.75, so 30 x 10 / 18.75 rounds to 16 (12
+    -- across the river, attack 8).
+    war(h)
+    local raider=place(h,2,"Warrior",hg.neighbors[hc][2])
+    local forestCity=Game.previewAttack(h,2,raider.id,hc) :: any
+    assert(forestCity.target=="City" and forestCity.dealtMax==16 and not forestCity.acrossRiver)
     -- Legacy Forest terrain keeps Camp, Plantation and Road and refuses a feature.
     local l,lc=arena(544)
     local lt=l.tiles[lc]; lt.terrain="Forest"; lt.resource="Deer"; lt.improvement="Camp"
@@ -579,6 +586,40 @@ end
 
 -- 7. Fog: an unexplored tile never shows a feature or river; explored tiles show exactly the stored values; changing an
 -- unexplored tile changes nothing either actor is shown.
+do
+    -- Regression: a rival founding a city out of sight on an explored Forest changes nothing the observer is shown. An
+    -- explored tile projects only fields that never change after generation (terrain, resource, feature, river and the
+    -- natural yields derived from them); owner, improvement and road need sight. Founding once cleared the feature, which
+    -- turned the observer's unseen Forest (1/2) into bare Grassland (3/0) and revealed the hidden city and its timing.
+    local s: any=Game.new(61,{humanPlayers=2,radius=12}); strip(s)
+    apply(s,1,{kind="FoundCity",unitId=firstUnit(s,1,"Settler").id}); apply(s,1,{kind="EndTurn"})
+    local g=graphOf(s)
+    local sight: {[number]: boolean}={}
+    for _, u in s.units do if u.ownerId==1 then for _, id in WorldMap.range(g,u.tileId,2) do sight[id]=true end end end
+    for _, c in s.cities do if c.ownerId==1 then for _, id in WorldMap.range(g,c.tileId,2) do sight[id]=true end end end
+    local site: number?=nil
+    for _, t in s.tiles do
+        if sight[t.id] or t.ownerId or not passable(t) then continue end
+        local clear=true
+        for _, c in s.cities do if WorldMap.distance(g,c.tileId,t.id)<5 then clear=false end end
+        for _, u in s.units do if WorldMap.distance(g,u.tileId,t.id)<3 then clear=false end end
+        if clear then site=t.id; break end
+    end
+    assert(site)
+    local t=s.tiles[site :: number]; t.terrain="Grassland"; t.feature="Forest"; t.resource=nil; t.improvement=nil; t.road=nil
+    local explored=s.players[1].explored
+    for _, id in WorldMap.range(g,site :: number,1) do if not table.find(explored,id) then table.insert(explored,id) end end
+    table.sort(explored)
+    local settler=place(s,2,"Settler",site :: number)
+    assert(Save.valid(Game.serialize(s)) and s.activePlayerId==2)
+    local before=Game.snapshot(s,1).tiles
+    assert(before[site :: number].explored and not before[site :: number].visible and before[site :: number].feature=="Forest")
+    apply(s,2,{kind="FoundCity",unitId=settler.id})
+    local after=Game.snapshot(s,1).tiles
+    assert(not after[site :: number].visible,"the founding stays out of sight")
+    assert(after[site :: number].feature=="Forest" and after[site :: number].food==1 and after[site :: number].production==2)
+    assert(equal(before,after),"an unseen rival city changes no explored tile the observer is shown")
+end
 do
     local fogOptions: {any}={{radius=10,humanPlayers=2},{mapShape="Sphere",frequency=8,humanPlayers=2}}
     for _, options in fogOptions do

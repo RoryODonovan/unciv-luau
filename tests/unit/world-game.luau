@@ -76,7 +76,6 @@ local names={"Duel","Tiny","Small","Medium","Large","Huge"}
 local seeds={0,1,2,42,73,99991}
 local seenTerrains: {[string]: boolean}={}
 local seenFeatures: {[string]: boolean}={}
-local riverMaps=0
 local scenarios=0
 for _,shape in {"Hex","Sphere"} do
     for _,name in names do
