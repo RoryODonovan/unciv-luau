@@ -53,20 +53,20 @@
     {
       "path": "roblox/simulation/BaseGame.luau",
       "sourcePath": "src/simulation/BaseGame.luau",
-      "sourceSha256": "e86dfdbb2af8c0d88e7e63611a7632bcf9af3c70f754c7be344bac7928188d42",
-      "generatedSha256": "f035109eddc297479556485c6d0c323093564ef22b700ece431c6b1ba5a74dee"
+      "sourceSha256": "c49d059c7576a17f0fa3c01e99ed29d9c278b159b2879a590d256cc442b710b1",
+      "generatedSha256": "daa236f962d9cc1ea8fff3e58a53c78d27d85a0ceb9740efc5b874f0fb6f0304"
     },
     {
       "path": "roblox/simulation/BaseRules.luau",
       "sourcePath": "src/simulation/BaseRules.luau",
-      "sourceSha256": "930d06b19b9d40b291ad7be683e8792e6ff10f79934430793da73e691f2b9397",
-      "generatedSha256": "4ba8b6a26a04783ac8a04a76da4e6075edccaa22b7f0c7b2ab2fa60c53ddef21"
+      "sourceSha256": "3f6a363bbf977d2f2b22bd1f51cb70c68f0c2f15828dcafdde071f09a04050f5",
+      "generatedSha256": "0b97a68ee7f858d3526da4c3cf2ba81692f93b78c6c500eda6b90196698eba6f"
     },
     {
       "path": "roblox/simulation/BaseSave.luau",
       "sourcePath": "src/simulation/BaseSave.luau",
-      "sourceSha256": "805210e7d0d8dd25d01a54cc5086942e1b37ecff05c85555d9fd10a30c437cda",
-      "generatedSha256": "9c2323ad79fd9915a7f064d8278213f5df95be3205b301e0b64a1b43606e5cfa"
+      "sourceSha256": "af701a495ea3dd2aba8800bab1ed679478ebd7cdf6866bfef00ed081342aed47",
+      "generatedSha256": "37c2c98aacfb8956347fbf0bb4f5b5cfdb73d6afda13b3ddb7bd7ffdaf692732"
     },
     {
       "path": "roblox/simulation/Game.luau",

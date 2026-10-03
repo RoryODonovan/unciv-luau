@@ -1,6 +1,6 @@
 --!strict
 -- Generated module-only Roblox form. Source: src/simulation/BaseSave.luau
--- Source SHA-256: 805210e7d0d8dd25d01a54cc5086942e1b37ecff05c85555d9fd10a30c437cda
+-- Source SHA-256: af701a495ea3dd2aba8800bab1ed679478ebd7cdf6866bfef00ed081342aed47
 -- Reproduce with tools/roblox-export.mjs; preserve MPL notices below.
 -- Covered source: https://github.com/RoryODonovan/unciv-luau
 -- This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
@@ -24,6 +24,8 @@ local function integer(value: any,low: number,high: number): boolean return numb
 local function nearestSixth(value: number): number return math.round(value*6)/6 end
 local function sixths(value: number): boolean return math.abs(value-nearestSixth(value))<=1e-6 end
 local function owner(value: any): boolean return value==1 or value==2 end
+-- Barbarian units and their events carry this owner id (0), which no civilization uses.
+local BARBARIAN=Rules.barbarians.ownerId
 local function id(value: any): boolean return integer(value,1,1000000) end
 local function text(value: any,limit: number): boolean return type(value)=="string" and #value>0 and #value<=limit end
 local schemas: {[string]: {[string]: boolean}}={}
@@ -124,13 +126,16 @@ function BaseSave.valid(saved: any): boolean
     if type(s)~="table" then return false end
     local sphere=saved.version==2
     if sphere and (s.mapShape~="Sphere" or not integer(s.frequency,1,22) or s.radius~=nil) then return false end
-    if not object(s,if sphere then "seed mapShape frequency difficulty humanPlayers forest maxTurns cultureVictoryPolicies policyCostIncrease turn revision activePlayerId phase winner reason victoryType tiles units cities players diplomacy trades events nextEvent nextUnit nextCity nextTrade log" else "seed radius difficulty humanPlayers forest maxTurns cultureVictoryPolicies policyCostIncrease turn revision activePlayerId phase winner reason victoryType tiles units cities players diplomacy trades events nextEvent nextUnit nextCity nextTrade log") then return false end
+    if not object(s,if sphere then "seed mapShape frequency difficulty humanPlayers forest maxTurns cultureVictoryPolicies policyCostIncrease barbarians turn revision activePlayerId phase winner reason victoryType tiles units cities players diplomacy trades events nextEvent nextUnit nextCity nextTrade log" else "seed radius difficulty humanPlayers forest maxTurns cultureVictoryPolicies policyCostIncrease barbarians turn revision activePlayerId phase winner reason victoryType tiles units cities players diplomacy trades events nextEvent nextUnit nextCity nextTrade log") then return false end
     if not integer(s.seed,-9007199254740991,9007199254740991) or (not sphere and not integer(s.radius,Rules.minRadius,Rules.maxRadius)) or not integer(s.maxTurns,20,500) or not integer(s.turn,1,s.maxTurns) or not integer(s.revision,0,1000000000) then return false end
     if not owner(s.humanPlayers) or not owner(s.activePlayerId) or type(s.forest)~="boolean" or (s.phase=="Playing" and s.humanPlayers==1 and s.activePlayerId~=1) then return false end
     if s.difficulty~="Easy" and s.difficulty~="Normal" and s.difficulty~="Hard" then return false end
     -- Optional culture rules (absent in saves written before they existed: flat costs, six policies).
     if s.cultureVictoryPolicies~=nil and not integer(s.cultureVictoryPolicies,1,#Rules.policyOrder) then return false end
     if s.policyCostIncrease~=nil and not integer(s.policyCostIncrease,0,400) then return false end
+    -- Optional barbarian record (absent in a match without barbarians and in every save written before them).
+    local barbarians=s.barbarians
+    if barbarians~=nil and (not object(barbarians,"camps nextCamp") or not id(barbarians.nextCamp) or not array(barbarians.camps,Rules.barbarians.maxCamps)) then return false end
     if not id(s.nextUnit) or not id(s.nextCity) or not id(s.nextTrade) or not integer(s.nextEvent,1,1000000000) then return false end
     if s.phase=="Playing" then if s.winner~=nil or s.reason~=nil or s.victoryType~=nil then return false end
     elseif s.phase=="Finished" then
@@ -185,12 +190,18 @@ function BaseSave.valid(saved: any): boolean
             for _,prerequisite in rule.prerequisites do if not table.find(p.technologies,prerequisite) then return false end end
         end
     end
-    local units,occupancy={},{}
+    local units,occupancy={},{}; local barbarianUnits=0
     for _,u in s.units do
-        if not object(u,"id ownerId kind tileId hp moves fortified level xp promotions work") or not id(u.id) or u.id>=s.nextUnit or units[u.id] or not owner(u.ownerId) or not integer(u.tileId,1,#s.tiles) or occupancy[u.tileId] then return false end
+        -- A barbarian unit (owner 0) needs a match with barbarians.
+        local barbarian=u.ownerId==BARBARIAN and barbarians~=nil
+        if not object(u,"id ownerId kind tileId hp moves fortified level xp promotions work") or not id(u.id) or u.id>=s.nextUnit or units[u.id] or not (owner(u.ownerId) or barbarian) or not integer(u.tileId,1,#s.tiles) or occupancy[u.tileId] then return false end
         if type(u.kind)~="string" or not Rules.units[u.kind] then return false end
         local rule=Rules.units[u.kind]
-        if rule.technology and not table.find(s.players[u.ownerId].technologies,rule.technology) then return false end
+        -- Barbarians research nothing; their units are military, never work, gain no experience and take no promotions.
+        if barbarian then
+            barbarianUnits+=1
+            if barbarianUnits>Rules.barbarians.maxUnits or rule.strength<=0 or u.work~=nil or (u.xp~=nil and u.xp~=0) or u.promotions~=nil or u.level~=0 then return false end
+        elseif rule.technology and not table.find(s.players[u.ownerId].technologies,rule.technology) then return false end
         if not Rules.terrains[tiles[u.tileId].terrain].passable or not integer(u.hp,1,rule.hp) or not number(u.moves,0,rule.moves) or not sixths(u.moves) or type(u.fortified)~="boolean" or not integer(u.level,0,#Rules.experienceThresholds) then return false end
         if u.fortified and rule.strength==0 then return false end
         -- Optional experience and promotions (absent in saves written before them: 0 and none). Each promotion is a
@@ -231,6 +242,17 @@ function BaseSave.valid(saved: any): boolean
     end
     -- No city queues a wonder that has been completed (completion switches every such queue).
     for _,c in s.cities do if wonders[c.queue] then return false end end
+    -- Barbarian camps: distinct issued ids and distinct passable tiles with no city and no civilization's unit (one that
+    -- entered would have destroyed it); `founded` and `lastSpawn` are rounds, founded <= lastSpawn <= turn.
+    if barbarians~=nil then
+        local campIds,campTiles={},{}
+        for _,camp in barbarians.camps do
+            if not object(camp,"id tileId founded lastSpawn") or not id(camp.id) or camp.id>=barbarians.nextCamp or campIds[camp.id] or not integer(camp.tileId,1,#s.tiles) or campTiles[camp.tileId] then return false end
+            if not Rules.terrains[tiles[camp.tileId].terrain].passable or cityTiles[camp.tileId] or (occupancy[camp.tileId] and occupancy[camp.tileId].ownerId~=BARBARIAN) then return false end
+            if not integer(camp.founded,1,s.turn) or not integer(camp.lastSpawn,camp.founded,s.turn) then return false end
+            campIds[camp.id]=true; campTiles[camp.tileId]=true
+        end
+    end
     local d=s.diplomacy
     if not object(d,"status peaceOfferBy peaceUntil") or (d.status~="Peace" and d.status~="War") or not integer(d.peaceUntil,0,s.maxTurns+8) then return false end
     if d.peaceOfferBy~=nil and (not owner(d.peaceOfferBy) or d.status~="War") then return false end
@@ -242,18 +264,21 @@ function BaseSave.valid(saved: any): boolean
     end
     if not array(s.log,24) or not array(s.events,64) then return false end
     for _,message in s.log do if not text(message,256) then return false end end
-    local kinds={Move=true,Attack=true,Capture=true,FoundCity=true,Production=true,Research=true,Growth=true,Starvation=true,Victory=true,Purchase=true,Upgrade=true,Improvement=true,Policy=true,War=true,Peace=true,Trade=true,Defeat=true,RangedAttack=true,Disband=true,UnitLost=true,CityLost=true,Eliminated=true,Promotion=true,CityStrike=true,WonderBuilt=true,WonderLost=true,GoldenAgeStarted=true,GoldenAgeEnded=true}
+    local kinds={Move=true,Attack=true,Capture=true,FoundCity=true,Production=true,Research=true,Growth=true,Starvation=true,Victory=true,Purchase=true,Upgrade=true,Improvement=true,Policy=true,War=true,Peace=true,Trade=true,Defeat=true,RangedAttack=true,Disband=true,UnitLost=true,CityLost=true,Eliminated=true,Promotion=true,CityStrike=true,WonderBuilt=true,WonderLost=true,GoldenAgeStarted=true,GoldenAgeEnded=true,CampCleared=true}
     local causes={Combat=true,Ranged=true,Upkeep=true,Captured=true,NoCities=true,NeverFounded=true,CapitalsLost=true,CityStrike=true,Happiness=true,Wonder=true}
     local previous=0
     for _,e in s.events do
         if not object(e,"id kind message tileId unitId ownerId amount public cause byOwnerId unitKind cityId wonder") or not integer(e.id,previous+1,s.nextEvent-1) or type(e.kind)~="string" or not (kinds :: any)[e.kind] or not text(e.message,256) then return false end
         if e.tileId~=nil and not integer(e.tileId,1,#s.tiles) then return false end
         if e.unitId~=nil and (not id(e.unitId) or e.unitId>=s.nextUnit) then return false end
-        if e.ownerId~=nil and not owner(e.ownerId) then return false end
+        -- The barbarian owner (0) appears only in a match with barbarians: as the owner of a barbarian's Attack or
+        -- UnitLost, and as the civilization-unit loser's byOwnerId of a UnitLost.
+        local barbarianEvent=barbarians~=nil and (e.kind=="Attack" or e.kind=="UnitLost")
+        if e.ownerId~=nil and not owner(e.ownerId) and not (barbarianEvent and e.ownerId==BARBARIAN) then return false end
         if e.amount~=nil and not integer(e.amount,0,1000000) then return false end
         if e.public~=nil and type(e.public)~="boolean" then return false end
         if e.cause~=nil and (type(e.cause)~="string" or not (causes :: any)[e.cause]) then return false end
-        if e.byOwnerId~=nil and not owner(e.byOwnerId) then return false end
+        if e.byOwnerId~=nil and not owner(e.byOwnerId) and not (barbarians~=nil and e.kind=="UnitLost" and e.byOwnerId==BARBARIAN) then return false end
         if e.unitKind~=nil and (type(e.unitKind)~="string" or not Rules.units[e.unitKind]) then return false end
         if e.cityId~=nil and (not id(e.cityId) or e.cityId>=s.nextCity) then return false end
         -- Optional wonder id (WonderBuilt, WonderLost and a wonder's GoldenAgeStarted): a known world wonder.

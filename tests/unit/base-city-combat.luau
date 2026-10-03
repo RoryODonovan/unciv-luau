@@ -525,7 +525,8 @@ end
 --     without saves between turns. The human defends: each turn its cities strike the first listed target.
 do
     local function run(resume: boolean): (any,number,number,number)
-        local s: any=Game.new(94,{humanPlayers=1,radius=5,difficulty="Hard"})
+        -- Barbarians (G9, on by default in a solo match) are switched off: this replay pins the civilizations' strikes.
+        local s: any=Game.new(94,{humanPlayers=1,radius=5,difficulty="Hard",barbarians=false})
         apply(s,1,{kind="FoundCity",unitId=firstUnit(s,1,"Settler").id})
         local human,ai,kills=0,0,0
         for turn=1,40 do

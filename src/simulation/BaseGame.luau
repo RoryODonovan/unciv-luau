@@ -5,7 +5,7 @@
 local Rules = require("./BaseRules")
 local WorldMap = require("./WorldMap")
 local Save = require("./BaseSave")
-export type Options = {humanPlayers: number?, radius: number?, mapShape: string?, frequency: number?, difficulty: string?, forest: boolean?, maxTurns: number?, cultureVictoryPolicies: number?, policyCostIncrease: number?}
+export type Options = {humanPlayers: number?, radius: number?, mapShape: string?, frequency: number?, difficulty: string?, forest: boolean?, maxTurns: number?, cultureVictoryPolicies: number?, policyCostIncrease: number?, barbarians: boolean?}
 export type Command = {kind: "MoveUnit" | "RangedAttack", unitId: number, tileId: number}
     | {kind: "FoundCity" | "FortifyUnit" | "UpgradeUnit", unitId: number}
     | {kind: "BuildImprovement", unitId: number, improvement: string}
@@ -50,11 +50,14 @@ export type CityView = {id: number, ownerId: number, originalOwnerId: number, ca
 export type Statistics = {cities: number, units: number, population: number, technologies: number, policies: number}
 export type Progress = {cities: number, policies: number, era: number}
 -- `acrossRiver` is true when a melee attack crosses a river edge (its attack loses riverAttackPercent).
-export type AttackPreview = {unitId: number, tileId: number, target: string, ranged: boolean, exact: boolean, hiddenDefense: boolean, acrossRiver: boolean, dealt: number?, received: number?, dealtMin: number, dealtMax: number, receivedMin: number, receivedMax: number, attackerHp: number, defenderHp: number, attackerDefeated: string, defenderDefeated: string, captures: string}
+-- `clearsCamp` is true when a melee attack kills the guard of a barbarian encampment and so advances into it and
+-- destroys it (the kill is exact: a camp never stands in a city).
+export type AttackPreview = {unitId: number, tileId: number, target: string, ranged: boolean, exact: boolean, hiddenDefense: boolean, acrossRiver: boolean, clearsCamp: boolean, dealt: number?, received: number?, dealtMin: number, dealtMax: number, receivedMin: number, receivedMax: number, attackerHp: number, defenderHp: number, attackerDefeated: string, defenderDefeated: string, captures: string}
 -- One legal move: the path from the unit's tile (first) to the destination (last), the movement it spends and keeps,
 -- whether it ends the unit's movement, whether the zone of control ended it and whether its final step crossed a river
--- (which also ends it). Values are in moves (multiples of 1/6).
-export type MovePreview = {unitId: number, tileId: number, path: {number}, movesSpent: number, movesLeft: number, endsMovement: boolean, zoneOfControl: boolean, riverCrossing: boolean}
+-- (which also ends it). `clearsCamp` is true when the destination is a barbarian encampment, which the move destroys
+-- (entering one ends movement). Values are in moves (multiples of 1/6).
+export type MovePreview = {unitId: number, tileId: number, path: {number}, movesSpent: number, movesLeft: number, endsMovement: boolean, zoneOfControl: boolean, riverCrossing: boolean, clearsCamp: boolean}
 -- One legal city strike: the striking city, the target unit and its tile, the city's ranged strength, the exact damage
 -- (a strike is deterministic and reads only visible facts, so `exact` is always true), `received` (always 0: the
 -- city takes no damage), the target's hit points before the strike and whether it dies ("Yes" or "No").
@@ -62,7 +65,14 @@ export type CityStrikePreview = {cityId: number, unitId: number, tileId: number,
 export type Technology = Rules.Technology
 export type Policy = Rules.Policy
 export type Promotion = Rules.Promotion
-export type State = {seed: number, radius: number?, mapShape: string?, frequency: number?, difficulty: string, humanPlayers: number, forest: boolean, maxTurns: number, cultureVictoryPolicies: number?, policyCostIncrease: number?, turn: number, revision: number, activePlayerId: number, phase: string, winner: number?, reason: string?, victoryType: string?, tiles: {Tile}, units: {Unit}, cities: {City}, players: {Player}, diplomacy: Diplomacy, trades: {Trade}, events: {Event}, nextEvent: number, nextUnit: number, nextCity: number, nextTrade: number, log: {string}}
+-- A barbarian encampment: its id, tile, the round it appeared and the round it last added a unit.
+export type Camp = {id: number, tileId: number, founded: number, lastSpawn: number}
+-- The barbarian record, present exactly when the match has barbarians (absent in a match without them and in every
+-- save written before them).
+export type Barbarians = {camps: {Camp}, nextCamp: number}
+-- A barbarian encampment in a snapshot (only while its tile is visible to the actor).
+export type CampView = {id: number, tileId: number}
+export type State = {barbarians: Barbarians?, seed: number, radius: number?, mapShape: string?, frequency: number?, difficulty: string, humanPlayers: number, forest: boolean, maxTurns: number, cultureVictoryPolicies: number?, policyCostIncrease: number?, turn: number, revision: number, activePlayerId: number, phase: string, winner: number?, reason: string?, victoryType: string?, tiles: {Tile}, units: {Unit}, cities: {City}, players: {Player}, diplomacy: Diplomacy, trades: {Trade}, events: {Event}, nextEvent: number, nextUnit: number, nextCity: number, nextTrade: number, log: {string}}
 export type CityForecast = {food: number, production: number, gold: number, science: number, culture: number, growthTurns: number?, productionTurns: number?, productionBlocked: ("NotAvailable" | "NoSpace")?}
 -- A completed world wonder, public to both civilizations: its id and the civilization whose city holds it now. The
 -- holding city (`cityId`, `tileId`, `cityName`) is given only to that city's owner and to an actor who can see the city
@@ -72,7 +82,7 @@ export type WonderView = {id: string, ownerId: number, cityId: number?, tileId: 
 -- threshold, the golden ages begun so far, what the next step adds to the meter (the current happiness when positive
 -- and no golden age is active, otherwise 0) and how many steps a new golden age lasts in this match.
 export type GoldenAgeView = {active: boolean, turnsLeft: number, progress: number, threshold: number, ages: number, progressPerTurn: number, turns: number}
-export type View = {cityForecasts: {[string]: CityForecast}, seed: number?, radius: number?, mapShape: string?, frequency: number?, difficulty: string, humanPlayers: number, turn: number, revision: number, activePlayerId: number, actorId: number, canAct: boolean, phase: string, winner: number?, reason: string?, victoryType: string?, gold: number, science: number, culture: number, happiness: number, research: Research?, technologies: {string}, policies: {string}, resources: {[string]: number}, income: {food: number, production: number, gold: number, science: number, culture: number, maintenance: number}, tiles: {TileView}, units: {UnitView}, cities: {CityView}, events: {Event}, log: {string}, legalMoves: {[string]: {number}}, riverMoves: {[string]: {number}}, availableProduction: {string}, availableProductionByCity: {[string]: {string}}, availablePurchasesByCity: {[string]: {string}}, availableResearch: {Technology}, availablePolicies: {Policy}, availableImprovements: {[string]: {string}}, productionCosts: {[string]: number}, purchaseCosts: {[string]: number}, scores: {number}, statistics: {Statistics}, progress: {Progress}, cultureVictoryPolicies: number, policyCostIncrease: number, attackPreviews: {[string]: {AttackPreview}}, cityStrikePreviews: {[string]: {CityStrikePreview}}, diplomacy: Diplomacy, trades: {Trade}, objectives: {string}, wonders: {WonderView}, goldenAge: GoldenAgeView}
+export type View = {barbarians: boolean, camps: {CampView}, cityForecasts: {[string]: CityForecast}, seed: number?, radius: number?, mapShape: string?, frequency: number?, difficulty: string, humanPlayers: number, turn: number, revision: number, activePlayerId: number, actorId: number, canAct: boolean, phase: string, winner: number?, reason: string?, victoryType: string?, gold: number, science: number, culture: number, happiness: number, research: Research?, technologies: {string}, policies: {string}, resources: {[string]: number}, income: {food: number, production: number, gold: number, science: number, culture: number, maintenance: number}, tiles: {TileView}, units: {UnitView}, cities: {CityView}, events: {Event}, log: {string}, legalMoves: {[string]: {number}}, riverMoves: {[string]: {number}}, availableProduction: {string}, availableProductionByCity: {[string]: {string}}, availablePurchasesByCity: {[string]: {string}}, availableResearch: {Technology}, availablePolicies: {Policy}, availableImprovements: {[string]: {string}}, productionCosts: {[string]: number}, purchaseCosts: {[string]: number}, scores: {number}, statistics: {Statistics}, progress: {Progress}, cultureVictoryPolicies: number, policyCostIncrease: number, attackPreviews: {[string]: {AttackPreview}}, cityStrikePreviews: {[string]: {CityStrikePreview}}, diplomacy: Diplomacy, trades: {Trade}, objectives: {string}, wonders: {WonderView}, goldenAge: GoldenAgeView}
 local BaseGame = {}
 local R: any = Rules
 local W: any = WorldMap
@@ -102,9 +112,23 @@ local function cityById(s: any, id: number): any for _, city in s.cities do if c
 local function occupants(s: any): (any, any)
     local units, cities = {}, {}; for _, u in s.units do units[u.tileId] = u end; for _, c in s.cities do cities[c.tileId] = c end; return units, cities
 end
+-- Barbarians are a non-playing faction: their units carry this owner id, which no civilization uses. Every civilization
+-- is always at war with them; between the two civilizations hostility follows their diplomacy.
+local BARBARIAN: number=R.barbarians.ownerId
+local function hostile(s: any, a: number, b: number): boolean
+    if a==b then return false end
+    if a==BARBARIAN or b==BARBARIAN then return true end
+    return s.diplomacy.status=="War"
+end
+-- The barbarian encampments by tile (empty when the match has none).
+local function campTiles(s: any): {[number]: any}
+    local tiles={}; if s.barbarians then for _, camp in s.barbarians.camps do tiles[camp.tileId]=camp end end; return tiles
+end
 -- Event kinds the ring keeps longest (each player must reliably learn of its losses and the result).
 -- Wonder and golden-age events are rare (a few per match) and are kept too, so a burst cannot evict them either.
-local RETAINED={UnitLost=true, CityLost=true, Eliminated=true, Victory=true, WonderBuilt=true, WonderLost=true, GoldenAgeStarted=true, GoldenAgeEnded=true}
+-- A cleared barbarian camp carries its reward and is kept too. A barbarian's own loss (owner 0) is routine: no player
+-- owns it.
+local RETAINED={UnitLost=true, CityLost=true, Eliminated=true, Victory=true, WonderBuilt=true, WonderLost=true, GoldenAgeStarted=true, GoldenAgeEnded=true, CampCleared=true}
 local function event(s: any, kind: string, message: string, tileId: number?, unitId: number?, ownerId: number?, amount: number?, public: boolean?, cause: string?, byOwnerId: number?, unitKind: string?, cityId: number?, wonder: string?)
     table.insert(s.events, {id=s.nextEvent, kind=kind, message=message, tileId=tileId, unitId=unitId, ownerId=ownerId, amount=amount, public=public, cause=cause, byOwnerId=byOwnerId, unitKind=unitKind, cityId=cityId, wonder=wonder})
     s.nextEvent += 1
@@ -112,14 +136,15 @@ local function event(s: any, kind: string, message: string, tileId: number?, uni
         -- One command (an EndTurn running the AI and both economies) can emit more than 64 events, so
         -- routine events go first: the oldest one that is not a loss or outcome, never the event just added.
         local drop=1
-        for i=1,#s.events-1 do if not RETAINED[s.events[i].kind] then drop=i; break end end
+        for i=1,#s.events-1 do local e=s.events[i]; if not RETAINED[e.kind] or e.ownerId==BARBARIAN then drop=i; break end end
         table.remove(s.events, drop)
     end
 end
 -- Loss events are owned by the losing civilization, so its projection includes them whatever
 -- its current fog. Saves written before these fields existed simply lack them.
 local function unitLost(s: any, u: any, tileId: number, cause: string, byOwnerId: number?, damage: number?)
-    event(s,"UnitLost","Your "..u.kind.." was destroyed.",tileId,u.id,u.ownerId,damage,nil,cause,byOwnerId,u.kind)
+    local message=if u.ownerId==BARBARIAN then "A barbarian "..u.kind.." was destroyed." else "Your "..u.kind.." was destroyed."
+    event(s,"UnitLost",message,tileId,u.id,u.ownerId,damage,nil,cause,byOwnerId,u.kind)
 end
 -- The culture victory threshold and per-adoption policy cost growth are stored per game.
 -- A state without them (saved by an earlier library version) keeps the original flat rule.
@@ -156,6 +181,27 @@ local function goldenAgeThreshold(s: any, ages: number): number
     return math.floor((R.goldenAge.threshold+R.goldenAge.thresholdIncrease*ages)*pacePercent(s)/100)
 end
 local function goldenActive(p: any): boolean return p.goldenAge~=nil and p.goldenAge.turnsLeft>0 end
+-- Barbarian timing: a number of rounds scaled by the match pace and the difficulty, never below one round.
+local function barbarianRounds(s: any, rounds: number): number
+    local percent=R.barbarians.difficultyPercent[s.difficulty] or 100
+    return math.max(1,math.floor(rounds*pacePercent(s)*percent/10000+0.5))
+end
+-- The gold for clearing a camp, scaled by the match pace (rounded down).
+local function campGold(s: any): number return math.floor(R.barbarians.campGold*pacePercent(s)/100) end
+-- A civilization's military unit that ends a move or an attack's advance on a barbarian camp destroys it and earns
+-- its owner the camp's gold (a CampCleared event owned by that civilization). Civilians never enter camps, and
+-- barbarians' own units stand in them freely.
+local function enterCamp(s: any, unit: any)
+    if not s.barbarians or unit.ownerId==BARBARIAN or R.units[unit.kind].strength<=0 then return end
+    for index, camp in s.barbarians.camps do
+        if camp.tileId==unit.tileId then
+            table.remove(s.barbarians.camps,index)
+            local gold=campGold(s); local p=s.players[unit.ownerId]; p.gold=math.min(1000000000,p.gold+gold)
+            event(s,"CampCleared","Barbarian encampment destroyed: "..gold.." gold.",camp.tileId,unit.id,unit.ownerId,gold,nil,nil,nil,unit.kind)
+            return
+        end
+    end
+end
 -- A policy's culture cost: escalated by the policies already adopted, then reduced by the owner's wonders (Oracle).
 local function policyCost(s: any, p: any, policy: any): number
     local cost=math.floor(policy.cost*(100+(s.policyCostIncrease or 0)*#p.policies)/100)
@@ -253,13 +299,14 @@ local function productionAvailable(s: any, city: any, item: string, extra: {any}
     return true
 end
 local function spawnTile(s: any, city: any, extra: {any}?): number?
-    local units,cities=occupants(s)
+    local units,cities=occupants(s); local camps=campTiles(s)
     if extra then for _, u in extra do units[u.tileId]=u end end
     local ids={city.tileId}; for _, id in mapFor(s).neighbors[city.tileId] do table.insert(ids,id) end; table.sort(ids)
     for _, id in ids do
         local tile=s.tiles[id]
         local territoryAllowed=not tile.ownerId or tile.ownerId==city.ownerId or s.diplomacy.status=="War"
-        if not units[id] and R.terrains[tile.terrain].passable and territoryAllowed and (not cities[id] or cities[id].ownerId==city.ownerId) then return id end
+        -- A barbarian camp next to the city is never a deployment tile (the city's owner always sees it).
+        if not units[id] and not camps[id] and R.terrains[tile.terrain].passable and territoryAllowed and (not cities[id] or cities[id].ownerId==city.ownerId) then return id end
     end
     return nil
 end
@@ -318,7 +365,8 @@ local function scores(s: any): (any,any)
         -- Each world wonder scores for the civilization holding it.
         for _, id in c.buildings do if isWonder(id) then values[c.ownerId] += R.score.wonder or 0 end end
     end
-    for _, u in s.units do stats[u.ownerId].units += 1; values[u.ownerId] += R.score.unit end
+    -- Barbarian units belong to no civilization and score nothing.
+    for _, u in s.units do if u.ownerId~=BARBARIAN then stats[u.ownerId].units += 1; values[u.ownerId] += R.score.unit end end
     return values,stats
 end
 local function evaluate(s: any)
@@ -388,19 +436,21 @@ local function movementCost(s: any, unit: any, fromId: number, toId: number, see
     local occupant,city=units[toId],cities[toId]
     if occupant and occupant.id~=unit.id then return nil end
     if city and city.ownerId~=unit.ownerId then return nil end
-    if tile.ownerId and tile.ownerId~=unit.ownerId and s.diplomacy.status~="War" then return nil end
+    -- Foreign land only when hostile: the other civilization at war, and any land for barbarians.
+    if tile.ownerId and tile.ownerId~=unit.ownerId and not hostile(s,unit.ownerId,tile.ownerId) then return nil end
     if tile.road and s.tiles[fromId].road then return roadSixths end
     return tileMovement(tile)*SIXTHS
 end
--- Tiles that exert a zone of control on this unit: enemy military units (strength above zero) and enemy cities,
--- only while at war and only where the moving civilization can see them, so a move never reveals a hidden unit.
--- Civilians neither exert nor feel a zone of control (nil: none applies).
+-- Tiles that exert a zone of control on this unit: hostile military units (strength above zero) and hostile cities,
+-- only where the moving civilization can see them, so a move never reveals a hidden unit. Hostile means the other
+-- civilization at war, and barbarians always (in both directions). Civilians neither exert nor feel a zone of control
+-- (nil: none applies).
 local function zoneSources(s: any, unit: any, seen: any, units: any, cities: any): {[number]: boolean}?
-    if R.units[unit.kind].strength<=0 or s.diplomacy.status~="War" then return nil end
-    local sources={}
-    for tileId,u in units do if u.ownerId~=unit.ownerId and seen[tileId] and R.units[u.kind].strength>0 then sources[tileId]=true end end
-    for tileId,c in cities do if c.ownerId~=unit.ownerId and seen[tileId] then sources[tileId]=true end end
-    return sources
+    if R.units[unit.kind].strength<=0 then return nil end
+    local sources: {[number]: boolean}={}; local found=false
+    for tileId,u in units do if seen[tileId] and R.units[u.kind].strength>0 and hostile(s,unit.ownerId,u.ownerId) then sources[tileId]=true; found=true end end
+    for tileId,c in cities do if seen[tileId] and hostile(s,unit.ownerId,c.ownerId) then sources[tileId]=true; found=true end end
+    return if found then sources else nil
 end
 -- Civ V's rule: a step from a tile next to an enemy source into another tile next to that same source spends all
 -- remaining movement. Two adjacent hexes share two neighbours, so the source is one of those.
@@ -423,6 +473,10 @@ local function movementSearch(s: any, unit: any, seen: any, units: any, cities: 
     local spent: {[number]: number}={[unit.tileId]=0}; local previous: {[number]: number}={}; local zoc: {[number]: boolean}={}; local crossed: {[number]: boolean}={}
     if budget<=0 then return spent,previous,zoc,crossed end
     local sources=zoneSources(s,unit,seen,units,cities); local neighbors=mapFor(s).neighbors; local settled: {[number]: boolean}={}
+    -- Barbarian encampments: a civilization's military unit may enter one (destroying it), which ends its movement, so
+    -- it never passes through; civilians cannot enter one. Barbarians move through their camps freely. Only visible
+    -- tiles are entered, so this reads only camps the mover can see.
+    local camps=if unit.ownerId==BARBARIAN then {} else campTiles(s); local civilian=R.units[unit.kind].strength<=0
     local buckets: {[number]: {number}}={[0]={unit.tileId}}
     for here=0,budget do
         local bucket=buckets[here]
@@ -437,9 +491,11 @@ local function movementSearch(s: any, unit: any, seen: any, units: any, cities: 
                 if settled[nextId] then continue end
                 local step=movementCost(s,unit,current,nextId,seen,units,cities)
                 if step==nil then continue end
+                local camp=camps[nextId]~=nil
+                if camp and civilian then continue end
                 local controlled=zoneOfControl(s,sources,current,nextId)
                 local crossing=riverCrossing(s,current,nextId)
-                local arrival=if controlled or crossing then budget else math.min(budget,here+step)
+                local arrival=if controlled or crossing or camp then budget else math.min(budget,here+step)
                 if spent[nextId]==nil or arrival<spent[nextId] then
                     spent[nextId]=arrival; previous[nextId]=current; zoc[nextId]=controlled; crossed[nextId]=crossing
                     local later=buckets[arrival]; if later then table.insert(later,nextId) else buckets[arrival]={nextId} end
@@ -456,21 +512,22 @@ local function reachable(s: any, unit: any, vision: any?, occupancyUnits: any?, 
     return (movementSearch(s,unit,seen,units,cities))
 end
 -- The fog-safe record of one legal move, built from a movement search.
-local function movePreviewFor(unit: any, target: number, spent: any, previous: any, zoc: any, crossed: any): MovePreview
+local function movePreviewFor(s: any, unit: any, target: number, spent: any, previous: any, zoc: any, crossed: any): MovePreview
     local path={target}; local current=target
     while current~=unit.tileId do current=previous[current]; table.insert(path,1,current) end
     local left=fromSixths(toSixths(unit.moves)-spent[target])
-    return {unitId=unit.id,tileId=target,path=path,movesSpent=fromSixths(spent[target]),movesLeft=left,endsMovement=left<=0,zoneOfControl=zoc[target]==true,riverCrossing=crossed[target]==true}
+    return {unitId=unit.id,tileId=target,path=path,movesSpent=fromSixths(spent[target]),movesLeft=left,endsMovement=left<=0,zoneOfControl=zoc[target]==true,riverCrossing=crossed[target]==true,
+        clearsCamp=campTiles(s)[target]~=nil}
 end
 local function attackable(s: any, unit: any, target: number, seen: any, occupancyUnits: any?, occupancyCities: any?): boolean
-    if not seen[target] or unit.moves<=0 or R.units[unit.kind].strength<=0 or s.diplomacy.status~="War" then return false end
+    if not seen[target] or unit.moves<=0 or R.units[unit.kind].strength<=0 then return false end
     local units,cities=occupancyUnits,occupancyCities; if not units or not cities then units,cities=occupants(s) end
     local enemy=units[target] or cities[target]
-    if not enemy or enemy.ownerId==unit.ownerId then return false end
+    if not enemy or not hostile(s,unit.ownerId,enemy.ownerId) then return false end
     return W.inRange(mapFor(s),unit.tileId,target,math.max(1,R.units[unit.kind].range or 1))
 end
 local function attackTargets(s: any, unit: any, seen: any, units: any, cities: any): {number}
-    if unit.moves<=0 or R.units[unit.kind].strength<=0 or s.diplomacy.status~="War" then return {} end
+    if unit.moves<=0 or R.units[unit.kind].strength<=0 then return {} end
     local set={}
     for tileId in units do if attackable(s,unit,tileId,seen,units,cities) then set[tileId]=true end end
     for tileId in cities do if attackable(s,unit,tileId,seen,units,cities) then set[tileId]=true end end
@@ -496,9 +553,13 @@ end
 local function earnedLevels(u: any): number
     local earned=0; for _, threshold in R.experienceThresholds do if (u.xp or 0)>=threshold then earned += 1 end end; return earned
 end
-local function gainExperience(u: any, amount: number)
-    if R.units[u.kind].unitClass=="Civilian" then return end
-    u.xp=math.min(R.maxExperience,(u.xp or 0)+amount)
+-- Barbarian units never gain experience. A strike against barbarians (`versusBarbarian`) raises a unit's experience
+-- only up to the barbarian cap (Civ V's 30): a unit at or above it gains nothing from them.
+local function gainExperience(u: any, amount: number, versusBarbarian: boolean?)
+    if R.units[u.kind].unitClass=="Civilian" or u.ownerId==BARBARIAN then return end
+    local current=u.xp or 0; local gained=math.min(R.maxExperience,current+amount)
+    if versusBarbarian then gained=math.max(current,math.min(gained,R.barbarians.maxExperience)) end
+    if gained~=current or u.xp~=nil then u.xp=gained end
 end
 -- Whether the unit may take this promotion now: a pending level, open to its class, not taken, prerequisites taken.
 local function promotionAllowed(u: any, id: string): boolean
@@ -588,16 +649,19 @@ local function combat(s: any, unit: any, target: number)
     else city.hp=math.max(0,city.hp-dealt) end
     -- Experience: both sides of a strike on a military unit, and the attacker of a strike on a city. A strike on a
     -- civilian gives none. A unit that dies is removed below, so only survivors keep what they gained.
+    -- Experience from a strike between a civilization and the barbarians stops at the barbarian cap.
     if not defender or R.units[defender.kind].strength>0 then
-        gainExperience(unit,if ranged then R.experience.rangedAttack else R.experience.meleeAttack)
-        if defender then gainExperience(defender,if ranged then R.experience.rangedDefense else R.experience.meleeDefense) end
+        local versusBarbarian=unit.ownerId==BARBARIAN or enemyOwner==BARBARIAN
+        gainExperience(unit,if ranged then R.experience.rangedAttack else R.experience.meleeAttack,versusBarbarian)
+        if defender then gainExperience(defender,if ranged then R.experience.rangedDefense else R.experience.meleeDefense,versusBarbarian) end
     end
     event(s,"Attack","Battle dealt "..dealt.." damage.",target,unit.id,unit.ownerId,dealt)
     if defender and defender.hp<=0 then removeUnit(s,defender.id); unitLost(s,defender,target,if ranged then "Ranged" else "Combat",unit.ownerId,dealt) end
     if unit.hp<=0 then removeUnit(s,unit.id); unitLost(s,unit,unit.tileId,"Combat",enemyOwner,received); return end
     if not ranged and not select(1,occupants(s))[target] then
         if city and city.ownerId~=unit.ownerId then
-            if city.hp==0 then
+            -- Barbarians damage cities but never capture them.
+            if city.hp==0 and unit.ownerId~=BARBARIAN then
                 local loser=city.ownerId
                 -- A city captured this round cannot strike until the next round (its strike counts as used).
                 city.ownerId=unit.ownerId; city.hp=50; city.population=math.max(1,city.population-1); city.production=0; city.queue="Warrior"; city.food=0; city.strikeTurn=s.turn
@@ -606,7 +670,7 @@ local function combat(s: any, unit: any, target: number)
                 unit.tileId=target; event(s,"Capture","City captured.",target,unit.id,unit.ownerId)
                 event(s,"CityLost",city.name.." was captured.",target,nil,loser,nil,nil,"Captured",unit.ownerId)
             end
-        else unit.tileId=target end
+        else unit.tileId=target; enterCamp(s,unit) end
     end
 end
 local function outcome(low: boolean, high: boolean): string return if low~=high then "Maybe" elseif low then "Yes" else "No" end
@@ -628,7 +692,10 @@ local function previewFor(s: any, unit: any, target: number, units: any, cities:
     local attackerLow,defenderLow,captureLow=result(dealtMin,receivedMax)
     local attackerHigh,defenderHigh,captureHigh=result(dealtMax,receivedMin)
     local exact=dealtMin==dealtMax and receivedMin==receivedMax
-    return {unitId=unit.id,tileId=target,target=if defender then "Unit" else "City",ranged=ranged,exact=exact,hiddenDefense=high>0,acrossRiver=not ranged and riverBetween(s,unit.tileId,target),
+    -- A melee kill of a camp's guard advances into the camp and destroys it. A camp never stands in a city, so the
+    -- strike is exact and both bounds agree.
+    local clearsCamp=not ranged and city==nil and defender~=nil and unit.ownerId~=BARBARIAN and campTiles(s)[target]~=nil and defenderLow and defenderHigh and not attackerLow and not attackerHigh
+    return {unitId=unit.id,tileId=target,target=if defender then "Unit" else "City",ranged=ranged,exact=exact,hiddenDefense=high>0,acrossRiver=not ranged and riverBetween(s,unit.tileId,target),clearsCamp=clearsCamp,
         dealt=if exact then dealtMin else nil,received=if exact then receivedMin else nil,
         dealtMin=dealtMin,dealtMax=dealtMax,receivedMin=receivedMin,receivedMax=receivedMax,
         attackerHp=unit.hp,defenderHp=if defender then defender.hp else city.hp,
@@ -656,12 +723,11 @@ local function strikeReady(s: any, city: any): boolean return city.strikeTurn~=s
 -- A legal city strike target: an enemy unit at war, on a tile the city's owner can see, within cityStrikeRange of the
 -- city and not inside a city (cities stand at least three apart, so that only matters for hand-made states).
 local function strikeTargetAllowed(s: any, city: any, target: any, seen: any, cities: any): boolean
-    return s.diplomacy.status=="War" and target.ownerId~=city.ownerId and seen[target.tileId]==true and cities[target.tileId]==nil
+    return hostile(s,city.ownerId,target.ownerId) and seen[target.tileId]==true and cities[target.tileId]==nil
         and W.inRange(mapFor(s),city.tileId,target.tileId,R.cityStrikeRange)
 end
 local function cityStrikeTargets(s: any, city: any, seen: any, units: any, cities: any): {number}
     local ids={}
-    if s.diplomacy.status~="War" then return ids end
     for _, tileId in nearby(s,city.tileId,R.cityStrikeRange) do
         local target=units[tileId]
         if target and strikeTargetAllowed(s,city,target,seen,cities) then table.insert(ids,target.id) end
@@ -709,7 +775,7 @@ local function moveUnit(s: any, unit: any, target: number): boolean
     local targets=reachable(s,unit,seen); local cost=targets[target]
     if target==unit.tileId or not cost then return false end
     unit.tileId=target; unit.moves=fromSixths(toSixths(unit.moves)-cost); unit.fortified=false; unit.work=nil
-    event(s,"Move","Unit moved.",target,unit.id,unit.ownerId); return true
+    event(s,"Move","Unit moved.",target,unit.id,unit.ownerId); enterCamp(s,unit); return true
 end
 local function improvementAvailable(s: any, unit: any, improvement: string): boolean
     local rule=R.improvements[improvement]; if not rule or unit.kind~="Worker" or unit.moves<=0 or unit.work then return false end
@@ -927,6 +993,192 @@ local function beginTurn(s: any, owner: number)
     end
     refreshVision(s)
 end
+-- Barbarians. A deterministic 32-bit hash (FNV-1a over 32-bit pieces of each value, then a final mix) of the seed, the
+-- round and a salt decides where camps appear, which unit kinds they add and where idle barbarians wander, so every
+-- barbarian choice follows from the seed and the state alone (no random generator state is kept or saved).
+local TWO32=4294967296
+local function mul32(a: number, b: number): number
+    return (a*(b%65536)+((a*(b//65536))%65536)*65536)%TWO32
+end
+local function hash(a: number, b: number, c: number): number
+    local h=2166136261
+    for _, value in {a,b,c} do
+        local folded=value%9007199254740992
+        h=mul32(bit32.bxor(h,folded%TWO32),16777619); h=mul32(bit32.bxor(h,folded//TWO32),16777619)
+    end
+    h=bit32.bxor(h,bit32.rshift(h,16)); h=mul32(h,73244475); return bit32.bxor(h,bit32.rshift(h,16))
+end
+-- Barbarians are not a player, so fog does not limit them: every tile counts as seen for their movement and targets.
+local everywhere: any=setmetatable({},{__index=function() return true end})
+-- The camp cap for the map size: one camp per tilesPerCamp tiles, from 1 to maxCamps.
+local function campCap(s: any): number
+    local b=R.barbarians; return math.max(1,math.min(b.maxCamps,math.floor(#s.tiles/b.tilesPerCamp)))
+end
+local function barbarianCount(s: any): number
+    local n=0; for _, u in s.units do if u.ownerId==BARBARIAN then n += 1 end end; return n
+end
+-- The kinds barbarians field: the list for the lower of the two civilizations' eras (the public era).
+local function barbarianKinds(s: any): {string}
+    local lists=R.barbarians.eraUnits; return lists[math.clamp(math.min(era(s,1),era(s,2)),1,#lists)]
+end
+-- Graph distances from `center` up to `limit` hexes (equal to hex distance on a hex board).
+local function distancesWithin(s: any, center: number, limit: number): {[number]: number}
+    local neighbors=mapFor(s).neighbors; local result: {[number]: number}={[center]=0}; local queue={center}; local head=1
+    while head<=#queue do
+        local current=queue[head]; head += 1
+        local d=result[current]
+        if d>=limit then continue end
+        for _, other in neighbors[current] do if result[other]==nil then result[other]=d+1; table.insert(queue,other) end end
+    end
+    return result
+end
+-- A camp adds a unit: on its own tile when that is free (the new unit becomes its guard and is the first kind of the
+-- era), otherwise on its free passable neighbour with the lowest id that holds no city or other camp. Barbarians never
+-- take the last places under the global unit cap or exceed their own cap. Returns whether a unit was added.
+local function campSpawn(s: any, camp: any): boolean
+    if #s.units>=R.maxUnits or barbarianCount(s)>=R.barbarians.maxUnits then return false end
+    local units,cities=occupants(s); local camps=campTiles(s); local kinds=barbarianKinds(s)
+    if not units[camp.tileId] then addUnit(s,BARBARIAN,kinds[1],camp.tileId); return true end
+    for _, id in mapFor(s).neighbors[camp.tileId] do
+        if not units[id] and not cities[id] and not camps[id] and R.terrains[s.tiles[id].terrain].passable then
+            addUnit(s,BARBARIAN,kinds[hash(s.seed,s.turn,camp.id)%#kinds+1],id); return true
+        end
+    end
+    return false
+end
+-- A new camp, when one is due (round firstCampTurn, then every campInterval rounds, both pace- and difficulty-scaled)
+-- and the map has room under its cap: passable land no civilization can see now, with no unit or city, at least
+-- campCityDistance from every city and campSpacing from every camp. Tiles neither civilization has explored are
+-- preferred; the hash picks one of the candidates in tile id order. The camp starts with its guard.
+local function newCamp(s: any)
+    local b=s.barbarians; local rules=R.barbarians
+    if #b.camps>=campCap(s) then return end
+    local first=barbarianRounds(s,rules.firstCampTurn)
+    if s.turn<first or (s.turn-first)%barbarianRounds(s,rules.campInterval)~=0 then return end
+    local blocked: {[number]: boolean}={}
+    for _, c in s.cities do for _, id in nearby(s,c.tileId,rules.campCityDistance-1) do blocked[id]=true end end
+    for _, camp in b.camps do for _, id in nearby(s,camp.tileId,rules.campSpacing-1) do blocked[id]=true end end
+    for _, u in s.units do blocked[u.tileId]=true end
+    local seen1,seen2=visible(s,1),visible(s,2)
+    local known: {[number]: boolean}={}; for owner=1,2 do for _, id in s.players[owner].explored do known[id]=true end end
+    local unexplored,unseen={},{}
+    for _, tile in s.tiles do
+        if blocked[tile.id] or seen1[tile.id] or seen2[tile.id] or not R.terrains[tile.terrain].passable then continue end
+        if known[tile.id] then table.insert(unseen,tile.id) else table.insert(unexplored,tile.id) end
+    end
+    local list=if #unexplored>0 then unexplored else unseen
+    if #list==0 then return end
+    local camp={id=b.nextCamp,tileId=list[hash(s.seed,s.turn,b.nextCamp)%#list+1],founded=s.turn,lastSpawn=s.turn}
+    b.nextCamp += 1; table.insert(b.camps,camp)
+    campSpawn(s,camp)
+end
+-- The barbarian's best favourable attack from its tile, or nil: one it survives that kills the defender or deals at
+-- least the damage it takes. A kill ranks first, then the damage difference; ties go to the lowest tile id. A city at
+-- 0 hit points is never a target (barbarians cannot capture it). The strike is the combat function itself.
+local function barbarianAttack(s: any, u: any): number?
+    local units,cities=occupants(s); local best: number?=nil; local bestRank=-math.huge
+    for _, tileId in attackTargets(s,u,everywhere,units,cities) do
+        local defender,city=units[tileId],cities[tileId]
+        if city and not defender and city.hp<=0 then continue end
+        local dealt,received=strike(s,u,defender,city,tileId,if city then buildingDefense(city) else 0,units)
+        if received>=u.hp then continue end
+        local kills=defender~=nil and dealt>=defender.hp
+        if not kills and dealt<received then continue end
+        local rank=(if kills then 1000 else 0)+dealt-received
+        if rank>bestRank then best=tileId; bestRank=rank end
+    end
+    return best
+end
+-- The nearest civilization unit or city within huntRadius hexes of the barbarian (ties: the lowest tile id).
+local function barbarianGoal(s: any, u: any): number?
+    local units,cities=occupants(s); local best: number?=nil; local bestDistance=math.huge
+    local within=distancesWithin(s,u.tileId,R.barbarians.huntRadius)
+    for _, tileId in nearby(s,u.tileId,R.barbarians.huntRadius) do
+        local other=units[tileId] or cities[tileId]
+        if other and other.ownerId~=BARBARIAN and within[tileId]<bestDistance then best=tileId; bestDistance=within[tileId] end
+    end
+    return best
+end
+-- The nearest camp (the lowest id among the nearest) and its distance, by a breadth-first search from the tile that
+-- stops at the first layer holding a camp.
+local function nearestCamp(s: any, tileId: number): (any, number)
+    local camps=campTiles(s)
+    if next(camps)==nil then return nil,0 end
+    local neighbors=mapFor(s).neighbors; local reached: {[number]: boolean}={[tileId]=true}; local layer={tileId}; local d=0
+    while #layer>0 do
+        local best: any=nil
+        for _, id in layer do local camp=camps[id]; if camp and (best==nil or camp.id<best.id) then best=camp end end
+        if best then return best,d end
+        local following={}
+        for _, id in layer do for _, other in neighbors[id] do if not reached[other] then reached[other]=true; table.insert(following,other) end end end
+        layer=following; d += 1
+    end
+    return nil,0
+end
+-- One barbarian unit's action. A guard (a unit on a camp tile) holds the camp: it never moves and attacks only from
+-- range. Another unit attacks at once when it has a favourable attack. Otherwise it moves: toward the nearest
+-- civilization unit or city within huntRadius (to the reachable tile closest to it, only if that is closer than where it
+-- stands), or, with no target, back toward its nearest camp when it is beyond leashRadius, or else to a reachable tile
+-- within leashRadius chosen by the hash. After moving it attacks if a favourable attack is open and it is not on a camp.
+-- Each unit searches once and attacks at most once, so the phase always ends.
+local function barbarianAct(s: any, u: any)
+    local rules=R.barbarians; local camps=campTiles(s); local ranged=(R.units[u.kind].range or 1)>1
+    local target=barbarianAttack(s,u)
+    if camps[u.tileId] then if target and ranged then combat(s,u,target) end; return end
+    if target then combat(s,u,target); return end
+    local units,cities=occupants(s)
+    local spent=movementSearch(s,u,everywhere,units,cities)
+    local ids={}; for tileId in spent do if tileId~=u.tileId then table.insert(ids,tileId) end end
+    if #ids==0 then return end
+    table.sort(ids)
+    local best: number?=nil
+    local goal=barbarianGoal(s,u)
+    if goal then
+        local toGoal=distancesWithin(s,goal,rules.huntRadius+3*R.units[u.kind].moves+1); local bestDistance=toGoal[u.tileId] or math.huge
+        for _, tileId in ids do local d=toGoal[tileId]; if d and d<bestDistance then best=tileId; bestDistance=d end end
+    else
+        local home,homeDistance=nearestCamp(s,u.tileId)
+        -- Distances from the camp cover every reachable tile that could matter: a move spans at most three steps per
+        -- move (road steps cost a third), and a tile beyond the limit is neither closer nor within the leash.
+        local fromHome: {[number]: number}={}
+        if home then fromHome=distancesWithin(s,home.tileId,math.max(homeDistance,rules.leashRadius)+3*R.units[u.kind].moves+1) end
+        if home and homeDistance>rules.leashRadius then
+            local bestDistance=homeDistance
+            for _, tileId in ids do local d=fromHome[tileId]; if d and d<bestDistance then best=tileId; bestDistance=d end end
+        else
+            local allowed={}
+            for _, tileId in ids do if not home or (fromHome[tileId] or math.huge)<=rules.leashRadius then table.insert(allowed,tileId) end end
+            if #allowed>0 then best=allowed[hash(s.seed,s.turn,u.id)%#allowed+1] end
+        end
+    end
+    if not best then return end
+    u.tileId=best; u.moves=fromSixths(toSixths(u.moves)-spent[best]); u.fortified=false
+    if u.moves>0 and (ranged or not camps[best]) then
+        local after=barbarianAttack(s,u)
+        if after then combat(s,u,after) end
+    end
+end
+-- The barbarian phase, once per round after both civilizations have acted. Barbarian units that rested heal and every
+-- unit's movement refreshes; the units act in id order; each camp due a unit (every spawnInterval rounds) adds one
+-- while there are fewer than unitsPerCamp barbarian units per camp; then a new camp may appear. Barbarian moves emit
+-- no events (only their attacks and losses do), so the phase cannot flood the event ring.
+local function barbarianTurn(s: any)
+    local b=s.barbarians
+    if not b then return end
+    local rules=R.barbarians; local ids={}
+    for _, u in s.units do
+        if u.ownerId~=BARBARIAN then continue end
+        if rested(u) then u.hp=math.min(R.units[u.kind].hp,u.hp+rules.healing) end
+        u.moves=R.units[u.kind].moves; table.insert(ids,u.id)
+    end
+    table.sort(ids)
+    for _, id in ids do local u=unitById(s,id); if u then barbarianAct(s,u) end end
+    local interval=barbarianRounds(s,rules.spawnInterval)
+    for _, camp in b.camps do
+        if s.turn-camp.lastSpawn>=interval and barbarianCount(s)<rules.unitsPerCamp*#b.camps and campSpawn(s,camp) then camp.lastSpawn=s.turn end
+    end
+    newCamp(s)
+end
 local function foundAllowed(s: any, unit: any): boolean
     if #s.cities>=R.maxCities or unit.kind~="Settler" or unit.moves<=0 or not R.terrains[s.tiles[unit.tileId].terrain].passable then return false end
     local t=s.tiles[unit.tileId]; if t.ownerId and t.ownerId~=unit.ownerId then return false end
@@ -962,7 +1214,8 @@ local function ai(s: any, owner: number)
     if not p.research then for _, id in R.technologyOrder do local tech=R.technologies[id]; if eligible(p,tech,p.technologies) then p.research={id=id,progress=0,cost=tech.cost}; break end end end
     for _, id in R.policyOrder do local policy=R.policies[id]; local cost=policyCost(s,p,policy); if eligible(p,policy,p.policies) and p.culture>=cost then p.culture -= cost; table.insert(p.policies,id); event(s,"Policy","Policy adopted: "..id,nil,nil,owner); break end end
     if s.diplomacy.peaceOfferBy and s.diplomacy.peaceOfferBy~=owner then
-        local own,enemy=0,0; for _, u in s.units do if R.units[u.kind].strength>0 then if u.ownerId==owner then own += 1 else enemy += 1 end end end
+        -- The balance of military units with the other civilization (barbarians are no party to the peace).
+        local own,enemy=0,0; for _, u in s.units do if R.units[u.kind].strength>0 then if u.ownerId==owner then own += 1 elseif u.ownerId~=BARBARIAN then enemy += 1 end end end
         if own<=enemy or s.turn%4==0 then s.diplomacy.status="Peace"; s.diplomacy.peaceOfferBy=nil; s.diplomacy.peaceUntil=s.turn+8; event(s,"Peace","Peace agreed.",nil,nil,nil,nil,true) end
     end
     for i=#s.trades,1,-1 do
@@ -995,15 +1248,34 @@ local function ai(s: any, owner: number)
         if u.work or u.moves<=0 then continue end
         if R.units[u.kind].strength>0 and u.hp<40 then u.fortified=true; u.moves=0; continue end
         local seen=visible(s,owner); local occupiedUnits,occupiedCities=occupants(s)
-        local attack=attackTargets(s,u,seen,occupiedUnits,occupiedCities)[1]
+        -- The first legal target in tile order, except a barbarian whose return blow would kill the attacker.
+        local attack: number?=nil
+        for _, tileId in attackTargets(s,u,seen,occupiedUnits,occupiedCities) do
+            local foe=occupiedUnits[tileId]
+            if foe and foe.ownerId==BARBARIAN and select(2,strike(s,u,foe,nil,tileId,0,occupiedUnits))>=u.hp then continue end
+            attack=tileId; break
+        end
         if attack then combat(s,u,attack); continue end
         local targets=reachable(s,u); local best: number?=nil; local bestRank=-math.huge
         local discovered={}; for _, tileId in p.explored do discovered[tileId]=true end
+        -- Barbarians: a healthy military unit heads for the camps it can see (entering one clears it) and toward the
+        -- visible barbarian units within three hexes of its civilization's cities.
+        local hunting=R.units[u.kind].strength>0 and u.hp>=60
+        local camps: {number}={}; local raiders: {number}={}
+        if hunting then
+            for _, camp in (if s.barbarians then s.barbarians.camps else {}) do if seen[camp.tileId] then table.insert(camps,camp.tileId) end end
+            for _, other in s.units do
+                if other.ownerId~=BARBARIAN or not seen[other.tileId] then continue end
+                for _, c in s.cities do if c.ownerId==owner and W.inRange(mapFor(s),c.tileId,other.tileId,3) then table.insert(raiders,other.tileId); break end end
+            end
+        end
         for tileId in targets do
             if tileId==u.tileId then continue end
             local rank=0
             for _, neighbor in mapFor(s).neighbors[tileId] do if not discovered[neighbor] then rank += 10 end end
             if s.diplomacy.status=="War" then for _, c in s.cities do if c.ownerId~=owner and seen[c.tileId] then rank += 30-distance(s,tileId,c.tileId)*5 end end end
+            for _, campTile in camps do rank += if campTile==tileId then 100 else math.max(0,24-4*distance(s,tileId,campTile)) end
+            for _, raider in raiders do rank += math.max(0,20-5*distance(s,tileId,raider)) end
             if u.kind=="Settler" then for _, c in s.cities do if c.ownerId==owner or seen[c.tileId] then rank += W.cappedDistance(mapFor(s),tileId,c.tileId,4)*4 end end end
             rank += (tileId+s.turn)%3
             if rank>bestRank or (rank==bestRank and (not best or tileId<best)) then best=tileId; bestRank=rank end
@@ -1044,6 +1316,12 @@ local function endTurn(s: any, owner: number)
     end
     for i=#s.trades,1,-1 do if s.trades[i].expires<=s.turn then table.remove(s.trades,i) end end
     if s.turn>=s.maxTurns then local values=scores(s); finish(s,if values[1]>=values[2] then 1 else 2,"Score"); return end
+    -- Barbarians act once per round, after both civilizations. A civilization whose last settler they kill (before it
+    -- founds a city) is eliminated by the evaluation as usual.
+    if s.barbarians then
+        barbarianTurn(s); refreshVision(s); evaluate(s)
+        if s.phase=="Finished" then return end
+    end
     s.turn += 1; beginTurn(s,1)
 end
 function BaseGame.new(seed: number?, options: Options?): State
@@ -1057,10 +1335,14 @@ function BaseGame.new(seed: number?, options: Options?): State
     assert(type(threshold)=="number" and threshold%1==0 and threshold>=1 and threshold<=#R.policyOrder,"cultureVictoryPolicies must be 1 to "..#R.policyOrder)
     assert(type(increase)=="number" and increase%1==0 and increase>=0 and increase<=400,"policyCostIncrease must be 0 to 400")
     assert(o.mapShape==nil or o.mapShape=="Hex" or o.mapShape=="Sphere","unknown map shape")
+    -- Barbarians default to on for a solo match and off for two humans.
+    assert(o.barbarians==nil or type(o.barbarians)=="boolean","barbarians must be a boolean")
+    local barbarians=if o.barbarians==nil then humans==1 else o.barbarians
     assert(o.mapShape=="Sphere" or o.frequency==nil,"frequency requires Sphere")
     local map=if o.mapShape=="Sphere" then W.generateSphere(supplied,o.frequency or 2) else W.generate(supplied,radius)
     local s: any={seed=supplied,radius=radius,difficulty=difficulty,humanPlayers=humans,forest=o.forest==true,maxTurns=turns,cultureVictoryPolicies=threshold,policyCostIncrease=increase,turn=1,revision=0,activePlayerId=1,phase="Playing",tiles=map.tiles,units={},cities={},players={},diplomacy={status="Peace",peaceUntil=0},trades={},events={},nextEvent=1,nextUnit=1,nextCity=1,nextTrade=1,log={}}
     if o.mapShape=="Sphere" then s.mapShape="Sphere"; s.frequency=map.frequency; s.radius=nil end
+    if barbarians then s.barbarians={camps={},nextCamp=1} end
     topology[s]=map
     for owner=1,2 do table.insert(s.players,{id=owner,human=owner<=humans,gold=30,science=0,culture=0,happiness=9,technologies={},policies={},explored={},resources={},income={food=0,production=0,gold=0,science=0,culture=0,maintenance=0}}) end
     local starts=map.startIds
@@ -1339,11 +1621,16 @@ function BaseGame.snapshot(state: State, actorId: number): View
     end
     -- The actor's own golden age (private). progressPerTurn is what its next economy step adds to the meter: the step's
     -- happiness when positive, computed as the step computes it, and 0 during a golden age.
+    -- Barbarian encampments the actor can see now, ascending by id. A camp can be destroyed out of sight, so it is
+    -- shown only while its tile is visible (no per-player memory is kept); barbarian units follow the unit rule.
+    local camps={}
+    if s.barbarians then for _, camp in s.barbarians.camps do if seen[camp.tileId] then table.insert(camps,{id=camp.id,tileId=camp.tileId}) end end end
+    table.sort(camps,function(a: any,b: any) return a.id<b.id end)
     local age=p.goldenAge or {progress=0,turnsLeft=0,ages=0}
     local mood=stepHappiness(s,actorId,resourceInventory(s,actorId))
     local goldenAge={active=age.turnsLeft>0,turnsLeft=age.turnsLeft,progress=age.progress,threshold=goldenAgeThreshold(s,age.ages),ages=age.ages,
         progressPerTurn=if age.turnsLeft>0 then 0 else math.max(0,mood),turns=goldenAgeTurns(s)}
-    return {wonders=wonders,goldenAge=goldenAge,cityForecasts=forecasts,seed=if s.humanPlayers==1 or s.phase=="Finished" then s.seed else nil,radius=s.radius,mapShape=s.mapShape,frequency=s.frequency,difficulty=s.difficulty,humanPlayers=s.humanPlayers,turn=s.turn,revision=s.revision,activePlayerId=s.activePlayerId,actorId=actorId,canAct=canAct,phase=s.phase,winner=s.winner,reason=s.reason,victoryType=s.victoryType,gold=p.gold,science=p.science,culture=p.culture,happiness=p.happiness,research=copy(p.research),technologies=copy(p.technologies),policies=copy(p.policies),resources=copy(resourceInventory(s,actorId)),income=copy(p.income),tiles=tiles,units=units,cities=cities,events=events,log={},legalMoves=legal,riverMoves=riverMoves,availableProduction=production,availableProductionByCity=productionByCity,availablePurchasesByCity=purchasesByCity,availableResearch=research,availablePolicies=policies,availableImprovements=improvements,productionCosts=copy(R.productionCosts),purchaseCosts=copy(R.purchaseCosts),scores=score,statistics=stats,progress=progress,cultureVictoryPolicies=threshold,policyCostIncrease=s.policyCostIncrease or 0,attackPreviews=previews,cityStrikePreviews=strikePreviews,diplomacy=copy(s.diplomacy),trades=copy(s.trades),objectives={"Found cities, develop resources and maintain happiness.","Control both original capitals for domination.","Build SpaceProject after Rocketry for science victory.","Adopt "..threshold.." "..(if threshold==1 then "policy" else "policies").." for culture victory.","Highest score wins at the round limit; ties favor civilization 1."}}
+    return {barbarians=s.barbarians~=nil,camps=camps,wonders=wonders,goldenAge=goldenAge,cityForecasts=forecasts,seed=if s.humanPlayers==1 or s.phase=="Finished" then s.seed else nil,radius=s.radius,mapShape=s.mapShape,frequency=s.frequency,difficulty=s.difficulty,humanPlayers=s.humanPlayers,turn=s.turn,revision=s.revision,activePlayerId=s.activePlayerId,actorId=actorId,canAct=canAct,phase=s.phase,winner=s.winner,reason=s.reason,victoryType=s.victoryType,gold=p.gold,science=p.science,culture=p.culture,happiness=p.happiness,research=copy(p.research),technologies=copy(p.technologies),policies=copy(p.policies),resources=copy(resourceInventory(s,actorId)),income=copy(p.income),tiles=tiles,units=units,cities=cities,events=events,log={},legalMoves=legal,riverMoves=riverMoves,availableProduction=production,availableProductionByCity=productionByCity,availablePurchasesByCity=purchasesByCity,availableResearch=research,availablePolicies=policies,availableImprovements=improvements,productionCosts=copy(R.productionCosts),purchaseCosts=copy(R.purchaseCosts),scores=score,statistics=stats,progress=progress,cultureVictoryPolicies=threshold,policyCostIncrease=s.policyCostIncrease or 0,attackPreviews=previews,cityStrikePreviews=strikePreviews,diplomacy=copy(s.diplomacy),trades=copy(s.trades),objectives={"Found cities, develop resources and maintain happiness.","Control both original capitals for domination.","Build SpaceProject after Rocketry for science victory.","Adopt "..threshold.." "..(if threshold==1 then "policy" else "policies").." for culture victory.","Highest score wins at the round limit; ties favor civilization 1."}}
 end
 -- Pure, fog-safe query for one attack the actor's unit could make now. It never mutates the
 -- state and answers the same generic message for hidden, empty or out-of-range targets.
@@ -1383,7 +1670,7 @@ function BaseGame.previewMove(state: State, actorId: number, unitId: number, til
     local units,cities=occupants(s)
     local spent,previous,zoc,crossed=movementSearch(s,u,visible(s,actorId),units,cities)
     if not spent[tileId] then return nil,"Destination is unavailable or movement is insufficient." end
-    return movePreviewFor(u,tileId,spent,previous,zoc,crossed),nil
+    return movePreviewFor(s,u,tileId,spent,previous,zoc,crossed),nil
 end
 function BaseGame.serialize(state: State): any
     local saved={format="unciv-luau-base",version=if state.mapShape=="Sphere" then 2 else 1,state=state}
