@@ -1,6 +1,6 @@
 --!strict
 -- Generated module-only Roblox form. Source: src/simulation/BaseSave.luau
--- Source SHA-256: 3ef3687b50560f4ab03ab3107fdb8fefcede523ca2c2db04e007dd92c360cc3c
+-- Source SHA-256: a38177be28c3c38e4cef067922edea8c79f3afd02a501e96a3432e8a88c50e24
 -- Reproduce with tools/roblox-export.mjs; preserve MPL notices below.
 -- Covered source: https://github.com/RoryODonovan/unciv-luau
 -- This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
@@ -230,7 +230,7 @@ function BaseSave.valid(saved: any): boolean
     local focuses={Balanced=true,Food=true,Production=true,Gold=true,Science=true,Culture=true}
     for _,c in s.cities do
         if not object(c,"id ownerId originalOwnerId capital tileId name population food production queue hp buildings focus strikeTurn") or not id(c.id) or c.id>=s.nextCity or cities[c.id] or not owner(c.ownerId) or not owner(c.originalOwnerId) or type(c.capital)~="boolean" or not integer(c.tileId,1,#s.tiles) or cityTiles[c.tileId] then return false end
-        if not text(c.name,80) or not integer(c.population,1,100) or not integer(c.food,0,1000000) or not integer(c.production,0,1000000) or not integer(c.hp,0,Rules.cityHp) or type(c.queue)~="string" or not Rules.productionCosts[c.queue] or type(c.focus)~="string" or not (focuses :: any)[c.focus] or not strings(c.buildings,Rules.buildings,#Rules.buildingOrder) then return false end
+        if not text(c.name,80) or not integer(c.population,1,100) or not integer(c.food,0,1000000) or not integer(c.production,0,1000000) or not integer(c.hp,0,Rules.cityHp) or type(c.queue)~="string" or (c.queue~="" and not Rules.productionCosts[c.queue]) or type(c.focus)~="string" or not (focuses :: any)[c.focus] or not strings(c.buildings,Rules.buildings,#Rules.buildingOrder) then return false end
         if not Rules.terrains[tiles[c.tileId].terrain].passable or tiles[c.tileId].ownerId~=c.ownerId or table.find(c.buildings,c.queue) or (occupancy[c.tileId] and occupancy[c.tileId].ownerId~=c.ownerId) then return false end
         -- Optional city-combat field (absent in saves written before it: the city has never used a strike): the round
         -- whose ranged strike the city used, never later than the current round.

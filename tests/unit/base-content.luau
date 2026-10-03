@@ -448,7 +448,7 @@ do
             local view=Game.snapshot(s,1)
             if not s.players[1].research and #view.availableResearch>0 then apply(s,1,{kind="Research",technology=view.availableResearch[1].id}) end
             apply(s,1,{kind="EndTurn"})
-            for _, c in s.cities do if c.ownerId==2 then used[c.queue]=true; for _, b in c.buildings do used[b]=true end end end
+            for _, c in s.cities do if c.ownerId==2 then assert(c.queue~="" and Rules.productionCosts[c.queue],"AI never ends its turn idle"); used[c.queue]=true; for _, b in c.buildings do used[b]=true end end end
             for _, u in s.units do if u.ownerId==2 then used[u.kind]=true end end
             if resume then s=Game.restore(Game.serialize(s)) end
         end

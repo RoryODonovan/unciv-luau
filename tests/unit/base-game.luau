@@ -167,7 +167,7 @@ for _=1,5 do round(research) end
 assert(table.find(research.players[1].technologies,"Agriculture") and research.players[1].science>0)
 apply(research,1,{kind="SetProduction",cityId=researchHome.id,item="Granary"})
 researchHome.production=Rules.productionCosts.Granary
-round(research); assert(table.find(researchHome.buildings,"Granary") and researchHome.queue=="Warrior")
+round(research); assert(table.find(researchHome.buildings,"Granary") and researchHome.queue=="")
 rejected(research,1,{kind="SetProduction",cityId=researchHome.id,item="Granary"})
 assert(not table.find(Game.snapshot(research,1).availableProductionByCity[tostring(researchHome.id)],"Granary"))
 assert(not table.find(Game.snapshot(research,1).availablePurchasesByCity[tostring(researchHome.id)],"Granary"))

@@ -78,7 +78,8 @@ local function endTurnChecked(s: any,actor: number): any
     for id, b in before do
         local c=cityById(s,id)
         local spent=if b.f.productionTurns==1 then Rules.productionCosts[b.queue] else 0
-        assert(c.production==b.production+b.f.production-spent,"production follows the forecast in city "..id)
+        local made=if b.f.productionBlocked=="Idle" or (c.queue=="" and b.f.productionTurns~=1) then 0 else b.f.production
+        assert(c.production==b.production+made-spent,"production follows the forecast in city "..id)
         if c.population==b.population and b.food+b.f.food>=0 then assert(c.food==b.food+b.f.food,"food follows the forecast in city "..id) end
     end
     return view
@@ -142,7 +143,7 @@ do
 end
 
 -- 3. Once per world: the first completion removes the wonder from every menu, every other city racing for it keeps its
---    production for the next item (queue Warrior) with a private WonderLost event, and nothing more completes there
+--    production for the next item (idle queue) with a private WonderLost event, and nothing more completes there
 --    in the same step. The forecast predicts the lost race.
 do
     local s=fresh()
@@ -158,9 +159,13 @@ do
     assert(f.productionTurns==nil and f.productionBlocked=="NotAvailable","the later city's race is forecast as lost")
     local mark=s.nextEvent-1
     endTurnChecked(s,1)
-    assert(has(h.buildings,"HangingGardens") and h.queue=="Warrior")
-    assert(sc.queue=="Warrior" and sc.production==70+f.production,"the losing city keeps its production and completes nothing")
-    assert(rv.queue=="Warrior" and rv.production==50,"the rival keeps its production for its next item")
+    assert(has(h.buildings,"HangingGardens") and h.queue=="")
+    assert(sc.queue=="" and sc.production==70,"the losing city keeps stored production and loses its idle yield")
+    assert(rv.queue=="" and rv.production==50,"the rival keeps its production for its next item")
+    for _,c in ({h,sc,rv} :: {any}) do
+        local idle=Game.snapshot(s,c.ownerId).cityForecasts[tostring(c.id)]
+        assert(idle.productionBlocked=="Idle" and idle.productionTurns==nil)
+    end
     local built=eventsOf(s.events,"WonderBuilt",mark)
     assert(#built==1 and built[1].public==true and built[1].ownerId==1 and built[1].wonder=="HangingGardens" and built[1].cityId==home.id and built[1].tileId==home.tileId)
     local lost=eventsOf(s.events,"WonderLost",mark)

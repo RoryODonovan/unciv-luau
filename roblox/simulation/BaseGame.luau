@@ -1,6 +1,6 @@
 --!strict
 -- Generated module-only Roblox form. Source: src/simulation/BaseGame.luau
--- Source SHA-256: 638e29183063632039fe5604225e68fbb8d35fd10cc13d8d2d2a692989d05320
+-- Source SHA-256: 481f9af58e7d728d62b8783899a3cf32a295f2f60e5e9f5d321fd1fcb4642729
 -- Reproduce with tools/roblox-export.mjs; preserve MPL notices below.
 -- Covered source: https://github.com/RoryODonovan/unciv-luau
 -- This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
@@ -85,7 +85,7 @@ export type Barbarians = {camps: {Camp}, nextCamp: number}
 -- A barbarian encampment in a snapshot (only while its tile is visible to the actor).
 export type CampView = {id: number, tileId: number}
 export type State = {barbarians: Barbarians?, seed: number, radius: number?, mapShape: string?, frequency: number?, difficulty: string, humanPlayers: number, forest: boolean, maxTurns: number, cultureVictoryPolicies: number?, policyCostIncrease: number?, turn: number, revision: number, activePlayerId: number, phase: string, winner: number?, reason: string?, victoryType: string?, tiles: {Tile}, units: {Unit}, cities: {City}, players: {Player}, diplomacy: Diplomacy, trades: {Trade}, events: {Event}, nextEvent: number, nextUnit: number, nextCity: number, nextTrade: number, log: {string}}
-export type CityForecast = {food: number, production: number, gold: number, science: number, culture: number, growthTurns: number?, productionTurns: number?, productionBlocked: ("NotAvailable" | "NoSpace")?}
+export type CityForecast = {food: number, production: number, gold: number, science: number, culture: number, growthTurns: number?, productionTurns: number?, productionBlocked: ("NotAvailable" | "NoSpace" | "Idle")?}
 -- A completed world wonder, public to both civilizations: its id and the civilization whose city holds it now. The
 -- holding city (`cityId`, `tileId`, `cityName`) is given only to that city's owner and to an actor who can see the city
 -- tile now.
@@ -416,7 +416,7 @@ local function upgrade(s: any, u: any)
 end
 -- A completed world wonder: a public WonderBuilt event (its location is projected only to those who can see the city;
 -- see the snapshot), then every other city queuing the same wonder loses the race. Such a city keeps all its
--- accumulated production for its next item, its queue falls back to Warrior (as after any completed building) and its
+-- accumulated production for its next item, its queue becomes idle (as after any completed building) and its
 -- owner gets a private WonderLost event without a tile. `converted` marks those cities so an economy step in progress
 -- does not complete anything in them this step.
 local function wonderBuilt(s: any, city: any, item: string, converted: {[number]: boolean}?)
@@ -425,7 +425,7 @@ local function wonderBuilt(s: any, city: any, item: string, converted: {[number]
     local losers: {any}={}; for _, c in s.cities do if c~=city and c.queue==item then table.insert(losers,c) end end
     table.sort(losers,function(a: any,b: any) return a.id<b.id end)
     for _, c in losers do
-        c.queue="Warrior"; if converted then converted[c.id]=true end
+        c.queue=""; if converted then converted[c.id]=true end
         local message=if c.ownerId==city.ownerId then "Another of your cities completed "..name.." first; production is kept." else "A rival completed "..name.." first; production is kept."
         event(s,"WonderLost",message,nil,nil,c.ownerId,c.production,nil,nil,city.ownerId,nil,c.id,item)
     end
@@ -434,7 +434,7 @@ end
 -- same step (in a city processed first) changes nothing until the next step, whatever the city order. A purchase,
 -- outside any economy step, passes none and reads the owner's wonders as they stand.
 local function complete(s: any, city: any, item: string, spawn: number?, converted: {[number]: boolean}?, bonus: any?)
-    if R.buildings[item] then table.insert(city.buildings,item); if city.queue==item then city.queue="Warrior" end
+    if R.buildings[item] then table.insert(city.buildings,item); if city.queue==item then city.queue="" end
     else
         assert(spawn); local u=addUnit(s,city.ownerId,item,spawn)
         -- New military units start with the experience the owner's wonders give (Terracotta Army); civilians never gain any.
@@ -771,7 +771,7 @@ local function combat(s: any, unit: any, target: number)
             if city.hp==0 and unit.ownerId~=BARBARIAN then
                 local loser=city.ownerId
                 -- A city captured this round cannot strike until the next round (its strike counts as used).
-                city.ownerId=unit.ownerId; city.hp=50; city.population=math.max(1,city.population-1); city.production=0; city.queue="Warrior"; city.food=0; city.strikeTurn=s.turn
+                city.ownerId=unit.ownerId; city.hp=50; city.population=math.max(1,city.population-1); city.production=0; city.queue=""; city.food=0; city.strikeTurn=s.turn
                 local ids={target}; for _, id in mapFor(s).neighbors[target] do table.insert(ids,id) end
                 for _, id in ids do s.tiles[id].ownerId=unit.ownerId end
                 unit.tileId=target; event(s,"Capture","City captured.",target,unit.id,unit.ownerId)
@@ -1000,6 +1000,7 @@ local function goldenStep(s: any, p: any, owner: number, golden: boolean, happin
     -- The record is stored once anything is non-zero, so a civilization that never fills its meter writes no field.
     if p.goldenAge or g.progress>0 or g.turnsLeft>0 or g.ages>0 then p.goldenAge=g end
 end
+local aiProduction: (any, number, boolean?) -> ()
 local function economy(s: any, owner: number)
     local p=s.players[owner]; p.resources=resourceInventory(s,owner)
     local happiness,discount=stepHappiness(s,owner,p.resources); p.happiness=happiness
@@ -1023,10 +1024,12 @@ local function economy(s: any, owner: number)
             if c.population>1 then c.population -= 1; event(s,"Starvation","City lost population.",c.tileId,nil,owner,c.population) end
             c.food=0
         end
-        c.production += production; c.hp=math.min(R.cityHp,c.hp+5)
+        -- Idle turns lose their production yield; stored overflow remains available for the next choice.
+        if c.queue~="" then c.production += production end
+        c.hp=math.min(R.cityHp,c.hp+5)
         for key,value in yields do income[key] += value end
         -- A city that lost a wonder race earlier in this step completes nothing until its next step.
-        if not converted[c.id] and productionAvailable(s,c,c.queue) and c.production>=(R.productionCosts[c.queue] or math.huge) then
+        if c.queue~="" and not converted[c.id] and productionAvailable(s,c,c.queue) and c.production>=(R.productionCosts[c.queue] or math.huge) then
             local spawn=spawnTile(s,c)
             if R.buildings[c.queue] or spawn then
                 local item=c.queue; c.production -= R.productionCosts[item]; complete(s,c,item,spawn,converted,bonus)
@@ -1070,6 +1073,8 @@ local function economy(s: any, owner: number)
     end
     goldenStep(s,p,owner,golden,happiness,granted,grantedBy)
     p.resources=resourceInventory(s,owner)
+    -- AI completions can empty a queue after its choices for this turn. Fill only those queues before the turn ends.
+    if not p.human then aiProduction(s,owner,true) end
 end
 -- Whether a unit spent its owner's previous turn without moving or attacking, derived from saved fields (no
 -- extra state): moving spends movement and attacking spends all of it, while both clear fortification. A unit
@@ -1311,7 +1316,7 @@ local function aiWonderPlan(s: any, owner: number): (number?, string?)
     local p=s.players[owner]
     local own: {any}={}; for _, c in s.cities do if c.ownerId==owner then table.insert(own,c) end end
     table.sort(own,function(a: any,b: any) return a.id<b.id end)
-    for _, c in own do if isWonder(c.queue) and productionAvailable(s,c,c.queue) then return c.id,c.queue end end
+    for _, c in own do if c.queue~="" and isWonder(c.queue) and productionAvailable(s,c,c.queue) then return c.id,c.queue end end
     local bonus=empireBonus(s,owner); bonus.golden=goldenActive(p); local _,cityTiles=occupants(s)
     local mood=stepHappiness(s,owner,resourceInventory(s,owner))
     local best: any=nil; local bestMade=0
@@ -1337,7 +1342,8 @@ end
 -- units than cities plus one), its wonder (when already racing for it), happiness buildings (when needed), the economy
 -- list with a settler after the Monument (fewer than three cities, no settler yet), its planned wonder, then the upkeep
 -- fallback: a military unit while the AI can pay for one, otherwise a worker (while it has fewer than two workers per
--- city, as workers cost no upkeep), then a military unit after all (a queue always holds something the city can build).
+-- city, as workers cost no upkeep), then a military unit after all. An idle city then tries every legal building and
+-- unit before keeping a blocked Warrior when nothing is currently available.
 local AI_ECONOMY={"Monument","Granary","Library","Market","Forge","Workshop","Aqueduct","University","Bank","Observatory","StockExchange","Factory","Hospital","PowerPlant","ResearchLab"}
 local AI_CONTENT=1
 local AI_THREAT_RADIUS=3
@@ -1350,6 +1356,15 @@ local AI_THREAT_RADIUS=3
 local AI_GOLD_RESERVE=60
 -- The AI upgrades a unit standing in its own territory when its gold stays at AI_UPGRADE_RESERVE or more afterwards.
 local AI_UPGRADE_RESERVE=40
+-- Exhausted priorities do not imply exhausted legal choices. Prefer the cheapest remaining building (including
+-- wonders), ties by id, then any available unit in rule order before retaining a blocked Warrior queue.
+local aiFallbackItems: {string}=table.clone(R.buildingOrder)
+table.sort(aiFallbackItems,function(a: string,b: string): boolean
+    local x,y=R.buildings[a],R.buildings[b]
+    if x.cost~=y.cost then return x.cost<y.cost end
+    return a<b
+end)
+for _, id in R.unitOrder do table.insert(aiFallbackItems,id) end
 local aiHappinessBuildings: {string}, aiDefenseBuildings: {string}={},{}
 for _, id in R.buildingOrder do
     local rule=R.buildings[id]
@@ -1408,9 +1423,9 @@ local function aiGoldFocus(s: any, owner: number)
         for i=#own,1,-1 do if own[i].focus=="Gold" then own[i].focus="Balanced"; return end end
     end
 end
-local function aiProduction(s: any, owner: number)
+aiProduction = function(s: any, owner: number, idleOnly: boolean?)
     local p=s.players[owner]
-    aiGoldFocus(s,owner)
+    if not idleOnly then aiGoldFocus(s,owner) end
     local wonderCityId,wonderId=aiWonderPlan(s,owner)
     local counts: {[string]: number}={}; local groups: {[string]: number}={}; local military=0
     for _, u in s.units do
@@ -1429,6 +1444,7 @@ local function aiProduction(s: any, owner: number)
     local atWar=s.diplomacy.status=="War"
     for _, c in s.cities do
         if c.ownerId~=owner then continue end
+        if idleOnly and c.queue~="" then continue end
         local budget=p.income.gold-(pending-upkeep(c.queue))
         local function affordable(id: string): boolean
             local rule=R.buildings[id]
@@ -1458,6 +1474,12 @@ local function aiProduction(s: any, owner: number)
         if unit then table.insert(priorities,unit) end
         local previous=c.queue
         for _, item in priorities do if canChoose(s,c,item,stock) then c.queue=item; break end end
+        if c.queue=="" then
+            for _, item in aiFallbackItems do if canChoose(s,c,item,stock) then c.queue=item; break end end
+        end
+        -- At the global unit cap with every eligible building finished, no choice is available now. Keep a real
+        -- repeatable unit queued (blocked until space returns), just as a non-idle AI city's existing queue is kept.
+        if c.queue=="" then c.queue="Warrior" end
         pending += upkeep(c.queue)-upkeep(previous)
     end
 end
@@ -1862,8 +1884,9 @@ function BaseGame.snapshot(state: State, actorId: number): View
             local growAt=R.growthBase+c.population*R.growthPerPopulation; local cost=R.productionCosts[c.queue]
             local canGrow=stepMood>=0 and c.population<R.maxPopulation
             -- The economy completes the queue only when it is still available and a unit has a free deployment tile.
-            local blocked: ("NotAvailable" | "NoSpace")?=nil; local spawn: number?=nil
-            if wondersNow[c.queue] or not productionAvailable(s,c,c.queue,added,claimed) or (R.units[c.queue] and #units+#added>=R.maxUnits) then blocked="NotAvailable"
+            local blocked: ("NotAvailable" | "NoSpace" | "Idle")?=nil; local spawn: number?=nil
+            if c.queue=="" then blocked="Idle"
+            elseif wondersNow[c.queue] or not productionAvailable(s,c,c.queue,added,claimed) or (R.units[c.queue] and #units+#added>=R.maxUnits) then blocked="NotAvailable"
             elseif R.units[c.queue] then spawn=spawnTile(s,c,added); if not spawn then blocked="NoSpace" end end
             local turns: number?=nil
             if not blocked and cost then

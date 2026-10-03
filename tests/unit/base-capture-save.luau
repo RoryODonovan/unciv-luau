@@ -52,6 +52,9 @@ for _,shape in {"Hex","Sphere"} do
         apply(state,1,{kind="DeclareWar",targetId=2})
         apply(state,1,{kind="MoveUnit",unitId=attacker.id,tileId=target.tileId})
         assert(target.ownerId==1 and attacker.tileId==target.tileId)
+        assert(target.queue=="" and target.production==0,"capture clears the queue to idle")
+        local forecast=Game.snapshot(state,1).cityForecasts[tostring(target.id)]
+        assert(forecast.productionBlocked=="Idle" and forecast.productionTurns==nil)
         assert(state.phase==(if domination then "Finished" else "Playing"))
         if domination then assert(state.winner==1 and state.victoryType=="Domination") end
         local capture: any=nil
