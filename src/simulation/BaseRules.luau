@@ -293,9 +293,10 @@ local rules = {
     -- The science victory needs Space Flight, the last technology (G7; it was Rocketry), and a completed Space Project.
     scienceVictoryTechnology="SpaceFlight",scienceVictoryBuilding="SpaceProject",cultureVictoryPolicies=6,
     -- The default policy cost growth (percent of a policy's base cost per policy already adopted) at a 120-round pace; a
-    -- new match without an explicit policyCostIncrease scales it by its pace (50-200%). G7 raised it from a flat 50 so the
-    -- culture race keeps pace with the forty-technology science race (see docs/base-game.md, Balance).
-    policyCostIncrease=140,score={city=10,population=3,unit=2,technology=5,policy=5,wonder=10},
+    -- new match without an explicit policyCostIncrease scales it by the square of its pace (50-200%), never below
+    -- minimumPolicyCostIncrease (the flat default before G7) nor above 400. G7 raised it so the culture race keeps pace
+    -- with the forty-technology science race in longer matches (see docs/base-game.md, Balance).
+    policyCostIncrease=140,minimumPolicyCostIncrease=50,score={city=10,population=3,unit=2,technology=5,policy=5,wonder=10},
     maxTradeTurns=20,maxTradeDeals=16,maxEvents=64,maxLog=24,
     -- Combat percentages: fortification adds to the terrain percentage in one defence multiplier; each other
     -- friendly military unit next to a defending unit adds to a melee attack, up to the cap.

@@ -1579,11 +1579,12 @@ function BaseGame.new(seed: number?, options: Options?): State
     assert(difficulty=="Easy" or difficulty=="Normal" or difficulty=="Hard","unknown difficulty")
     assert(turns%1==0 and turns>=20 and turns<=500,"maxTurns must be 20 to 500")
     -- G7 pacing: without an explicit value the policy cost growth follows the match pace (the golden-age pace, the round
-    -- limit against 120 rounds, 50-200%): policyCostIncrease (140) x pace%, rounded, so Quick 45 rounds 70, Standard 80
-    -- rounds 94, Full 120 rounds 140 and 240 rounds or more 280. It was a flat 50 before G7.
+    -- limit against 120 rounds, 50-200%) squared: max(minimumPolicyCostIncrease 50, policyCostIncrease 140 x pace%^2),
+    -- rounded and at most 400. So 60 rounds or fewer keep the earlier flat 50 (Quick, 45 rounds), Standard (80 rounds,
+    -- pace 67%) gets 63, Full (120 rounds) 140, 150 rounds 219 and 200 rounds or more 400.
     if increase==nil then
         local g=R.goldenAge; local pace=math.clamp(math.floor(turns*100/g.paceTurns+0.5),g.minPacePercent,g.maxPacePercent)
-        increase=math.min(400,math.floor(R.policyCostIncrease*pace/100+0.5))
+        increase=math.clamp(math.floor(R.policyCostIncrease*pace*pace/10000+0.5),R.minimumPolicyCostIncrease,400)
     end
     assert(type(threshold)=="number" and threshold%1==0 and threshold>=1 and threshold<=#R.policyOrder,"cultureVictoryPolicies must be 1 to "..#R.policyOrder)
     assert(type(increase)=="number" and increase%1==0 and increase>=0 and increase<=400,"policyCostIncrease must be 0 to 400")

@@ -139,10 +139,10 @@ do
 end
 
 -- 1b. Victory pacing (G7): the science victory needs Space Flight, and a match without an explicit policy cost growth
---     takes policyCostIncrease (140) scaled by its pace (the round limit against 120 rounds, 50-200%).
+--     takes max(50, 140 x pace%^2), at most 400 (pace: the round limit against 120 rounds, 50-200%).
 do
-    assert(Rules.scienceVictoryTechnology=="SpaceFlight" and Rules.cultureVictoryPolicies==6 and Rules.policyCostIncrease==140)
-    for _, row in {{20,70},{45,70},{60,70},{80,94},{100,116},{120,140},{150,175},{240,280},{500,280}} do
+    assert(Rules.scienceVictoryTechnology=="SpaceFlight" and Rules.cultureVictoryPolicies==6 and Rules.policyCostIncrease==140 and Rules.minimumPolicyCostIncrease==50)
+    for _, row in {{20,50},{45,50},{60,50},{70,50},{80,63},{100,96},{120,140},{150,219},{170,282},{240,400},{500,400}} do
         local s=Game.new(3,{maxTurns=row[1]}); assert(s.policyCostIncrease==row[2],"growth "..tostring(s.policyCostIncrease).." at "..row[1].." rounds")
         assert(Game.snapshot(s,1).policyCostIncrease==row[2],"the snapshot echoes it")
     end

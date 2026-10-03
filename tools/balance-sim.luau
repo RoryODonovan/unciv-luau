@@ -12,11 +12,11 @@ assert(I,"run this through tools/balance-sim.mjs")
 local args={...}
 local seeds=tonumber(args[1]) or 12
 local culture=args[2]~="off"
--- The private match presets this library is tuned for: map radius, round limit and culture threshold. The policy cost
--- growth is the engine default for the round limit.
+-- The private match presets this library is tuned for (Quick 4 policies, Standard and Full 6): map radius, round limit
+-- and culture threshold. The policy cost growth is the engine default for the round limit.
 local presets={
     {name="Quick",radius=10,maxTurns=45,policies=4},
-    {name="Standard",radius=15,maxTurns=80,policies=5},
+    {name="Standard",radius=15,maxTurns=80,policies=6},
     {name="Full",radius=20,maxTurns=120,policies=6},
 }
 local function eraOf(p): number
