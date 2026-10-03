@@ -31,6 +31,22 @@ end
 local function unitById(s: any,id: number): any
     for _, u in s.units do if u.id==id then return u end end; return nil
 end
+-- Move previews for every owned unit, asked on demand: one previewMove per legal destination that is not an attack
+-- target (snapshots carry only legalMoves). Every such destination must have a preview.
+local function allPreviews(s: any,view: any): {[string]: {any}}
+    local result: {[string]: {any}}={}
+    for id,tiles in view.legalMoves do
+        local attacks: {[number]: boolean}={}; for _, a in view.attackPreviews[id] do attacks[a.tileId]=true end
+        local list={}
+        for _, tileId in tiles do
+            if attacks[tileId] then continue end
+            local p=Game.previewMove(s,view.actorId,tonumber(id) :: number,tileId); assert(p,"a legal destination without a move preview")
+            table.insert(list,p)
+        end
+        result[id]=list
+    end
+    return result
+end
 local function graphOf(s: any): any return WorldMap.fromTiles(s.tiles,s.radius) end
 local function adjacent(g: any,a: number,b: number): boolean return table.find(g.neighbors[a],b)~=nil end
 
@@ -116,7 +132,7 @@ local function reference(s: any,unit: any): {[number]: number}
 end
 -- Checks every move preview of one unit against the reference, the path rules, previewMove and the applied result.
 local function verifyUnit(s: any,view: any,u: any,g: any): (number,number,number)
-    local expected=reference(s,u); local previews=view.movePreviews[tostring(u.id)]
+    local expected=reference(s,u); local previews=allPreviews(s,view)[tostring(u.id)]
     local listed: {[number]: boolean}={}; local count,controlled,exhausted=0,0,0
     for _, p in previews do
         listed[p.tileId]=true; count += 1
@@ -128,7 +144,6 @@ local function verifyUnit(s: any,view: any,u: any,g: any): (number,number,number
         assert(not p.zoneOfControl or p.movesLeft==0,"the zone of control always ends movement")
         assert(p.path[1]==u.tileId and p.path[#p.path]==p.tileId)
         for i=2,#p.path do assert(adjacent(g,p.path[i-1],p.path[i]),"path steps are adjacent") end
-        assert(equal(p,(Game.previewMove(s,1,u.id,p.tileId))),"previewMove equals the snapshot preview")
         local clone=deep(s); local mover=unitById(clone,u.id)
         apply(clone,1,{kind="MoveUnit",unitId=u.id,tileId=p.tileId})
         assert(mover.tileId==p.tileId and mover.moves==p.movesLeft,"applied move equals its preview")
@@ -285,11 +300,11 @@ do
     for _, id in WorldMap.range(g5,c5,2) do s5.tiles[id].terrain="Hills" end
     for _, id in {c5,x :: number,t1 :: number,t2 :: number} do s5.tiles[id].terrain="Plains"; s5.tiles[id].road=true end
     local scout5=place(s5,1,"Scout",c5)
-    local without=Game.snapshot(s5,1)
+    local without=Game.snapshot(s5,1); local withoutPreviews=allPreviews(s5,without)
     local foe=place(s5,2,"Warrior",hidden :: number)
     local with=Game.snapshot(s5,1)
     for _, u in with.units do assert(u.id~=foe.id,"the enemy is hidden") end
-    assert(equal(without.movePreviews,with.movePreviews) and equal(without.legalMoves,with.legalMoves),"a hidden enemy changes no move")
+    assert(equal(withoutPreviews,allPreviews(s5,with)) and equal(without.legalMoves,with.legalMoves),"a hidden enemy changes no move")
     local unseen=preview(s5,scout5,t2 :: number)
     assert(not unseen.zoneOfControl and unseen.movesLeft==2 and equal(unseen.path,{c5,x,t1,t2}),"no zone of control from a hidden enemy")
     -- Moving next to it reveals it; from then on it applies.
@@ -398,7 +413,7 @@ do
         for _, t in view.tiles do if t.visible then seenTiles[t.id]=true end end
         for i=#hiddenless.units,1,-1 do local u=hiddenless.units[i]; if u.ownerId==2 and not seenTiles[u.tileId] then table.remove(hiddenless.units,i); hiddenEnemies += 1 end end
         local other=Game.snapshot(hiddenless,1)
-        assert(equal(view.movePreviews,other.movePreviews) and equal(view.legalMoves,other.legalMoves),"hidden enemies change no move")
+        assert(equal(allPreviews(s,view),allPreviews(hiddenless,other)) and equal(view.legalMoves,other.legalMoves),"hidden enemies change no move")
     end
     assert(checked>=150 and controlled>=10 and exhausted>=10 and hiddenEnemies>=5,"coverage: "..checked.." destinations, "..controlled.." zone of control, "..exhausted.." exhausted, "..hiddenEnemies.." hidden enemies")
     print(string.format("  random scenarios: %d destinations, %d ended by the zone of control, %d others spending all movement, %d hidden enemies",checked,controlled,exhausted,hiddenEnemies))
@@ -436,6 +451,20 @@ do
     -- The resulting sixths are valid and restore exactly.
     local after=Game.serialize(restored); assert(Save.valid(after))
     assert(equal(Game.serialize(Game.restore(after) :: any),after))
+    -- Shortened encodings (six decimal places) are within 1e-6 of a move of a sixth: valid, and both restore paths
+    -- snap them to the exact sixth.
+    for _, case in {{0.333333,1/3},{0.666667,2/3},{1.666667,10/6}} do
+        local short=deep(legacy); short.state.units[1].moves=case[1]; assert(Save.valid(short),"shortened moves "..case[1])
+        local viaSave: any=Save.restore(short); local viaGame: any=Game.restore(short)
+        assert(viaSave.units[1].moves==case[2] and unitById(viaGame,1).moves==case[2],"restore snaps "..case[1])
+    end
+    -- A negligible remainder restores as exactly no movement through either path, so the unit cannot fortify.
+    local tiny=deep(legacy); tiny.state.units[1].moves=1e-16; assert(Save.valid(tiny))
+    local tinySave: any=Save.restore(tiny); assert(tinySave.units[1].moves==0)
+    rejected(tinySave,1,{kind="FortifyUnit",unitId=1})
+    local tinyGame: any=Game.restore(tiny); assert(unitById(tinyGame,1).moves==0)
+    rejected(tinyGame,1,{kind="FortifyUnit",unitId=1})
+    assert(equal(Game.restore(legacy),Save.restore(legacy)),"both restore paths give the same state")
     -- Validation: multiples of a sixth within range pass; other fractions and out-of-range values fail.
     local function withMoves(value: number): boolean local copy=deep(legacy); copy.state.units[1].moves=value; return Save.valid(copy) end
     for _, value in {0,1/6,1/3,0.5,2/3,5/6,1,7/6,1.5,2} do assert(withMoves(value),"valid moves "..value) end
@@ -456,9 +485,9 @@ do
             if s.phase~="Playing" then break end
             if turn==2 and s.diplomacy.status~="War" then apply(s,1,{kind="DeclareWar",targetId=2}) end
             local view=Game.snapshot(s,1); local ids={}
-            for id in view.movePreviews do table.insert(ids,tonumber(id) :: number) end; table.sort(ids)
+            for id in view.legalMoves do table.insert(ids,tonumber(id) :: number) end; table.sort(ids)
             for _, id in ids do
-                local choices=view.movePreviews[tostring(id)]
+                local choices=allPreviews(s,view)[tostring(id)]
                 if #choices>0 then
                     -- Prefer a move the zone of control ends, else the farthest-numbered tile.
                     local pick=choices[#choices]; for _, p in choices do if p.zoneOfControl then pick=p end end
@@ -478,4 +507,38 @@ do
     for _, u in first.state.units do assert(math.abs(u.moves*6-math.round(u.moves*6))<1e-9) end
 end
 
-print("base movement: partial moves, zone of control (same enemy, cities, civilians, peace, fog), one-third roads, previews equal applied moves and a reference search, pre-G3 saves and determinism passed")
+-- 7. Scale: a paved Huge sphere at the unit cap. Every passable tile has a road and 169 scouts spread over the globe
+-- give the largest move searches. Snapshots carry only legalMoves (no per-destination previews), so their size and
+-- time stay bounded; the search is linear in the tiles it reaches. Bounds are generous for slow machines.
+do
+    local function bytes(v: any): number
+        local t=type(v)
+        if t=="number" then return #tostring(v) elseif t=="string" then return #v+2 elseif t=="boolean" then return if v then 4 else 5 end
+        if t=="table" then local n=2; for k,c in v do n += (if type(k)=="string" then #k+3 else #tostring(k)+1)+bytes(c)+1 end; return n end
+        return 4
+    end
+    local s: any=Game.new(5,{mapShape="Sphere",frequency=22,humanPlayers=2})
+    local occupied={}; for _, u in s.units do occupied[u.tileId]=true end; for _, c in s.cities do occupied[c.tileId]=true end
+    for _, t in s.tiles do if Rules.terrains[t.terrain].passable then t.road=true end end
+    local passable={}; for _, t in s.tiles do if Rules.terrains[t.terrain].passable and not occupied[t.id] then table.insert(passable,t) end end
+    local stride=math.max(1,math.floor(#passable/(Rules.maxUnits-#s.units)))
+    for i, t in passable do
+        if #s.units>=Rules.maxUnits then break end
+        if (i-1)%stride==0 then place(s,1,"Scout",t.id) end
+    end
+    assert(#s.units==Rules.maxUnits)
+    local started=os.clock(); local view: any=Game.snapshot(s,1); local elapsed=os.clock()-started
+    local legal=0; for _, list in view.legalMoves do legal += #list end
+    local size=bytes(view)
+    assert(view.movePreviews==nil,"snapshots carry no per-destination move previews")
+    assert(legal>10000,"the paved globe gives large searches: "..legal)
+    assert(size<1500000,"snapshot size "..size)
+    assert(elapsed<1.5,"snapshot time "..elapsed)
+    -- On-demand previews for one scout's whole reach stay cheap too.
+    local scout=s.units[#s.units]; local first=os.clock(); local count=0
+    for _, tileId in view.legalMoves[tostring(scout.id)] do assert(Game.previewMove(s,1,scout.id,tileId)); count += 1 end
+    assert(count>0 and os.clock()-first<1.5)
+    print(string.format("  paved Huge sphere, %d units: snapshot %.0f ms, about %.2f MB, %d legal moves",#s.units,elapsed*1000,size/1e6,legal))
+end
+
+print("base movement: partial moves, zone of control (same enemy, cities, civilians, peace, fog), one-third roads, previews equal applied moves and a reference search, pre-G3 saves, shortened and negligible saved moves, determinism and Huge-map scale passed")

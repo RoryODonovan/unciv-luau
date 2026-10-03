@@ -1,6 +1,6 @@
 --!strict
 -- Generated module-only Roblox form. Source: src/simulation/BaseSave.luau
--- Source SHA-256: 0d6f89875a92f9014f9add1dd04f4cab34e29903ed9316756072c0ba499d968b
+-- Source SHA-256: 4e111458aa3d1909d38c1145320c608e6771d917babfb8156b02e152d067d95d
 -- Reproduce with tools/roblox-export.mjs; preserve MPL notices below.
 -- Covered source: https://github.com/RoryODonovan/unciv-luau
 -- This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
@@ -18,8 +18,10 @@ local maxTreeEntries=65536
 local function number(value: any,low: number,high: number): boolean return type(value)=="number" and value==value and value>=low and value<=high end
 local function integer(value: any,low: number,high: number): boolean return number(value,low,high) and value%1==0 end
 -- Movement is a multiple of 1/6: whole and half moves (every earlier save) and the thirds a road step leaves.
--- A third has no exact binary form, so a value within 1e-6 of a sixth is accepted; restore snaps it to that sixth.
-local function sixths(value: number): boolean return math.abs(value*6-math.round(value*6))<=1e-6 end
+-- A third has no exact binary form and an encoder may shorten it (0.333333), so a value within 1e-6 of a move of
+-- a sixth is accepted; restore snaps it to that sixth.
+local function nearestSixth(value: number): number return math.round(value*6)/6 end
+local function sixths(value: number): boolean return math.abs(value-nearestSixth(value))<=1e-6 end
 local function owner(value: any): boolean return value==1 or value==2 end
 local function id(value: any): boolean return integer(value,1,1000000) end
 local function text(value: any,limit: number): boolean return type(value)=="string" and #value>0 and #value<=limit end
@@ -209,6 +211,9 @@ function BaseSave.serialize(state: any): any
 end
 function BaseSave.restore(saved: any): (any?,string?)
     if not BaseSave.valid(saved) then return nil,"Unsupported or corrupt base-game save." end
-    return copy(saved.state),nil
+    local state=copy(saved.state)
+    -- Canonical movement: each unit's moves becomes its exact sixth (1e-16 becomes 0, 0.333333 becomes 1/3).
+    for _, u in state.units do u.moves=nearestSixth(u.moves) end
+    return state,nil
 end
 return table.freeze(BaseSave)
