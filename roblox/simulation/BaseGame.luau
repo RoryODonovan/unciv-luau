@@ -1,6 +1,6 @@
 --!strict
 -- Generated module-only Roblox form. Source: src/simulation/BaseGame.luau
--- Source SHA-256: 069f7b2d79b247edcbcefc91d17a7e311ed56276feaf9a344956825ba407f24e
+-- Source SHA-256: 89a0a9c754fbce00504beea2579b66b6b6583aee5ef3b0dc52121754681d8a9c
 -- Reproduce with tools/roblox-export.mjs; preserve MPL notices below.
 -- Covered source: https://github.com/RoryODonovan/unciv-luau
 -- This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
@@ -270,21 +270,42 @@ local function buildingDefense(city: any): number
 end
 -- The most defence any city can gain from buildings. An enemy city's buildings are hidden.
 local hiddenCityDefense=0; for _, id in R.buildingOrder do hiddenCityDefense += R.buildings[id].defense or 0 end
--- Deterministic damage for one strike, given the target city's building defence.
-local function strike(s: any, unit: any, defender: any, city: any, target: number, cityDefense: number): (number, number, boolean)
+-- Each other friendly military unit next to the defending unit adds a percentage to a melee attack, up to a cap.
+-- Only the attacking civilization's own units count, so the preview can read them under fog.
+local function flankingPercent(s: any, unit: any, target: number, units: any): number
+    local count=0
+    for _, id in mapFor(s).neighbors[target] do
+        local ally=units[id]
+        if ally and ally.id~=unit.id and ally.ownerId==unit.ownerId and R.units[ally.kind].strength>0 then count += 1 end
+    end
+    return math.min(R.maxFlankingPercent,count*R.flankingPercent)
+end
+-- Deterministic damage for one strike, given the target city's building defence and the tile-to-unit occupancy.
+-- Attack: base strength (+3 per level) x (0.5 + hp/200) x (100 + flanking%)/100; flanking applies only to melee
+-- attacks on a defending unit. Defence of a unit: max(3, strength) x (100 + terrain% + fortified%)/100 x
+-- (0.5 + hp/200); of an undefended city: (14 + population) x (100 + terrain%)/100. City buildings (Walls) add a
+-- flat amount on top in both cases, so damage stays monotonic in the hidden building defence.
+local function strike(s: any, unit: any, defender: any, city: any, target: number, cityDefense: number, units: any): (number, number, boolean)
     local ranged=(R.units[unit.kind].range or 1)>1
     local attack=if ranged then R.units[unit.kind].rangedStrength else R.units[unit.kind].strength
-    attack=math.max(1,attack+unit.level*3)*(0.5+unit.hp/200)
-    local defense=if defender then math.max(3,R.units[defender.kind].strength)+(if defender.fortified then 5 else 0) else 14+(city.population or 1)
+    local flanking=if ranged or not defender then 0 else flankingPercent(s,unit,target,units)
+    attack=math.max(1,attack+unit.level*3)*(0.5+unit.hp/200)*(100+flanking)/100
+    local terrain=R.terrains[s.tiles[target].terrain].defensePercent or 0
+    local defense: number
+    if defender then
+        local modifier=terrain+(if defender.fortified then R.fortifyDefensePercent else 0)
+        defense=math.max(3,R.units[defender.kind].strength)*(100+modifier)/100*(0.5+defender.hp/200)
+    else
+        defense=(14+(city.population or 1))*(100+terrain)/100
+    end
     if city then defense += cityDefense end
-    defense += R.terrains[s.tiles[target].terrain].defense or 0
     local dealt=math.clamp(math.floor(30*attack/math.max(1,defense)+0.5),8,65)
     local received=if ranged or (defender and R.units[defender.kind].strength==0) then 0 else math.clamp(math.floor(25*defense/attack+0.5),8,65)
     return dealt,received,ranged
 end
 local function combat(s: any, unit: any, target: number)
     local units,cities=occupants(s); local defender,city=units[target],cities[target]
-    local dealt,received,ranged=strike(s,unit,defender,city,target,if city then buildingDefense(city) else 0)
+    local dealt,received,ranged=strike(s,unit,defender,city,target,if city then buildingDefense(city) else 0,units)
     local enemyOwner=if defender then defender.ownerId else city.ownerId
     unit.hp -= received; unit.moves=0; unit.fortified=false; unit.work=nil
     if defender then defender.hp -= dealt
@@ -306,14 +327,15 @@ local function combat(s: any, unit: any, target: number)
     end
 end
 local function outcome(low: boolean, high: boolean): string return if low~=high then "Maybe" elseif low then "Yes" else "No" end
--- Fog-safe preview. It reads only the actor's unit, the visible defender (kind, hp and
--- fortification), the visible city population/hp and visible terrain. Hidden city buildings
+-- Fog-safe preview. It reads only the actor's units (the attacker and its flanking units), the visible
+-- defender (kind, hp and fortification), the visible city population/hp and visible terrain. It calls the
+-- same strike as combat, so a unit result is exact. Hidden city buildings
 -- widen the result to a range. Damage is monotonic in defence, so the bounds are exact.
 local function previewFor(s: any, unit: any, target: number, units: any, cities: any): AttackPreview
     local defender,city=units[target],cities[target]
     local high=if city then hiddenCityDefense else 0
-    local dealtMax,receivedMin,ranged=strike(s,unit,defender,city,target,0)
-    local dealtMin,receivedMax=strike(s,unit,defender,city,target,high)
+    local dealtMax,receivedMin,ranged=strike(s,unit,defender,city,target,0,units)
+    local dealtMin,receivedMax=strike(s,unit,defender,city,target,high,units)
     local function result(dealt: number, received: number): (boolean, boolean, boolean)
         local attackerDead=unit.hp-received<=0
         local defenderDead=defender~=nil and defender.hp-dealt<=0
@@ -463,13 +485,27 @@ local function economy(s: any, owner: number)
     end
     p.resources=resourceInventory(s,owner)
 end
+-- Whether a unit spent its owner's previous turn without moving or attacking, derived from saved fields (no
+-- extra state): moving spends movement and attacking spends all of it, while both clear fortification. A unit
+-- still holding its full movement rested; a fortified unit or a worker on an improvement order rested too.
+local function rested(u: any): boolean
+    return u.fortified or u.work~=nil or u.moves>=R.units[u.kind].moves
+end
+-- Hit points regained by a rested unit: most in its owner's city, then friendly territory, then elsewhere.
+local function healing(s: any, u: any, cities: any): number
+    local city=cities[u.tileId]
+    if city and city.ownerId==u.ownerId then return R.healing.city end
+    if s.tiles[u.tileId].ownerId==u.ownerId then return R.healing.friendly end
+    return R.healing.neutral
+end
 local function beginTurn(s: any, owner: number)
     s.activePlayerId=owner
+    local _,cities=occupants(s)
     for _, u in s.units do
         if u.ownerId~=owner then continue end
+        -- Healing reads last turn's remaining movement, so it runs before movement refreshes.
+        if rested(u) then u.hp=math.min(R.units[u.kind].hp,u.hp+healing(s,u,cities)) end
         u.moves=if u.work then 0 else R.units[u.kind].moves
-        if u.fortified then u.hp=math.min(R.units[u.kind].hp,u.hp+15)
-        elseif s.tiles[u.tileId].ownerId==owner then u.hp=math.min(R.units[u.kind].hp,u.hp+5) end
     end
     refreshVision(s)
 end

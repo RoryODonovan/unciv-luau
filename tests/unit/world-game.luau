@@ -142,7 +142,7 @@ for _,shape in {"Hex","Sphere"} do
     end
 end
 assert(seenTerrains.Tundra and seenTerrains.Water and seenTerrains.Mountain and seenTerrains.Forest and seenTerrains.Desert)
-assert(Rules.terrains.Tundra.passable and Rules.terrains.Tundra.movement==1 and Rules.terrains.Tundra.defense==0 and Rules.terrains.Tundra.yields.food==1)
+assert(Rules.terrains.Tundra.passable and Rules.terrains.Tundra.movement==1 and Rules.terrains.Tundra.defensePercent==0 and Rules.terrains.Tundra.yields.food==1)
 assert(not table.find(Rules.improvements.Farm.terrains,"Tundra"),"generation must not expand unrelated improvement balance")
 -- Existing public support includes frequency one, tiny-map capacity and finite safe integer seeds.
 for _,shape in {"Hex","Sphere"} do
