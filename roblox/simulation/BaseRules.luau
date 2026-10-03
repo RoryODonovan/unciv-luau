@@ -1,6 +1,6 @@
 --!strict
 -- Generated module-only Roblox form. Source: src/simulation/BaseRules.luau
--- Source SHA-256: 3ba8bf6efd64ee7eb48f53293eb52358f32f8549de9e86530b880d589f12b5c7
+-- Source SHA-256: 4e300502d2def89f06813538c4810e4cc7c2cd377cb40d3ceaaae79d132a17b5
 -- Reproduce with tools/roblox-export.mjs; preserve MPL notices below.
 -- Covered source: https://github.com/RoryODonovan/unciv-luau
 -- This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
@@ -111,8 +111,8 @@ local improvements: {[string]: Improvement} = {
     Mine={id="Mine",technology="Mining",terrains={"Hills","Plains","Desert"},resources={"Iron","Gold"},turns=3,yields=yields(0,1),road=false},
     Pasture={id="Pasture",technology="Agriculture",terrains={"Plains","Grassland"},resources={"Horses"},turns=2,yields=yields(0,1),road=false},
     Plantation={id="Plantation",technology="Currency",terrains={"Plains","Grassland","Forest"},resources={"Spices"},turns=3,yields=yields(0,0,2),road=false},
-    -- Camp lists Grassland and Tundra so Deer under a Forest feature on those terrains stays valid (and keeps its Camp
-    -- when a city founded on the tile clears the feature). A Camp always needs its Deer, so bare land gains nothing.
+    -- Camp lists Grassland and Tundra so Deer under a Forest feature on those terrains stays valid. A Camp always needs its
+    -- Deer, so bare land gains nothing.
     Camp={id="Camp",technology="Archery",terrains={"Forest","Plains","Grassland","Tundra"},resources={"Deer"},turns=2,yields=yields(1),road=false},
     Road={id="Road",technology="Engineering",terrains={"Plains","Grassland","Hills","Forest","Desert","Tundra"},resources={},turns=2,yields=yields(),road=true},
 }
