@@ -14,7 +14,7 @@
 
 Only hexagonal scale matches these Unciv presets. Rectangular dimensions, wrapping, Auto/Custom size behavior, civilization counts and size-based technology/policy modifiers are omitted. This remains the original two-civilization land simulation. Total entity limits stay at 169 units and 24 cities regardless of map size, and the round limit remains 20–500. Larger maps do not automatically increase armies, opponents, victory pacing or simulation scope.
 
-Heap Dijkstra retains ascending tile-ID resolution for equal costs; local visibility queries avoid a full map scan per center. Snapshot attack lists inspect occupied tiles rather than every map tile per unit. Save validation keeps exact schema/entity limits and a bounded 65,536-entry traversal budget, sufficient for every tile field and both fully explored Huge maps.
+Heap Dijkstra retains ascending tile-ID resolution for equal costs; local visibility queries avoid a full map scan per center. Snapshot attack lists inspect occupied tiles rather than every map tile per unit. Save validation keeps exact schema/entity limits and a bounded 81,920-entry traversal budget (65,536 before terrain features and rivers), sufficient for every tile field and both fully explored Huge maps.
 
 ## CLI measurements
 

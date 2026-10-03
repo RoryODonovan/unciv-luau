@@ -68,6 +68,28 @@ local function move(s: any,u: any,tileId: number): any
     assert(u.tileId==tileId and u.moves==p.movesLeft,"the applied move matches its preview")
     return p
 end
+-- Checks the snapshot's riverMoves for one actor: for each of its units, exactly the legal destinations whose on-demand
+-- preview reports riverCrossing, ascending, under the unit's id only when there are any; every listed tile is a legal
+-- move; no other unit (a rival's) has an entry; nothing while the actor cannot act. Returns the number listed.
+local function checkRiverMoves(s: any,actor: number,view: any?): number
+    local v=view or Game.snapshot(s,actor); local listed=0
+    for id,list in v.riverMoves do
+        local u=unitById(s,tonumber(id) :: number); assert(u and u.ownerId==actor and v.canAct,"riverMoves lists only the actor's units while it can act")
+        assert(#list>0,"a unit without river moves has no entry")
+        for i=2,#list do assert(list[i-1]<list[i],"ascending tile ids") end
+        for _, tileId in list do assert(table.find(v.legalMoves[id],tileId),"a river move is a legal move") end
+    end
+    for id,tiles in v.legalMoves do
+        local expected={}
+        for _, tileId in tiles do
+            local p=Game.previewMove(s,actor,tonumber(id) :: number,tileId)
+            if p and p.riverCrossing then table.insert(expected,tileId) end
+        end
+        table.sort(expected)
+        if #expected==0 then assert(v.riverMoves[id]==nil) else assert(equal(v.riverMoves[id],expected),"riverMoves equals the previews' riverCrossing"); listed += #expected end
+    end
+    return listed
+end
 -- A two-human game on a radius-12 map with both capitals founded, features and rivers removed, every unit removed and a
 -- cleared arena: unowned Plains without roads in radius 4 around `center`, at least seven hexes from each city.
 local function arena(seed: number): (any,number,any)
@@ -371,7 +393,7 @@ do
         best[unit.tileId]=nil
         return best
     end
-    local checked,crossings,featureSteps=0,0,0
+    local checked,crossings,featureSteps,riverListed=0,0,0,0
     for scenario=1,30 do
         local s,c,g=arena(520+scenario%3)
         local state=scenario*104729
@@ -412,6 +434,12 @@ do
         for _=1,rand(3) do local id=take(3); if id then place(s,2,({"Warrior","Scout","Worker"})[rand(3)],id) end end
         assert(Save.valid(Game.serialize(s)),"a valid scenario")
         local view=Game.snapshot(s,1)
+        riverListed += checkRiverMoves(s,1,view)
+        -- Removing every enemy unit player 1 cannot see changes no river move.
+        local hiddenless=deep(s); local seenTiles: {[number]: boolean}={}
+        for _, tv in view.tiles do if tv.visible then seenTiles[tv.id]=true end end
+        for i=#hiddenless.units,1,-1 do local hu=hiddenless.units[i]; if hu.ownerId==2 and not seenTiles[hu.tileId] then table.remove(hiddenless.units,i) end end
+        assert(equal(Game.snapshot(hiddenless,1).riverMoves,view.riverMoves),"hidden enemies change no river move")
         for _, u in own do
             local expected=reference(s,u,g)
             local attacks: {[number]: boolean}={}; for _, a in view.attackPreviews[tostring(u.id)] do attacks[a.tileId]=true end
@@ -429,6 +457,7 @@ do
             for tileId in expected do assert(listed[tileId] or attacks[tileId],"a destination the rules allow is missing") end
         end
     end
+    assert(riverListed==crossings,"every crossing destination is listed in riverMoves")
     assert(checked>=200 and crossings>=20 and featureSteps>=50,"coverage: "..checked.." destinations, "..crossings.." crossings, "..featureSteps.." feature steps")
     print(string.format("  random scenarios: %d destinations, %d ended by a river crossing, %d path steps onto features",checked,crossings,featureSteps))
 end
@@ -533,7 +562,7 @@ do
 end
 
 -- 6. Improvements and founding: only a feature's listed improvements may be built on it (roads anywhere); founding a
--- city clears the feature and keeps the resource and river.
+-- city keeps the feature, the resource and the river.
 do
     local s,c=arena(541)
     for _, id in {"Agriculture","Mining","Archery","Writing","Currency","BronzeWorking","Masonry","Engineering"} do table.insert(s.players[1].technologies,id) end
@@ -771,6 +800,9 @@ do
     local walker=place(sp,1,"Warrior",pentagon :: number)
     local cp=preview(sp,walker,pn[5]); assert(cp.riverCrossing and cp.movesLeft==0)
     local dp=preview(sp,walker,pn[4]); assert(not dp.riverCrossing and dp.movesLeft==1)
+    -- The pentagon edge appears in the snapshot's riverMoves.
+    local sv=Game.snapshot(sp,1); assert(table.find(sv.riverMoves[tostring(walker.id)],pn[5]) and not table.find(sv.riverMoves[tostring(walker.id)],pn[4]))
+    checkRiverMoves(sp,1,sv)
 end
 
 -- 9. Determinism: solo games on generated maps with features and rivers (the AI paths with the same movement code)
@@ -826,6 +858,75 @@ do
         print(string.format("  %s Huge fully explored: snapshot %d bytes (%d without features and rivers, +%.1f%%) in %.0f ms; save %d bytes (%d without)",
             if options.mapShape then "Sphere" else "Hex",size,bareSize,(size-bareSize)/bareSize*100,elapsed*1000,save,bareSave))
     end
+end
+
+-- 11. riverMoves: the snapshot lists, for the actor's own units, the legal destinations whose move ends by crossing an
+-- unbridged river, from the same search as legalMoves.
+do
+    -- Roads on both tiles suppress the crossing; a road on one side does not; partial moves and the zone of control.
+    local s,c,g=arena(551); war(s)
+    local k=sorted(g.neighbors[c])
+    local k2: number?=nil; for _, id in k do if id~=k[1] and not adjacent(g,id,k[1]) then k2=id; break end end
+    setRiver(s,g,c,k[1],true); setRiver(s,g,c,k2 :: number,true)
+    s.tiles[c].road=true; s.tiles[k[1]].road=true
+    local w=place(s,1,"Warrior",c)
+    local view=Game.snapshot(s,1); local list=view.riverMoves[tostring(w.id)]
+    assert(list and table.find(list,k2 :: number) and not table.find(list,k[1]),"a bridged crossing is not a river move")
+    checkRiverMoves(s,1,view)
+    -- With both roads removed both crossings are listed; with a third of a move the crossing still ends the move.
+    s.tiles[c].road=nil; s.tiles[k[1]].road=nil
+    view=Game.snapshot(s,1); list=view.riverMoves[tostring(w.id)]; assert(table.find(list,k[1]) and table.find(list,k2 :: number))
+    w.moves=1/3; assert(checkRiverMoves(s,1)>=2)
+    -- Zone of control and a river on the same step: listed (the preview reports both).
+    local z,zc,zg=arena(552); war(z)
+    place(z,2,"Warrior",zc)
+    local zr=sorted(zg.neighbors[zc]); local from=zr[1]; local to: number?=nil
+    for _, id in zg.neighbors[from] do if id~=zc and adjacent(zg,id,zc) then to=id; break end end
+    setRiver(z,zg,from,to :: number,true)
+    local mover=place(z,1,"Warrior",from); local zv=Game.snapshot(z,1)
+    assert(table.find(zv.riverMoves[tostring(mover.id)],to :: number))
+    checkRiverMoves(z,1,zv)
+    -- No movement: no entry. Out of turn: nothing for either actor; the rival's units never appear.
+    mover.moves=0; assert(Game.snapshot(z,1).riverMoves[tostring(mover.id)]==nil)
+    local rivalView=Game.snapshot(z,2); assert(next(rivalView.riverMoves)==nil and not rivalView.canAct)
+    -- Generated maps (hex and sphere): both actors over several rounds of moves.
+    local total=0
+    local options: {any}={{humanPlayers=2,radius=12},{humanPlayers=2,mapShape="Sphere",frequency=8}}
+    for _, option in options do
+        local t: any=Game.new(19,option)
+        for _=1,6 do
+            for owner=1,2 do
+                total += checkRiverMoves(t,owner); assert(next(Game.snapshot(t,3-owner).riverMoves)==nil)
+                local tv=Game.snapshot(t,owner); local ids={}
+                for id in tv.legalMoves do table.insert(ids,tonumber(id) :: number) end; table.sort(ids)
+                for _, id in ids do
+                    local legal=Game.snapshot(t,owner).legalMoves[tostring(id)]
+                    if legal and #legal>0 then apply(t,owner,{kind="MoveUnit",unitId=id,tileId=legal[1+(id*7)%#legal]}) end
+                end
+                apply(t,owner,{kind="EndTurn"})
+            end
+        end
+    end
+    -- Payload: 169 unpaved scouts on generated Huge maps; riverMoves adds a small fraction of the snapshot.
+    local function bytes(v: any): number
+        local kind=type(v)
+        if kind=="number" then return #tostring(v) elseif kind=="string" then return #v+2 elseif kind=="boolean" then return if v then 4 else 5 end
+        if kind=="table" then local n=2; for key,child in v do n += (if type(key)=="string" then #key+3 else #tostring(key)+1)+bytes(child)+1 end; return n end
+        return 4
+    end
+    local huge: {any}={{radius=40,humanPlayers=2},{mapShape="Sphere",frequency=22,humanPlayers=2}}
+    for _, option in huge do
+        local h: any=Game.new(5,option)
+        local occupied: {[number]: boolean}={}; for _, u in h.units do occupied[u.tileId]=true end
+        local open={}; for _, tile in h.tiles do if passable(tile) and not occupied[tile.id] then table.insert(open,tile.id) end end
+        local stride=math.max(1,math.floor(#open/(Rules.maxUnits-#h.units)))
+        for i, id in open do if #h.units>=Rules.maxUnits then break end; if (i-1)%stride==0 then place(h,1,"Scout",id) end end
+        local started=os.clock(); local hv=Game.snapshot(h,1); local elapsed=os.clock()-started
+        local size,river=bytes(hv),bytes(hv.riverMoves); local units=0; for _ in hv.riverMoves do units += 1 end
+        assert(size<1500000 and elapsed<1.5 and river<0.05*size,"riverMoves payload "..river.." of "..size)
+        print(string.format("  %s Huge, %d units: snapshot %d bytes in %.0f ms, riverMoves %d bytes (%d units listed)",if option.mapShape then "Sphere" else "Hex",#h.units,size,elapsed*1000,river,units))
+    end
+    print(string.format("  riverMoves: equal to the previews' riverCrossing on fixtures and %d listed destinations over generated turns",total))
 end
 
 print("base features: rules, deterministic generation with symmetric river edges reaching water (pentagons included), yields, feature movement and river crossings equal to a reference search, feature defence and the river attack penalty in exact previews, improvements and founding, fog, pre-G4 saves and validation, deterministic AI replays and Huge-map payload passed")
