@@ -16,6 +16,7 @@ export type Command = {kind: "MoveUnit" | "RangedAttack", unitId: number, tileId
     | {kind: "ProposeTrade", targetId: number, giveGold: number, receiveGold: number}
     | {kind: "AcceptTrade" | "CancelTrade", tradeId: number} | {kind: "EndTurn"}
     | {kind: "PromoteUnit", unitId: number, promotion: string}
+    | {kind: "CityRangedStrike", cityId: number, targetUnitId: number}
 export type Tile = {id: number, x: number?, y: number?, terrain: string, resource: string?, ownerId: number?, improvement: string?, road: boolean?}
 -- `xp` and `promotions` are optional (absent means 0 and none). `level` counts the promotions taken.
 export type Unit = {id: number, ownerId: number, kind: string, tileId: number, hp: number, moves: number, fortified: boolean, level: number, xp: number?, promotions: {string}?, work: {improvement: string, remaining: number}?}
@@ -23,26 +24,36 @@ export type Unit = {id: number, ownerId: number, kind: string, tileId: number, h
 -- units carry `xp`, `nextLevelXp` (the next threshold, absent at the last level) and `promotionsAvailable` (the ids
 -- PromoteUnit accepts now, empty while the actor cannot act).
 export type UnitView = {id: number, ownerId: number, kind: string, tileId: number, hp: number, moves: number, fortified: boolean, level: number, promotions: {string}, xp: number?, nextLevelXp: number?, promotionsAvailable: {string}?, work: {improvement: string, remaining: number}?}
-export type City = {id: number, ownerId: number, originalOwnerId: number, capital: boolean, tileId: number, name: string, population: number, food: number, production: number, queue: string, hp: number, buildings: {string}, focus: string}
+-- `strikeTurn` is optional: the round whose ranged strike the city has used (it struck, or it was captured, that
+-- round). Absent means the city has never used one.
+export type City = {id: number, ownerId: number, originalOwnerId: number, capital: boolean, tileId: number, name: string, population: number, food: number, production: number, queue: string, hp: number, buildings: {string}, focus: string, strikeTurn: number?}
 export type Research = {id: string, progress: number, cost: number}
 export type Player = {id: number, human: boolean, gold: number, science: number, culture: number, happiness: number, technologies: {string}, policies: {string}, research: Research?, explored: {number}, resources: {[string]: number}, income: {food: number, production: number, gold: number, science: number, culture: number, maintenance: number}}
-export type Event = {id: number, kind: string, message: string, tileId: number?, unitId: number?, ownerId: number?, amount: number?, public: boolean?, cause: string?, byOwnerId: number?, unitKind: string?}
+export type Event = {id: number, kind: string, message: string, tileId: number?, unitId: number?, ownerId: number?, amount: number?, public: boolean?, cause: string?, byOwnerId: number?, unitKind: string?, cityId: number?}
 export type Diplomacy = {status: string, peaceOfferBy: number?, peaceUntil: number}
 export type Trade = {id: number, fromId: number, toId: number, giveGold: number, receiveGold: number, expires: number}
 export type TileView = {id: number, x: number?, y: number?, visible: boolean, explored: boolean, terrain: string?, resource: string?, ownerId: number?, improvement: string?, road: boolean?, food: number?, production: number?, gold: number?}
-export type CityView = {id: number, ownerId: number, originalOwnerId: number, capital: boolean, tileId: number, name: string, population: number, hp: number, food: number?, production: number?, queue: string?, buildings: {string}?, focus: string?}
+-- A city in a snapshot. Only the actor's own cities carry the economy fields and the city-combat fields: `strength`
+-- (combat strength), `rangedStrength` (what its strike uses), `strikeReady` (its strike for this round is unused),
+-- `canStrike` (ready, the actor can act now and at least one target is legal) and `strikeTargets` (the unit ids
+-- CityRangedStrike accepts now, ascending; empty while the actor cannot act).
+export type CityView = {id: number, ownerId: number, originalOwnerId: number, capital: boolean, tileId: number, name: string, population: number, hp: number, food: number?, production: number?, queue: string?, buildings: {string}?, focus: string?, strength: number?, rangedStrength: number?, strikeReady: boolean?, canStrike: boolean?, strikeTargets: {number}?}
 export type Statistics = {cities: number, units: number, population: number, technologies: number, policies: number}
 export type Progress = {cities: number, policies: number, era: number}
 export type AttackPreview = {unitId: number, tileId: number, target: string, ranged: boolean, exact: boolean, hiddenDefense: boolean, dealt: number?, received: number?, dealtMin: number, dealtMax: number, receivedMin: number, receivedMax: number, attackerHp: number, defenderHp: number, attackerDefeated: string, defenderDefeated: string, captures: string}
 -- One legal move: the path from the unit's tile (first) to the destination (last), the movement it spends and keeps,
 -- whether it ends the unit's movement and whether the zone of control ended it. Values are in moves (multiples of 1/6).
 export type MovePreview = {unitId: number, tileId: number, path: {number}, movesSpent: number, movesLeft: number, endsMovement: boolean, zoneOfControl: boolean}
+-- One legal city strike: the striking city, the target unit and its tile, the city's ranged strength, the exact damage
+-- (a strike is deterministic and reads only visible facts, so `exact` is always true), `received` (always 0: the
+-- city takes no damage), the target's hit points before the strike and whether it dies ("Yes" or "No").
+export type CityStrikePreview = {cityId: number, unitId: number, tileId: number, rangedStrength: number, exact: boolean, dealt: number, received: number, defenderHp: number, defenderDefeated: string}
 export type Technology = Rules.Technology
 export type Policy = Rules.Policy
 export type Promotion = Rules.Promotion
 export type State = {seed: number, radius: number?, mapShape: string?, frequency: number?, difficulty: string, humanPlayers: number, forest: boolean, maxTurns: number, cultureVictoryPolicies: number?, policyCostIncrease: number?, turn: number, revision: number, activePlayerId: number, phase: string, winner: number?, reason: string?, victoryType: string?, tiles: {Tile}, units: {Unit}, cities: {City}, players: {Player}, diplomacy: Diplomacy, trades: {Trade}, events: {Event}, nextEvent: number, nextUnit: number, nextCity: number, nextTrade: number, log: {string}}
 export type CityForecast = {food: number, production: number, gold: number, science: number, culture: number, growthTurns: number?, productionTurns: number?, productionBlocked: ("NotAvailable" | "NoSpace")?}
-export type View = {cityForecasts: {[string]: CityForecast}, seed: number?, radius: number?, mapShape: string?, frequency: number?, difficulty: string, humanPlayers: number, turn: number, revision: number, activePlayerId: number, actorId: number, canAct: boolean, phase: string, winner: number?, reason: string?, victoryType: string?, gold: number, science: number, culture: number, happiness: number, research: Research?, technologies: {string}, policies: {string}, resources: {[string]: number}, income: {food: number, production: number, gold: number, science: number, culture: number, maintenance: number}, tiles: {TileView}, units: {UnitView}, cities: {CityView}, events: {Event}, log: {string}, legalMoves: {[string]: {number}}, availableProduction: {string}, availableProductionByCity: {[string]: {string}}, availablePurchasesByCity: {[string]: {string}}, availableResearch: {Technology}, availablePolicies: {Policy}, availableImprovements: {[string]: {string}}, productionCosts: {[string]: number}, purchaseCosts: {[string]: number}, scores: {number}, statistics: {Statistics}, progress: {Progress}, cultureVictoryPolicies: number, policyCostIncrease: number, attackPreviews: {[string]: {AttackPreview}}, diplomacy: Diplomacy, trades: {Trade}, objectives: {string}}
+export type View = {cityForecasts: {[string]: CityForecast}, seed: number?, radius: number?, mapShape: string?, frequency: number?, difficulty: string, humanPlayers: number, turn: number, revision: number, activePlayerId: number, actorId: number, canAct: boolean, phase: string, winner: number?, reason: string?, victoryType: string?, gold: number, science: number, culture: number, happiness: number, research: Research?, technologies: {string}, policies: {string}, resources: {[string]: number}, income: {food: number, production: number, gold: number, science: number, culture: number, maintenance: number}, tiles: {TileView}, units: {UnitView}, cities: {CityView}, events: {Event}, log: {string}, legalMoves: {[string]: {number}}, availableProduction: {string}, availableProductionByCity: {[string]: {string}}, availablePurchasesByCity: {[string]: {string}}, availableResearch: {Technology}, availablePolicies: {Policy}, availableImprovements: {[string]: {string}}, productionCosts: {[string]: number}, purchaseCosts: {[string]: number}, scores: {number}, statistics: {Statistics}, progress: {Progress}, cultureVictoryPolicies: number, policyCostIncrease: number, attackPreviews: {[string]: {AttackPreview}}, cityStrikePreviews: {[string]: {CityStrikePreview}}, diplomacy: Diplomacy, trades: {Trade}, objectives: {string}}
 local BaseGame = {}
 local R: any = Rules
 local W: any = WorldMap
@@ -74,8 +85,8 @@ local function occupants(s: any): (any, any)
 end
 -- Event kinds the ring keeps longest (each player must reliably learn of its losses and the result).
 local RETAINED={UnitLost=true, CityLost=true, Eliminated=true, Victory=true}
-local function event(s: any, kind: string, message: string, tileId: number?, unitId: number?, ownerId: number?, amount: number?, public: boolean?, cause: string?, byOwnerId: number?, unitKind: string?)
-    table.insert(s.events, {id=s.nextEvent, kind=kind, message=message, tileId=tileId, unitId=unitId, ownerId=ownerId, amount=amount, public=public, cause=cause, byOwnerId=byOwnerId, unitKind=unitKind})
+local function event(s: any, kind: string, message: string, tileId: number?, unitId: number?, ownerId: number?, amount: number?, public: boolean?, cause: string?, byOwnerId: number?, unitKind: string?, cityId: number?)
+    table.insert(s.events, {id=s.nextEvent, kind=kind, message=message, tileId=tileId, unitId=unitId, ownerId=ownerId, amount=amount, public=public, cause=cause, byOwnerId=byOwnerId, unitKind=unitKind, cityId=cityId})
     s.nextEvent += 1
     if #s.events > 64 then
         -- One command (an EndTurn running the AI and both economies) can emit more than 64 events, so
@@ -408,25 +419,32 @@ local function promotionPercent(s: any, u: any, target: number, attacking: boole
     end
     return total
 end
+-- A unit's defence on the target tile against one strike (ranged or melee): max(3, strength) x (100 + terrain% +
+-- fortified% + promotion%)/100 x (0.5 + hp/200). Shared by unit strikes and city strikes.
+local function unitDefense(s: any, defender: any, target: number, rangedStrike: boolean): number
+    local terrain=R.terrains[s.tiles[target].terrain].defensePercent or 0
+    local modifier=terrain+(if defender.fortified then R.fortifyDefensePercent else 0)+promotionPercent(s,defender,target,false,rangedStrike,true)
+    return math.max(3,R.units[defender.kind].strength)*(100+modifier)/100*(0.5+defender.hp/200)
+end
 -- Deterministic damage for one strike, given the target city's building defence and the tile-to-unit occupancy.
--- Attack: base strength x (0.5 + hp/200) x (100 + flanking% + promotion%)/100; flanking applies only to melee
--- attacks on a defending unit. Defence of a unit: max(3, strength) x (100 + terrain% + fortified% + promotion%)/100
--- x (0.5 + hp/200); of an undefended city: (14 + population) x (100 + terrain%)/100. City buildings (Walls) add a
--- flat amount on top in both cases, so damage stays monotonic in the hidden building defence. `level` adds nothing
+-- Attack: base strength x (0.5 + hp/200) x (100 + flanking% + promotion% + siege%)/100; flanking applies only to melee
+-- attacks on a defending unit, siege only when the target tile holds an (enemy) city. Defence of a unit: see
+-- unitDefense; of an undefended city: (cityBaseStrength 14 + population) x (100 + terrain%)/100. City buildings (Walls)
+-- add a flat amount on top in both cases, so damage stays monotonic in the hidden building defence. `level` adds nothing
 -- itself (it was +3 strength per level before promotions); the promotions it counts carry the bonuses.
 local function strike(s: any, unit: any, defender: any, city: any, target: number, cityDefense: number, units: any): (number, number, boolean)
     local ranged=(R.units[unit.kind].range or 1)>1
     local attack=if ranged then R.units[unit.kind].rangedStrength else R.units[unit.kind].strength
     local flanking=if ranged or not defender then 0 else flankingPercent(s,unit,target,units)
     local promoted=promotionPercent(s,unit,target,true,ranged,defender~=nil)
-    attack=math.max(1,attack)*(0.5+unit.hp/200)*(100+flanking+promoted)/100
+    local siege=if city then R.units[unit.kind].siegePercent else 0
+    attack=math.max(1,attack)*(0.5+unit.hp/200)*(100+flanking+promoted+siege)/100
     local terrain=R.terrains[s.tiles[target].terrain].defensePercent or 0
     local defense: number
     if defender then
-        local modifier=terrain+(if defender.fortified then R.fortifyDefensePercent else 0)+promotionPercent(s,defender,target,false,ranged,true)
-        defense=math.max(3,R.units[defender.kind].strength)*(100+modifier)/100*(0.5+defender.hp/200)
+        defense=unitDefense(s,defender,target,ranged)
     else
-        defense=(14+(city.population or 1))*(100+terrain)/100
+        defense=(R.cityBaseStrength+(city.population or 1))*(100+terrain)/100
     end
     if city then defense += cityDefense end
     local dealt=math.clamp(math.floor(30*attack/math.max(1,defense)+0.5),8,65)
@@ -453,7 +471,8 @@ local function combat(s: any, unit: any, target: number)
         if city and city.ownerId~=unit.ownerId then
             if city.hp==0 then
                 local loser=city.ownerId
-                city.ownerId=unit.ownerId; city.hp=50; city.population=math.max(1,city.population-1); city.production=0; city.queue="Warrior"; city.food=0
+                -- A city captured this round cannot strike until the next round (its strike counts as used).
+                city.ownerId=unit.ownerId; city.hp=50; city.population=math.max(1,city.population-1); city.production=0; city.queue="Warrior"; city.food=0; city.strikeTurn=s.turn
                 local ids={target}; for _, id in mapFor(s).neighbors[target] do table.insert(ids,id) end
                 for _, id in ids do s.tiles[id].ownerId=unit.ownerId end
                 unit.tileId=target; event(s,"Capture","City captured.",target,unit.id,unit.ownerId)
@@ -487,6 +506,74 @@ local function previewFor(s: any, unit: any, target: number, units: any, cities:
         attackerHp=unit.hp,defenderHp=if defender then defender.hp else city.hp,
         attackerDefeated=outcome(attackerLow,attackerHigh),defenderDefeated=if defender then outcome(defenderLow,defenderHigh) else "No",
         captures=outcome(captureLow,captureHigh)}
+end
+-- City combat. A civilization's era is 1 + floor(technologies / 4) (1-5), the same coarse value `progress` makes public.
+local function era(s: any, owner: number): number return 1+math.floor(#s.players[owner].technologies/4) end
+-- A military unit (strength above zero) of the city's owner standing in the city adds garrisonPercent of its strength.
+local function garrisonStrength(city: any, units: any): number
+    local garrison=units[city.tileId]
+    if not garrison or garrison.ownerId~=city.ownerId or R.units[garrison.kind].strength<=0 then return 0 end
+    return math.floor(R.units[garrison.kind].strength*R.garrisonPercent/100)
+end
+-- City combat strength: cityBaseStrength + population + cityStrengthPerEra x (era - 1) + building defence (Walls) +
+-- garrison. Its ranged strike uses cityStrikePercent of it, rounded down. Both are whole numbers.
+local function cityStrength(s: any, city: any, units: any): number
+    return R.cityBaseStrength+city.population+R.cityStrengthPerEra*(era(s,city.ownerId)-1)+buildingDefense(city)+garrisonStrength(city,units)
+end
+local function cityRangedStrength(s: any, city: any, units: any): number
+    return math.floor(cityStrength(s,city,units)*R.cityStrikePercent/100)
+end
+-- One strike per round: `strikeTurn` records the round whose strike the city used (by striking or by being captured).
+local function strikeReady(s: any, city: any): boolean return city.strikeTurn~=s.turn end
+-- A legal city strike target: an enemy unit at war, on a tile the city's owner can see, within cityStrikeRange of the
+-- city and not inside a city (cities stand at least three apart, so that only matters for hand-made states).
+local function strikeTargetAllowed(s: any, city: any, target: any, seen: any, cities: any): boolean
+    return s.diplomacy.status=="War" and target.ownerId~=city.ownerId and seen[target.tileId]==true and cities[target.tileId]==nil
+        and W.inRange(mapFor(s),city.tileId,target.tileId,R.cityStrikeRange)
+end
+local function cityStrikeTargets(s: any, city: any, seen: any, units: any, cities: any): {number}
+    local ids={}
+    if s.diplomacy.status~="War" then return ids end
+    for _, tileId in nearby(s,city.tileId,R.cityStrikeRange) do
+        local target=units[tileId]
+        if target and strikeTargetAllowed(s,city,target,seen,cities) then table.insert(ids,target.id) end
+    end
+    table.sort(ids); return ids
+end
+-- Damage of a city strike: the unit-strike damage formula with the city's ranged strength as the attack (a city's
+-- damage does not weaken it, so there is no health factor) against the target's defence to a ranged strike, so Cover,
+-- fortification, terrain and Drill/Shock on the target's tile all count. The city takes no damage.
+local function cityStrikeDamage(s: any, city: any, target: any, units: any): number
+    local attack=math.max(1,cityRangedStrength(s,city,units))
+    return math.clamp(math.floor(30*attack/math.max(1,unitDefense(s,target,target.tileId,true))+0.5),8,65)
+end
+-- The fog-safe preview of one strike. It reads the actor's own city and garrison, the owner's era and the visible
+-- target (kind, hp, fortification, promotions) and terrain, and calls the same damage function as the strike.
+local function cityStrikePreviewFor(s: any, city: any, target: any, units: any): CityStrikePreview
+    local dealt=cityStrikeDamage(s,city,target,units)
+    return {cityId=city.id,unitId=target.id,tileId=target.tileId,rangedStrength=cityRangedStrength(s,city,units),exact=true,dealt=dealt,received=0,
+        defenderHp=target.hp,defenderDefeated=if target.hp-dealt<=0 then "Yes" else "No"}
+end
+-- A city strike: damages the target, uses the city's strike for this round and gives the target the experience of a
+-- unit hit by a ranged attack (cities have none; civilians gain none). A target reduced to 0 hit points dies.
+local function cityStrike(s: any, city: any, target: any, units: any)
+    local dealt=cityStrikeDamage(s,city,target,units)
+    city.strikeTurn=s.turn; target.hp -= dealt
+    gainExperience(target,R.experience.rangedDefense)
+    event(s,"CityStrike","City strike dealt "..dealt.." damage.",target.tileId,target.id,city.ownerId,dealt,nil,nil,nil,target.kind,city.id)
+    if target.hp<=0 then removeUnit(s,target.id); unitLost(s,target,target.tileId,"CityStrike",city.ownerId,dealt) end
+end
+-- The AI's choice for one ready city: a target the strike kills first, then a military unit over a civilian, then the
+-- target left with the fewest hit points; ties go to the lowest unit id.
+local function aiCityStrike(s: any, city: any)
+    local seen=visible(s,city.ownerId); local units,cities=occupants(s)
+    local best: any=nil; local bestRank=-math.huge
+    for _, id in cityStrikeTargets(s,city,seen,units,cities) do
+        local target=unitById(s,id); local dealt=cityStrikeDamage(s,city,target,units)
+        local rank=(if dealt>=target.hp then 2000 else 0)+(if R.units[target.kind].strength>0 then 1000 else 0)-math.max(0,target.hp-dealt)
+        if rank>bestRank then best=target; bestRank=rank end
+    end
+    if best then cityStrike(s,city,best,units) end
 end
 local function moveUnit(s: any, unit: any, target: number): boolean
     local seen=visible(s,unit.ownerId)
@@ -680,6 +767,10 @@ local function ai(s: any, owner: number)
         end
     end
     if s.diplomacy.status=="Peace" and s.turn>=15 and s.turn>=s.diplomacy.peaceUntil and s.turn%5==0 then s.diplomacy.status="War"; s.diplomacy.peaceOfferBy=nil; s.trades={}; event(s,"War","War declared.",nil,nil,nil,nil,true) end
+    -- Each ready city strikes first, in city id order, so the units that act next can finish weakened targets.
+    local strikers: {any}={}; for _, c in s.cities do if c.ownerId==owner and strikeReady(s,c) then table.insert(strikers,c) end end
+    table.sort(strikers,function(a: any,b: any) return a.id<b.id end)
+    for _, c in strikers do aiCityStrike(s,c) end
     local units={}; for _, u in s.units do if u.ownerId==owner then table.insert(units,u.id) end end
     for _, id in units do
         local u=unitById(s,id); if not u then continue end
@@ -783,7 +874,7 @@ function BaseGame.new(seed: number?, options: Options?): State
     refreshVision(s); refreshEconomyState(s); return s :: State
 end
 local function finiteId(value: any): boolean return type(value)=="number" and value==value and value%1==0 and value>=1 and value<=1000000 end
-local schemas: any={MoveUnit={unitId=true,tileId=true},RangedAttack={unitId=true,tileId=true},FoundCity={unitId=true},FortifyUnit={unitId=true},UpgradeUnit={unitId=true},BuildImprovement={unitId=true,improvement=true},SetProduction={cityId=true,item=true},Purchase={cityId=true,item=true},SetCityFocus={cityId=true,focus=true},Research={technology=true},AdoptPolicy={policy=true},DeclareWar={targetId=true},OfferPeace={targetId=true},AcceptPeace={targetId=true},ProposeTrade={targetId=true,giveGold=true,receiveGold=true},AcceptTrade={tradeId=true},CancelTrade={tradeId=true},EndTurn={},PromoteUnit={unitId=true,promotion=true}}
+local schemas: any={MoveUnit={unitId=true,tileId=true},RangedAttack={unitId=true,tileId=true},FoundCity={unitId=true},FortifyUnit={unitId=true},UpgradeUnit={unitId=true},BuildImprovement={unitId=true,improvement=true},SetProduction={cityId=true,item=true},Purchase={cityId=true,item=true},SetCityFocus={cityId=true,focus=true},Research={technology=true},AdoptPolicy={policy=true},DeclareWar={targetId=true},OfferPeace={targetId=true},AcceptPeace={targetId=true},ProposeTrade={targetId=true,giveGold=true,receiveGold=true},AcceptTrade={tradeId=true},CancelTrade={tradeId=true},EndTurn={},PromoteUnit={unitId=true,promotion=true},CityRangedStrike={cityId=true,targetUnitId=true}}
 function BaseGame.apply(state: State, actorId: number, command: Command): {ok: boolean, message: string}
     local s: any=state; local cmd: any=command
     local function reject(message: string): {ok: boolean,message: string} return {ok=false,message=message} end
@@ -828,6 +919,13 @@ function BaseGame.apply(state: State, actorId: number, command: Command): {ok: b
         if cmd.kind=="SetCityFocus" then
             if not has({"Balanced","Food","Production","Gold","Science","Culture"},cmd.focus) or c.focus==cmd.focus then return reject("Choose a different valid city focus.") end
             c.focus=cmd.focus
+        elseif cmd.kind=="CityRangedStrike" then
+            if not finiteId(cmd.targetUnitId) then return reject("Invalid unit identifier.") end
+            if not strikeReady(s,c) then return reject("This city has used its strike this round.") end
+            -- One message for a missing, hidden, friendly, out-of-range or peaceful target, so nothing hidden is revealed.
+            local units,cities=occupants(s); local target=unitById(s,cmd.targetUnitId)
+            if not target or not strikeTargetAllowed(s,c,target,visible(s,actorId),cities) then return reject("Choose a visible enemy unit within the city's range.") end
+            cityStrike(s,c,target,units)
         else
             if type(cmd.item)~="string" or not productionAvailable(s,c,cmd.item) then return reject("Production item is unavailable.") end
             if cmd.kind=="Purchase" then
@@ -920,8 +1018,20 @@ function BaseGame.snapshot(state: State, actorId: number): View
             improvements[tostring(u.id)]=choices
         end
     end
+    local strikePreviews={}
     for _, c in s.cities do
-        if c.ownerId==actorId then table.insert(cities,copy(c))
+        if c.ownerId==actorId then
+            -- City combat for the actor's own cities: strength, readiness and the strikes it can make now.
+            local view=copy(c); view.strikeTurn=nil
+            local ready=strikeReady(s,c); local targets: {number}={}; local list={}
+            if canAct and ready then
+                targets=cityStrikeTargets(s,c,seen,occupancyUnits,occupancyCities)
+                for _, id in targets do table.insert(list,cityStrikePreviewFor(s,c,unitById(s,id),occupancyUnits)) end
+            end
+            view.strength=cityStrength(s,c,occupancyUnits); view.rangedStrength=cityRangedStrength(s,c,occupancyUnits)
+            view.strikeReady=ready; view.canStrike=#targets>0; view.strikeTargets=targets
+            strikePreviews[tostring(c.id)]=list
+            table.insert(cities,view)
         elseif seen[c.tileId] then table.insert(cities,{id=c.id,ownerId=c.ownerId,tileId=c.tileId,name=c.name,population=c.population,hp=c.hp,capital=c.capital,originalOwnerId=c.originalOwnerId}) end
     end
     for _, e in s.events do if e.public or e.ownerId==actorId then table.insert(events,copy(e)) elseif e.tileId and seen[e.tileId] then table.insert(events,copy(e)) end end
@@ -951,7 +1061,7 @@ function BaseGame.snapshot(state: State, actorId: number): View
     for owner=1,2 do
         local cityCount=0; for _, c in s.cities do if c.ownerId==owner then cityCount += 1 end end
         local player=s.players[owner]
-        progress[owner]={cities=cityCount,policies=#player.policies,era=1+math.floor(#player.technologies/4)}
+        progress[owner]={cities=cityCount,policies=#player.policies,era=era(s,owner)}
     end
     local threshold=cultureThreshold(s)
     -- Per-city forecast for the actor's own cities: what the next economy step adds, and turns to grow and to finish
@@ -987,7 +1097,7 @@ function BaseGame.snapshot(state: State, actorId: number): View
                 productionTurns=turns,productionBlocked=blocked}
         end
     end
-    return {cityForecasts=forecasts,seed=if s.humanPlayers==1 or s.phase=="Finished" then s.seed else nil,radius=s.radius,mapShape=s.mapShape,frequency=s.frequency,difficulty=s.difficulty,humanPlayers=s.humanPlayers,turn=s.turn,revision=s.revision,activePlayerId=s.activePlayerId,actorId=actorId,canAct=canAct,phase=s.phase,winner=s.winner,reason=s.reason,victoryType=s.victoryType,gold=p.gold,science=p.science,culture=p.culture,happiness=p.happiness,research=copy(p.research),technologies=copy(p.technologies),policies=copy(p.policies),resources=copy(resourceInventory(s,actorId)),income=copy(p.income),tiles=tiles,units=units,cities=cities,events=events,log={},legalMoves=legal,availableProduction=production,availableProductionByCity=productionByCity,availablePurchasesByCity=purchasesByCity,availableResearch=research,availablePolicies=policies,availableImprovements=improvements,productionCosts=copy(R.productionCosts),purchaseCosts=copy(R.purchaseCosts),scores=score,statistics=stats,progress=progress,cultureVictoryPolicies=threshold,policyCostIncrease=s.policyCostIncrease or 0,attackPreviews=previews,diplomacy=copy(s.diplomacy),trades=copy(s.trades),objectives={"Found cities, develop resources and maintain happiness.","Control both original capitals for domination.","Build SpaceProject after Rocketry for science victory.","Adopt "..threshold.." "..(if threshold==1 then "policy" else "policies").." for culture victory.","Highest score wins at the round limit; ties favor civilization 1."}}
+    return {cityForecasts=forecasts,seed=if s.humanPlayers==1 or s.phase=="Finished" then s.seed else nil,radius=s.radius,mapShape=s.mapShape,frequency=s.frequency,difficulty=s.difficulty,humanPlayers=s.humanPlayers,turn=s.turn,revision=s.revision,activePlayerId=s.activePlayerId,actorId=actorId,canAct=canAct,phase=s.phase,winner=s.winner,reason=s.reason,victoryType=s.victoryType,gold=p.gold,science=p.science,culture=p.culture,happiness=p.happiness,research=copy(p.research),technologies=copy(p.technologies),policies=copy(p.policies),resources=copy(resourceInventory(s,actorId)),income=copy(p.income),tiles=tiles,units=units,cities=cities,events=events,log={},legalMoves=legal,availableProduction=production,availableProductionByCity=productionByCity,availablePurchasesByCity=purchasesByCity,availableResearch=research,availablePolicies=policies,availableImprovements=improvements,productionCosts=copy(R.productionCosts),purchaseCosts=copy(R.purchaseCosts),scores=score,statistics=stats,progress=progress,cultureVictoryPolicies=threshold,policyCostIncrease=s.policyCostIncrease or 0,attackPreviews=previews,cityStrikePreviews=strikePreviews,diplomacy=copy(s.diplomacy),trades=copy(s.trades),objectives={"Found cities, develop resources and maintain happiness.","Control both original capitals for domination.","Build SpaceProject after Rocketry for science victory.","Adopt "..threshold.." "..(if threshold==1 then "policy" else "policies").." for culture victory.","Highest score wins at the round limit; ties favor civilization 1."}}
 end
 -- Pure, fog-safe query for one attack the actor's unit could make now. It never mutates the
 -- state and answers the same generic message for hidden, empty or out-of-range targets.
@@ -1000,6 +1110,19 @@ function BaseGame.previewAttack(state: State, actorId: number, unitId: number, t
     local units,cities=occupants(s)
     if not attackable(s,u,tileId,visible(s,actorId),units,cities) then return nil,"Choose a visible enemy within attack range." end
     return previewFor(s,u,tileId,units,cities),nil
+end
+-- Pure, fog-safe query for one strike the actor's city could make now (a `strikeTargets` entry): the same damage the
+-- CityRangedStrike command applies. It never mutates the state, ignores turn ownership and gives one message for a
+-- missing, hidden, friendly, out-of-range or peaceful target.
+function BaseGame.previewCityStrike(state: State, actorId: number, cityId: number, targetUnitId: number): (CityStrikePreview?, string?)
+    local s: any=state
+    if (actorId~=1 and actorId~=2) or s.phase~="Playing" then return nil,"No city strike preview is available." end
+    if not finiteId(cityId) or not finiteId(targetUnitId) then return nil,"No city strike preview is available." end
+    local c=cityById(s,cityId); if not c or c.ownerId~=actorId then return nil,"Select your city." end
+    if not strikeReady(s,c) then return nil,"This city has used its strike this round." end
+    local units,cities=occupants(s); local target=unitById(s,targetUnitId)
+    if not target or not strikeTargetAllowed(s,c,target,visible(s,actorId),cities) then return nil,"Choose a visible enemy unit within the city's range." end
+    return cityStrikePreviewFor(s,c,target,units),nil
 end
 -- Pure, fog-safe query for one move the actor's unit could make now (any destination in its `legalMoves` that is
 -- not an attack target): the same search MoveUnit applies, so the preview's path and remaining movement equal the
