@@ -11,10 +11,21 @@ const directory=path.dirname(fileURLToPath(import.meta.url));
 const root=path.resolve(directory,'../..');
 const baselinePath=path.join(directory,'baseline.json');
 const update=process.env.GOLDEN_UPDATE==='1';
+if(update&&(process.env.CI||process.env.GITHUB_ACTIONS==='true')) {
+  console.error('GOLDEN_UPDATE is not allowed in CI; regenerate the baseline locally and commit it');
+  process.exit(1);
+}
 // Updates always run the full matrix, so a default invocation cannot erase unselected baselines.
 const full=update||process.env.GOLDEN_FULL==='1';
 if(update)console.warn('WARNING: GOLDEN_UPDATE=1 — replacing ALL golden hashes. Explain every behavioural change in the PR.');
-const baseline=update?null:JSON.parse(fs.readFileSync(baselinePath,'utf8'));
+let baseline=null;
+if(!update) {
+  try {baseline=JSON.parse(fs.readFileSync(baselinePath,'utf8'));}
+  catch(error) {
+    console.error(`Cannot read committed golden baseline: ${error.message}`);
+    process.exit(1);
+  }
+}
 const started=performance.now();
 const games=[];
 let config, expectedIds, failure, pending='';
