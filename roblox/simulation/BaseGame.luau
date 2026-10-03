@@ -1,6 +1,6 @@
 --!strict
 -- Generated module-only Roblox form. Source: src/simulation/BaseGame.luau
--- Source SHA-256: 3314e2327dd183d9c68fde2be004147101bfe2919a1967ffb7b68ab8d9f81ae8
+-- Source SHA-256: 481f9af58e7d728d62b8783899a3cf32a295f2f60e5e9f5d321fd1fcb4642729
 -- Reproduce with tools/roblox-export.mjs; preserve MPL notices below.
 -- Covered source: https://github.com/RoryODonovan/unciv-luau
 -- This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
@@ -1342,7 +1342,8 @@ end
 -- units than cities plus one), its wonder (when already racing for it), happiness buildings (when needed), the economy
 -- list with a settler after the Monument (fewer than three cities, no settler yet), its planned wonder, then the upkeep
 -- fallback: a military unit while the AI can pay for one, otherwise a worker (while it has fewer than two workers per
--- city, as workers cost no upkeep), then a military unit after all (a queue always holds something the city can build).
+-- city, as workers cost no upkeep), then a military unit after all. An idle city then tries every legal building and
+-- unit before keeping a blocked Warrior when nothing is currently available.
 local AI_ECONOMY={"Monument","Granary","Library","Market","Forge","Workshop","Aqueduct","University","Bank","Observatory","StockExchange","Factory","Hospital","PowerPlant","ResearchLab"}
 local AI_CONTENT=1
 local AI_THREAT_RADIUS=3
@@ -1355,6 +1356,15 @@ local AI_THREAT_RADIUS=3
 local AI_GOLD_RESERVE=60
 -- The AI upgrades a unit standing in its own territory when its gold stays at AI_UPGRADE_RESERVE or more afterwards.
 local AI_UPGRADE_RESERVE=40
+-- Exhausted priorities do not imply exhausted legal choices. Prefer the cheapest remaining building (including
+-- wonders), ties by id, then any available unit in rule order before retaining a blocked Warrior queue.
+local aiFallbackItems: {string}=table.clone(R.buildingOrder)
+table.sort(aiFallbackItems,function(a: string,b: string): boolean
+    local x,y=R.buildings[a],R.buildings[b]
+    if x.cost~=y.cost then return x.cost<y.cost end
+    return a<b
+end)
+for _, id in R.unitOrder do table.insert(aiFallbackItems,id) end
 local aiHappinessBuildings: {string}, aiDefenseBuildings: {string}={},{}
 for _, id in R.buildingOrder do
     local rule=R.buildings[id]
@@ -1464,6 +1474,9 @@ aiProduction = function(s: any, owner: number, idleOnly: boolean?)
         if unit then table.insert(priorities,unit) end
         local previous=c.queue
         for _, item in priorities do if canChoose(s,c,item,stock) then c.queue=item; break end end
+        if c.queue=="" then
+            for _, item in aiFallbackItems do if canChoose(s,c,item,stock) then c.queue=item; break end end
+        end
         -- At the global unit cap with every eligible building finished, no choice is available now. Keep a real
         -- repeatable unit queued (blocked until space returns), just as a non-idle AI city's existing queue is kept.
         if c.queue=="" then c.queue="Warrior" end

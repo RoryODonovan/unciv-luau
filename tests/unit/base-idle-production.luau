@@ -84,12 +84,12 @@ do
     assert(city.queue~="" and Rules.productionCosts[city.queue],"AI completion selects a real next item before turn end")
     assert(Save.valid(Game.serialize(s)))
 end
--- Even when every available building is finished and the unit cap blocks every unit, an AI keeps a real queue.
-do
+-- Leave an optional building outside the AI's ordinary priorities while the global cap blocks every unit.
+local function cappedFixture(remaining: string?): (any,any)
     local s: any=Game.new(42,{radius=10,barbarians=false})
     local city=s.cities[1]; city.queue=""; city.production=9
     for _,id in Rules.technologyOrder do if id~=Rules.scienceVictoryTechnology then table.insert(s.players[2].technologies,id) end end
-    for _,id in Rules.buildingOrder do if id~=Rules.scienceVictoryBuilding then table.insert(city.buildings,id) end end
+    for _,id in Rules.buildingOrder do if id~=Rules.scienceVictoryBuilding and id~=remaining then table.insert(city.buildings,id) end end
     s.players[2].gold=10000
     local used={}; for _,u in s.units do used[u.tileId]=true end
     for _,tile in s.tiles do
@@ -100,6 +100,24 @@ do
         s.nextUnit += 1
     end
     assert(#s.units==Rules.maxUnits and Save.valid(Game.serialize(s)))
+    return s,city
+end
+for _,item in {"Walls","Temple"} do
+    local s,city=cappedFixture(item)
+    -- Keep the legal building queued long enough to observe it after the economy step.
+    city.production=0; city.focus="Science"; s.players[2].income.gold=0
+    local view=Game.snapshot(s,2)
+    assert(table.find(view.availableProductionByCity[tostring(city.id)],item),item.." is legal at the unit cap")
+    assert(view.cityForecasts[tostring(city.id)].production<Rules.productionCosts[item],"fixture cannot finish "..item.." in one turn")
+    apply(s,1,{kind="EndTurn"})
+    assert(city.queue==item and #s.units==Rules.maxUnits,"AI queues remaining "..item.." instead of blocked Warrior")
+    local f=Game.snapshot(s,2).cityForecasts[tostring(city.id)]
+    assert(f.productionBlocked==nil and f.productionTurns~=nil)
+    assert(Save.valid(Game.serialize(s)))
+end
+-- Even when every available building is finished and the unit cap blocks every unit, an AI keeps a real queue.
+do
+    local s,city=cappedFixture(nil)
     apply(s,1,{kind="EndTurn"})
     assert(city.queue=="Warrior" and #s.units==Rules.maxUnits,"AI keeps a repeatable item blocked by the unit cap")
     local f=Game.snapshot(s,2).cityForecasts[tostring(city.id)]
