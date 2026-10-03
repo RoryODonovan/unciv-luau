@@ -1,6 +1,6 @@
 --!strict
 -- Generated module-only Roblox form. Source: src/simulation/BaseRules.luau
--- Source SHA-256: 02ffbca45019213b42b6d8bda8f187020be5d181e63908f3b45fd7f918fc792b
+-- Source SHA-256: 26e5274c65628d4996b33d21e2f4e5a5a914e020dcaeee8e46c7d23ee63ba71e
 -- Reproduce with tools/roblox-export.mjs; preserve MPL notices below.
 -- Covered source: https://github.com/RoryODonovan/unciv-luau
 -- This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
@@ -11,8 +11,9 @@
 -- Original bounded civilization balance; no copied Unciv ruleset or media.
 export type Yields = {food: number, production: number, gold: number, science: number, culture: number}
 -- unitClass: "Melee" (strength above zero, range 1; Scouts included), "Ranged" (range above 1) or "Civilian" (strength 0).
--- It decides which promotions a unit may take.
-export type UnitRule = {id: string, cost: number, purchaseCost: number, hp: number, moves: number, strength: number, rangedStrength: number, range: number, maintenance: number, technology: string?, resource: string?, resourceAmount: number?, upgradeTo: string?, unitClass: string}
+-- It decides which promotions a unit may take. siegePercent is added to the unit's attack when it strikes a tile holding
+-- an enemy city (Civ V's siege bonus against cities); it is 0 for every unit except the Catapult.
+export type UnitRule = {id: string, cost: number, purchaseCost: number, hp: number, moves: number, strength: number, rangedStrength: number, range: number, maintenance: number, technology: string?, resource: string?, resourceAmount: number?, upgradeTo: string?, unitClass: string, siegePercent: number}
 export type BuildingRule = {id: string, cost: number, purchaseCost: number, maintenance: number, technology: string?, yields: Yields, happiness: number, defense: number}
 export type Technology = {id: string, name: string, cost: number, prerequisites: {string}}
 export type Policy = {id: string, name: string, cost: number, prerequisites: {string}, yields: Yields, happiness: number, maintenanceDiscount: number}
@@ -38,13 +39,15 @@ end
 local units: {[string]: UnitRule} = {}
 local function unit(id: string, cost: number, hp: number, moves: number, strength: number, technology: string?, rangedStrength: number?, range: number?, resource: string?)
     local class=if strength<=0 then "Civilian" elseif (range or 1)>1 then "Ranged" else "Melee"
-    units[id] = {id=id,cost=cost,purchaseCost=cost*4,hp=hp,moves=moves,strength=strength,rangedStrength=rangedStrength or 0,range=range or 1,maintenance=if strength > 0 then 1 else 0,technology=technology,resource=resource,resourceAmount=if resource then 1 else nil,unitClass=class}
+    units[id] = {id=id,cost=cost,purchaseCost=cost*4,hp=hp,moves=moves,strength=strength,rangedStrength=rangedStrength or 0,range=range or 1,maintenance=if strength > 0 then 1 else 0,technology=technology,resource=resource,resourceAmount=if resource then 1 else nil,unitClass=class,siegePercent=0}
 end
 unit("Scout",9,60,3,4); unit("Warrior",12,100,2,10); unit("Settler",24,50,2,0); unit("Worker",16,50,2,0)
 unit("Archer",18,70,2,5,"Archery",12,2); unit("Swordsman",28,100,2,18,"IronWorking",nil,nil,"Iron")
 unit("Pikeman",30,100,2,20,"CivilService"); unit("Knight",42,100,3,26,"CivilService",nil,nil,"Horses")
 unit("Catapult",32,65,2,5,"Engineering",22,2); unit("Musketman",48,100,2,30,"Gunpowder"); unit("Rifleman",62,100,2,42,"Rifling")
 units.Warrior.upgradeTo="Swordsman"; units.Swordsman.upgradeTo="Musketman"; units.Musketman.upgradeTo="Rifleman"
+-- The Catapult is the roster's siege unit: +50% attack against cities.
+units.Catapult.siegePercent=50
 local buildings: {[string]: BuildingRule} = {}
 local function building(id: string, cost: number, maintenance: number, technology: string?, effect: Yields, happiness: number?, defense: number?)
     buildings[id]={id=id,cost=cost,purchaseCost=cost*4,maintenance=maintenance,technology=technology,yields=effect,happiness=happiness or 0,defense=defense or 0}
@@ -137,6 +140,12 @@ local rules = {
     promotions=promotions,promotionOrder={"Drill1","Drill2","Shock1","Shock2","Accuracy1","Cover1","Medic"},
     -- Taking a promotion heals this percentage of the unit's maximum hit points and ends its movement this turn.
     promotionHealPercent=50,
+    -- City combat. A city's combat strength is cityBaseStrength + population + cityStrengthPerEra x (era - 1) + its
+    -- buildings' defence (Walls) + garrisonPercent of the strength of a military unit standing in it (rounded down).
+    -- An undefended city still defends with (cityBaseStrength + population) x terrain percentage, plus Walls.
+    -- Once per round a city may strike a visible enemy unit within cityStrikeRange with cityStrikePercent of its
+    -- combat strength (rounded down) as its ranged strength; it takes no damage and gains no experience.
+    cityBaseStrength=14,cityStrengthPerEra=3,garrisonPercent=25,cityStrikeRange=2,cityStrikePercent=60,
 }
 freeze(rules)
 return rules

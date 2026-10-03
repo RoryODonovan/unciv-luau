@@ -158,9 +158,12 @@ function BaseSave.valid(saved: any): boolean
     local cities,cityTiles,capitalOwners={},{},{}
     local focuses={Balanced=true,Food=true,Production=true,Gold=true,Science=true,Culture=true}
     for _,c in s.cities do
-        if not object(c,"id ownerId originalOwnerId capital tileId name population food production queue hp buildings focus") or not id(c.id) or c.id>=s.nextCity or cities[c.id] or not owner(c.ownerId) or not owner(c.originalOwnerId) or type(c.capital)~="boolean" or not integer(c.tileId,1,#s.tiles) or cityTiles[c.tileId] then return false end
+        if not object(c,"id ownerId originalOwnerId capital tileId name population food production queue hp buildings focus strikeTurn") or not id(c.id) or c.id>=s.nextCity or cities[c.id] or not owner(c.ownerId) or not owner(c.originalOwnerId) or type(c.capital)~="boolean" or not integer(c.tileId,1,#s.tiles) or cityTiles[c.tileId] then return false end
         if not text(c.name,80) or not integer(c.population,1,100) or not integer(c.food,0,1000000) or not integer(c.production,0,1000000) or not integer(c.hp,0,Rules.cityHp) or type(c.queue)~="string" or not Rules.productionCosts[c.queue] or type(c.focus)~="string" or not (focuses :: any)[c.focus] or not strings(c.buildings,Rules.buildings,#Rules.buildingOrder) then return false end
         if not Rules.terrains[tiles[c.tileId].terrain].passable or tiles[c.tileId].ownerId~=c.ownerId or table.find(c.buildings,c.queue) or (occupancy[c.tileId] and occupancy[c.tileId].ownerId~=c.ownerId) then return false end
+        -- Optional city-combat field (absent in saves written before it: the city has never used a strike): the round
+        -- whose ranged strike the city used, never later than the current round.
+        if c.strikeTurn~=nil and not integer(c.strikeTurn,1,s.turn) then return false end
         if c.capital then if capitalOwners[c.originalOwnerId] then return false end; capitalOwners[c.originalOwnerId]=true end
         cities[c.id]=c; cityTiles[c.tileId]=true
     end
@@ -175,11 +178,11 @@ function BaseSave.valid(saved: any): boolean
     end
     if not array(s.log,24) or not array(s.events,64) then return false end
     for _,message in s.log do if not text(message,256) then return false end end
-    local kinds={Move=true,Attack=true,Capture=true,FoundCity=true,Production=true,Research=true,Growth=true,Starvation=true,Victory=true,Purchase=true,Upgrade=true,Improvement=true,Policy=true,War=true,Peace=true,Trade=true,Defeat=true,RangedAttack=true,Disband=true,UnitLost=true,CityLost=true,Eliminated=true,Promotion=true}
-    local causes={Combat=true,Ranged=true,Upkeep=true,Captured=true,NoCities=true,NeverFounded=true,CapitalsLost=true}
+    local kinds={Move=true,Attack=true,Capture=true,FoundCity=true,Production=true,Research=true,Growth=true,Starvation=true,Victory=true,Purchase=true,Upgrade=true,Improvement=true,Policy=true,War=true,Peace=true,Trade=true,Defeat=true,RangedAttack=true,Disband=true,UnitLost=true,CityLost=true,Eliminated=true,Promotion=true,CityStrike=true}
+    local causes={Combat=true,Ranged=true,Upkeep=true,Captured=true,NoCities=true,NeverFounded=true,CapitalsLost=true,CityStrike=true}
     local previous=0
     for _,e in s.events do
-        if not object(e,"id kind message tileId unitId ownerId amount public cause byOwnerId unitKind") or not integer(e.id,previous+1,s.nextEvent-1) or type(e.kind)~="string" or not (kinds :: any)[e.kind] or not text(e.message,256) then return false end
+        if not object(e,"id kind message tileId unitId ownerId amount public cause byOwnerId unitKind cityId") or not integer(e.id,previous+1,s.nextEvent-1) or type(e.kind)~="string" or not (kinds :: any)[e.kind] or not text(e.message,256) then return false end
         if e.tileId~=nil and not integer(e.tileId,1,#s.tiles) then return false end
         if e.unitId~=nil and (not id(e.unitId) or e.unitId>=s.nextUnit) then return false end
         if e.ownerId~=nil and not owner(e.ownerId) then return false end
@@ -188,6 +191,7 @@ function BaseSave.valid(saved: any): boolean
         if e.cause~=nil and (type(e.cause)~="string" or not (causes :: any)[e.cause]) then return false end
         if e.byOwnerId~=nil and not owner(e.byOwnerId) then return false end
         if e.unitKind~=nil and (type(e.unitKind)~="string" or not Rules.units[e.unitKind]) then return false end
+        if e.cityId~=nil and (not id(e.cityId) or e.cityId>=s.nextCity) then return false end
         previous=e.id
     end
     if #s.events==0 then if s.nextEvent~=1 then return false end
