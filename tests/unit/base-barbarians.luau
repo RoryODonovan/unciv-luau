@@ -108,9 +108,9 @@ end
 local function reference(attackerKind: string,attackerHp: number,defenderKind: string,defenderHp: number,terrain: string,fortified: boolean,flankers: number): (number,number)
     local a=Rules.units[attackerKind]; local d=Rules.units[defenderKind]
     local ranged=a.range>1
-    local attack=math.max(1,if ranged then a.rangedStrength else a.strength)*(0.5+attackerHp/200)*(100+(if ranged then 0 else math.min(30,10*flankers)))/100
+    local attack=math.max(1,if ranged then a.rangedStrength else a.attack)*(0.5+attackerHp/200)*(100+(if ranged then 0 else math.min(30,10*flankers)))/100
     local percent=(if terrain=="Hills" then 25 else 0)+(if fortified then 50 else 0)
-    local defense=math.max(3,d.strength)*(100+percent)/100*(0.5+defenderHp/200)
+    local defense=math.max(3,d.defense)*(100+percent)/100*(0.5+defenderHp/200)
     local dealt=math.clamp(math.floor(30*attack/math.max(1,defense)+0.5),8,65)
     local received=if ranged or d.strength==0 then 0 else math.clamp(math.floor(25*defense/attack+0.5),8,65)
     return dealt,received
@@ -122,7 +122,8 @@ do
     assert(B.unitsPerCamp==3 and B.maxUnits==30 and B.campCityDistance==4 and B.campSpacing==4 and B.huntRadius==5 and B.leashRadius==4)
     assert(B.campGold==25 and B.maxExperience==30 and B.healing==10)
     assert(B.difficultyPercent.Easy==150 and B.difficultyPercent.Normal==100 and B.difficultyPercent.Hard==75)
-    assert(#B.eraUnits==5)
+    -- One list per era (G7: six eras).
+    assert(#B.eraUnits==#Rules.eras and #Rules.eras==6)
     for _, list in B.eraUnits do
         assert(#list>=2)
         for _, kind in list do assert(Rules.units[kind] and Rules.units[kind].strength>0,"barbarian kinds are military") end
@@ -192,8 +193,10 @@ do
                 for owner=1,2 do for _, v in Game.snapshot(s,owner).tiles do if v.id==camp.tileId then assert(not v.visible,"a camp appears out of sight") end end end
                 assert(not known[camp.tileId],"an unexplored tile is preferred while one is free")
                 local guard=nil; for _, u in s.units do if u.tileId==camp.tileId then guard=u end end
-                -- The guard is the first kind of the lower of the two civilizations' eras (1 + technologies / 4).
-                local era=math.min(1+#s.players[1].technologies//4,1+#s.players[2].technologies//4)
+                -- The guard is the first kind of the lower of the two civilizations' eras (the highest era among each one's
+                -- technologies).
+                local function eraOf(list: {string}): number local e=1; for _, id in list do e=math.max(e,Rules.technologies[id].era) end; return e end
+                local era=math.min(eraOf(s.players[1].technologies),eraOf(s.players[2].technologies))
                 assert(guard and guard.ownerId==0 and guard.kind==B.eraUnits[era][1] and guard.moves==0,"a new camp starts with its guard")
             end
             assert(#s.barbarians.camps<=3,"Medium maps hold at most three camps")

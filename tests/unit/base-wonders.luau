@@ -96,7 +96,8 @@ do
         local rule=Rules.buildings[row[1]]
         assert(Rules.wonderOrder[index]==row[1] and rule.wonder==true and rule.name==row[2] and rule.cost==row[3] and rule.technology==row[4] and rule.maintenance==0 and rule.defense==0,row[1])
         assert(Rules.technologies[row[4]] and not techs[row[4]],"one wonder per technology"); techs[row[4]]=true
-        assert(Rules.buildingOrder[11+index]==row[1] and Rules.productionCosts[row[1]]==row[3],"wonders follow the ordinary buildings")
+        -- G7: twenty-five ordinary buildings precede the wonders.
+        assert(Rules.buildingOrder[25+index]==row[1] and Rules.productionCosts[row[1]]==row[3],"wonders follow the ordinary buildings")
     end
     assert(B.HangingGardens.yields.food==2 and B.HangingGardens.globalYields.food==1)
     assert(B.Colossus.yields.gold==3 and B.Colossus.globalYields.gold==1)
@@ -227,7 +228,7 @@ do
     end
     -- Oracle: every policy costs 25% less (after escalation, rounded down), in the menu and when adopted.
     do
-        local s=fresh(); s.players[1].culture=1000; s.players[1].policies={"Tradition"}
+        local s=fresh(); s.players[1].culture=1000; s.players[1].policies={"Tradition"}; s.policyCostIncrease=50
         local plain=Game.snapshot(s,1).availablePolicies
         table.insert(cityById(s,home.id).buildings,"Oracle")
         local cheap=Game.snapshot(s,1).availablePolicies
@@ -505,11 +506,14 @@ do
     local s: any=Game.new(23,{humanPlayers=1,radius=10,difficulty="Easy"})
     for _, t in s.tiles do t.feature=nil; t.river=nil end
     apply(s,1,{kind="FoundCity",unitId=firstUnit(s,1,"Settler").id})
-    -- Every technology but Rocketry (which would put the Space Project first).
-    for _, p in s.players do p.technologies=table.move(Rules.technologyOrder,1,#Rules.technologyOrder-1,1,{}); p.research=nil end
+    -- The research order up to Philosophy (G7: the eleven technologies the AI's first five wonders need, without the
+    -- University, Bank or Stock Exchange technologies). The AI then has nothing left to build but an unaffordable Forge,
+    -- Aqueduct or Shrine (each with upkeep, which its negative income cannot pay), a wonder or a military unit.
+    local through=table.find(Rules.technologyOrder,"Philosophy") :: number
+    for _, p in s.players do p.technologies=table.move(Rules.technologyOrder,1,through,1,{}); p.research=nil end
     local g2=WorldMap.fromTiles(s.tiles,s.radius)
     -- Three AI cities (so it trains no settler), each on Tundra with every core building and 14 citizens, and an AI worker
-    -- (so it trains no worker): the AI's next choice after its core buildings is a wonder or a military unit.
+    -- per city (so it trains no worker): the AI's next choice after its core buildings is a wonder or a military unit.
     local aiCities={firstCity(s,2)}
     while #aiCities<3 do
         local far: number?=nil
@@ -525,16 +529,21 @@ do
             local t=s.tiles[id]; if Rules.terrains[t.terrain].passable then t.terrain="Tundra"; t.resource=nil; t.improvement=nil; t.road=nil end
             if t.ownerId==nil then t.ownerId=2 end
         end
-        c.buildings={"Monument","Granary","Library","Market","Workshop","University"}; c.population=14; c.food=0; c.production=0
+        c.buildings={"Monument","Granary","Library","Market","Workshop","University","Observatory"}; c.population=14; c.food=0; c.production=0
     end
+    -- G7: an empty treasury and negative income (the Observatories' upkeep makes the cities' upkeep exceed their gold)
+    -- leave no building with upkeep affordable.
+    s.players[2].gold=0; s.players[2].income.gold=-1
     local capital=aiCities[1]
-    s.units={{id=s.nextUnit,ownerId=2,kind="Worker",tileId=capital.tileId,hp=50,moves=0,fortified=false,level=0}}; s.nextUnit += 1
+    s.units={}
+    for _, c in aiCities do table.insert(s.units,{id=s.nextUnit,ownerId=2,kind="Worker",tileId=c.tileId,hp=50,moves=0,fortified=false,level=0}); s.nextUnit += 1 end
     assert(Save.valid(Game.serialize(s)))
     -- Unhappy (-5 or worse) and on Easy, each city makes 1 production: 60 turns for the cheapest wonder is too slow.
     for _, c in aiCities do assert(Game.snapshot(s,2).cityForecasts[tostring(c.id)].production==1,"an AI city makes 1 production") end
     local slow=Game.restore(Game.serialize(s)) :: any
     apply(slow,1,{kind="EndTurn"})
-    for _, c in slow.cities do if c.ownerId==2 then assert(Rules.units[c.queue] and Rules.units[c.queue].strength>0,"no wonder it cannot finish: a military unit instead") end end
+    -- G7: with no gold for upkeep the AI trains an upkeep-free worker (up to two per city) rather than a military unit.
+    for _, c in slow.cities do if c.ownerId==2 then assert(Rules.units[c.queue]~=nil,"no wonder it cannot finish: a unit instead") end end
     -- With 40 production stored in the capital, 20 turns remain there: it races for the earliest wonder, and keeps racing.
     local able=Game.restore(Game.serialize(s)) :: any; cityById(able,capital.id).production=40
     apply(able,1,{kind="EndTurn"})

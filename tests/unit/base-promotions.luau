@@ -112,15 +112,22 @@ local function promotionPercent(list: {string},rough: boolean,attacking: boolean
     end
     return total
 end
+-- G7 bonuses written out: the Spearman and Pikeman +50% against Mounted units, the Anti-Tank Gun +75% against Armor.
+local function versus(kind: string,otherKind: string): number
+    local role=Rules.units[otherKind].role
+    if (kind=="Spearman" or kind=="Pikeman") and role=="Mounted" then return 50 end
+    if kind=="AntiTankGun" and role=="Armor" then return 75 end
+    return 0
+end
 local function reference(setup: any): (number,number)
     local attackerKind=setup.attacker or "Warrior"; local defenderKind=setup.defender or "Warrior"
     local a=Rules.units[attackerKind]; local ranged=a.range>1; local terrain=setup.terrain or "Plains"
     local rough=terrain=="Hills" or terrain=="Forest"
     local flank=if ranged then 0 else math.min(30,10*(setup.flankers or 0))
-    local attack=math.max(1,if ranged then a.rangedStrength else a.strength)*(0.5+(setup.attackerHp or a.hp)/200)
-        *(100+flank+promotionPercent(setup.attackerPromotions or {},rough,true,ranged,true))/100
-    local percent=(if rough then 25 else 0)+(if setup.fortified then 50 else 0)+promotionPercent(setup.defenderPromotions or {},rough,false,ranged,true)
-    local defense=math.max(3,Rules.units[defenderKind].strength)*(100+percent)/100*(0.5+(setup.defenderHp or Rules.units[defenderKind].hp)/200)
+    local attack=math.max(1,if ranged then a.rangedStrength else a.attack)*(0.5+(setup.attackerHp or a.hp)/200)
+        *(100+flank+promotionPercent(setup.attackerPromotions or {},rough,true,ranged,true)+versus(attackerKind,defenderKind))/100
+    local percent=(if rough then 25 else 0)+(if setup.fortified then 50 else 0)+promotionPercent(setup.defenderPromotions or {},rough,false,ranged,true)+versus(defenderKind,attackerKind)
+    local defense=math.max(3,Rules.units[defenderKind].defense)*(100+percent)/100*(0.5+(setup.defenderHp or Rules.units[defenderKind].hp)/200)
     local dealt=math.clamp(math.floor(30*attack/math.max(1,defense)+0.5),8,65)
     local received=if ranged or Rules.units[defenderKind].strength==0 then 0 else math.clamp(math.floor(25*defense/attack+0.5),8,65)
     return dealt,received

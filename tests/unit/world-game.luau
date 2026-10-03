@@ -77,6 +77,8 @@ local seeds={0,1,2,42,73,99991}
 local seenTerrains: {[string]: boolean}={}
 local seenFeatures: {[string]: boolean}={}
 local scenarios=0
+-- G7 later strategic deposits: starts (on maps above Duel size) with Saltpeter and Oil within four steps.
+local depositStarts,depositChecks=0,0
 for _,shape in {"Hex","Sphere"} do
     for _,name in names do
         local preset=if shape=="Sphere" then Sizes.getSphere(name) else Sizes.get(name)
@@ -94,7 +96,9 @@ for _,shape in {"Hex","Sphere"} do
                 assert(tile.id==id and Rules.terrains[tile.terrain])
                 seenTerrains[tile.terrain]=true
                 if tile.feature then seenFeatures[tile.feature]=true; assert(table.find(Rules.features[tile.feature].terrains,tile.terrain),"a feature on one of its terrains") end
-                if tile.terrain=="Tundra" then assert(tile.resource==nil) end
+                -- Tundra holds no resource except a later Oil deposit (G7).
+                if tile.terrain=="Tundra" then assert(tile.resource==nil or tile.resource=="Oil") end
+                if tile.resource=="Saltpeter" or tile.resource=="Oil" then assert(tile.feature==nil and table.find(Rules.improvements[Rules.resources[tile.resource].improvement].terrains,tile.terrain),"a later deposit on bare compatible land") end
                 if shape=="Sphere" then assert(tile.x==nil and tile.y==nil)
                 else assert(tile.x~=nil and tile.y~=nil and Map.tileId(map,tile.x,tile.y)==id) end
             end
@@ -116,6 +120,11 @@ for _,shape in {"Hex","Sphere"} do
                 for _,id in Map.range(map,start,2) do
                     local resource=map.tiles[id].resource
                     if reachable[id] and resource then localResources[resource]=true end
+                end
+                if name~="Duel" then
+                    local within: {[string]: boolean}={}
+                    for _,id in Map.range(map,start,4) do local resource=map.tiles[id].resource; if reachable[id] and resource then within[resource]=true end end
+                    depositChecks+=1; if within.Saltpeter and within.Oil then depositStarts+=1 end
                 end
                 assert(localResources.Iron and localResources.Horses and (localResources.Wheat or localResources.Deer) and (localResources.Gold or localResources.Spices),string.format("%s %s seed%d start%d missing reachable local bonus/strategic/luxury resources",shape,name,seed,start))
                 assert(deployment>=3 and initialWorkTile,string.format("%s %s seed%d start%d deployment%d bestFood%d bestProduction%d sameWorkTile%s",shape,name,seed,start,deployment,food,production,tostring(initialWorkTile)))
@@ -196,4 +205,5 @@ for _=1,2 do apply(tundra,1,{kind="EndTurn"}); apply(tundra,2,{kind="EndTurn"}) 
 assert(tundraTile.road and Map.movementCost(tundraTile)==1 and Save.valid(Game.serialize(tundra)))
 assert(table.find(Rules.improvements.Road.terrains,"Tundra"))
 local tundraSave=Game.serialize(tundra); assert(Game.restore(tundraSave))
-print(string.format("World integration passed %d seeded multiplayer worlds and 12 solo AI worlds; stored-map loading remains exact",scenarios))
+print(string.format("World integration passed %d seeded multiplayer worlds and 12 solo AI worlds; stored-map loading remains exact; %d of %d starts with Saltpeter and Oil within four steps",scenarios,depositStarts,depositChecks))
+assert(depositStarts>=depositChecks*0.95,"nearly every start has later strategic deposits nearby")

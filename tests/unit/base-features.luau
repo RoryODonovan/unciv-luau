@@ -467,12 +467,12 @@ end
 do
     local function formula(attacker: any,defender: any,feature: string?,terrain: string,river: boolean): (number,number)
         local ranged=Rules.units[attacker.kind].range>1
-        local base=if ranged then Rules.units[attacker.kind].rangedStrength else Rules.units[attacker.kind].strength
+        local base=if ranged then Rules.units[attacker.kind].rangedStrength else Rules.units[attacker.kind].attack
         local rough=Rules.terrains[terrain].rough or (feature~=nil and Rules.features[feature].rough)
         local promo=0; for _, id in attacker.promotions or {} do promo += if rough then Rules.promotions[id].roughPercent else Rules.promotions[id].openPercent end
         local attack=base*(0.5+attacker.hp/200)*(100+promo-(if river and not ranged then 20 else 0))/100
         local percent=Rules.terrains[terrain].defensePercent+(if feature then Rules.features[feature].defensePercent else 0)+(if defender.fortified then 50 else 0)
-        local defense=math.max(3,Rules.units[defender.kind].strength)*(100+percent)/100*(0.5+defender.hp/200)
+        local defense=math.max(3,Rules.units[defender.kind].defense)*(100+percent)/100*(0.5+defender.hp/200)
         local dealt=math.clamp(math.floor(30*attack/defense+0.5),8,65)
         local received=if ranged then 0 else math.clamp(math.floor(25*defense/attack+0.5),8,65)
         return dealt,received

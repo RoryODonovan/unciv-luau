@@ -29,8 +29,8 @@
     {
       "path": "roblox/map/WorldGeneration.luau",
       "sourcePath": "src/map/WorldGeneration.luau",
-      "sourceSha256": "e29cf500350f1cc0405f62f4e69bd21567b3850209787de52bed9cc07424e6a4",
-      "generatedSha256": "f63d37c42c9c5d985a5925e98fdbd64324711c2b753ac0989221d10e0dc82597"
+      "sourceSha256": "db49fc7567170d24e3e5efcbf054bc247f2d1ef1b5d9cffc18785923d1d05f01",
+      "generatedSha256": "87935ac8f235bdb781a1df43245a40f4cae4b868c6deac5f45c41d1c44c3a1fd"
     },
     {
       "path": "roblox/models/Counter.luau",
@@ -53,20 +53,20 @@
     {
       "path": "roblox/simulation/BaseGame.luau",
       "sourcePath": "src/simulation/BaseGame.luau",
-      "sourceSha256": "1785eda02587fea5e75204c49dcc066e5c5afbabf3129f48c8b5837ea5d5d82c",
-      "generatedSha256": "f3f63f2166e041cce3c966d920ffe2f591ac344a993b07623385a7b603d45ec5"
+      "sourceSha256": "638e29183063632039fe5604225e68fbb8d35fd10cc13d8d2d2a692989d05320",
+      "generatedSha256": "6ee56467633d8a2b8c4ca7ce476ce8a8845102501824c4eb22aba1b1d867488c"
     },
     {
       "path": "roblox/simulation/BaseRules.luau",
       "sourcePath": "src/simulation/BaseRules.luau",
-      "sourceSha256": "3f6a363bbf977d2f2b22bd1f51cb70c68f0c2f15828dcafdde071f09a04050f5",
-      "generatedSha256": "0b97a68ee7f858d3526da4c3cf2ba81692f93b78c6c500eda6b90196698eba6f"
+      "sourceSha256": "2de2a66149a69a7e5b8d7ede49fad7934383a9275120e9591cded1ab17380705",
+      "generatedSha256": "6b803c1792147c4aabbf31c23993afb78c8825bc47200a656baa3afe4baf7d88"
     },
     {
       "path": "roblox/simulation/BaseSave.luau",
       "sourcePath": "src/simulation/BaseSave.luau",
-      "sourceSha256": "9c8e68a2d3516d0f937ed624fb2cbb1a563fd73780c1e04de8fdb3b10af6db9d",
-      "generatedSha256": "1fd53dcdf3ea59f698098075b3d465da35d157e8142e107cb94199f07bea1fb8"
+      "sourceSha256": "3ef3687b50560f4ab03ab3107fdb8fefcede523ca2c2db04e007dd92c360cc3c",
+      "generatedSha256": "6103ff81ac3708fe0ff77b8d48ad5d9ef5ac31f459316bc0e5177b388101dbaa"
     },
     {
       "path": "roblox/simulation/Game.luau",

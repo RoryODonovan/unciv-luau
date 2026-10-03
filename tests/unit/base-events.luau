@@ -274,11 +274,13 @@ end
 
 -- 4. Culture race: escalating policy costs by default, configurable threshold, legacy saves.
 do
-    assert(Game.new(1).cultureVictoryPolicies==6 and Game.new(1).policyCostIncrease==50)
+    -- G7: the default growth follows the round limit (140 at 120 rounds; see base-content for the derivation).
+    assert(Game.new(1).cultureVictoryPolicies==6 and Game.new(1).policyCostIncrease==140)
     for _, bad in {{cultureVictoryPolicies=0},{cultureVictoryPolicies=7},{cultureVictoryPolicies=2.5},{policyCostIncrease=-1},{policyCostIncrease=401}} do
         assert(not pcall(function() return Game.new(1,bad :: any) end),"invalid culture option must be rejected")
     end
-    local s=founded(61); s.players[1].culture=1000
+    -- The escalation below is stated for 50% growth (the default before G7), set explicitly on the match.
+    local s=founded(61); s.players[1].culture=1000; s.policyCostIncrease=50
     local spent=0; local expected={20,37,60,100,165,227}
     for index, id in Rules.policyOrder do
         local view=Game.snapshot(s,1); local listed: any=nil
@@ -288,7 +290,7 @@ do
     end
     assert(spent==609 and s.victoryType=="Culture" and s.winner==1)
     -- Escalation applies to the next adoption, not to the original order.
-    local order=founded(62); order.players[1].culture=60
+    local order=founded(62); order.players[1].culture=60; order.policyCostIncrease=50
     apply(order,1,{kind="AdoptPolicy",policy="Honor"}); assert(order.players[1].culture==30)
     local view=Game.snapshot(order,1); for _, policy in view.availablePolicies do assert(policy.cost==math.floor(Rules.policies[policy.id].cost*1.5)) end
     local result=Game.apply(order,1,{kind="AdoptPolicy",policy="Liberty"} :: any); assert(not result.ok and order.players[1].culture==30)
@@ -312,7 +314,7 @@ do
         local bad=Game.serialize(founded(65)); bad.state[field[1]]=field[2]; assert(not Save.valid(bad),"culture option "..field[1].." must be validated")
     end
     -- The built-in AI pays the escalating cost too.
-    local solo: any=Game.new(66,{maxTurns=40})
+    local solo: any=Game.new(66,{maxTurns=40,policyCostIncrease=50})
     apply(solo,1,{kind="FoundCity",unitId=firstUnit(solo,1,"Settler").id})
     solo.players[2].policies={"Tradition"}; solo.players[2].culture=36
     apply(solo,1,{kind="EndTurn"})
