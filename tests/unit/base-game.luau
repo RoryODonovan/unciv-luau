@@ -206,7 +206,7 @@ local science=founded(11); science.players[1].technologies=table.clone(Rules.tec
 local scienceHome=firstCity(science,1); scienceHome.production=Rules.productionCosts.SpaceProject
 apply(science,1,{kind="SetProduction",cityId=scienceHome.id,item="SpaceProject"}); apply(science,1,{kind="EndTurn"})
 assert(science.winner==1 and science.victoryType=="Science")
-local culture=founded(12); culture.players[1].culture=1000
+local culture=founded(12); culture.players[1].culture=2000
 for _, id in Rules.policyOrder do apply(culture,1,{kind="AdoptPolicy",policy=id}) end
 assert(culture.winner==1 and culture.victoryType=="Culture")
 local score: any=Game.new(13,{humanPlayers=2,maxTurns=20})

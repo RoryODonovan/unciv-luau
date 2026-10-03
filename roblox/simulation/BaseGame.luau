@@ -1,6 +1,6 @@
 --!strict
 -- Generated module-only Roblox form. Source: src/simulation/BaseGame.luau
--- Source SHA-256: f5e3b3bf5fe3216ad90e45ad4d127891a8a5c622fd77584e33bdd17ca20a0889
+-- Source SHA-256: cb4a1258286e9f5f40b21ce78617936873833b71a2551fed54a6f0dc2cf550fc
 -- Reproduce with tools/roblox-export.mjs; preserve MPL notices below.
 -- Covered source: https://github.com/RoryODonovan/unciv-luau
 -- This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
@@ -1579,12 +1579,19 @@ local function endTurn(s: any, owner: number)
 end
 function BaseGame.new(seed: number?, options: Options?): State
     local o: Options=options or {}; local supplied=seed or 1; local radius=o.radius or 4; local humans=o.humanPlayers or 1; local difficulty=o.difficulty or "Normal"; local turns=o.maxTurns or 120
-    local threshold=o.cultureVictoryPolicies or R.cultureVictoryPolicies or 6; local increase=o.policyCostIncrease or 50
+    local threshold=o.cultureVictoryPolicies or R.cultureVictoryPolicies or 6; local increase: any=o.policyCostIncrease
     assert(type(supplied)=="number" and supplied==supplied and math.abs(supplied)<=9007199254740991 and supplied%1==0,"seed must be a finite integer")
     assert(radius%1==0 and radius>=R.minRadius and radius<=R.maxRadius,"radius must be 3 to 40")
     assert(humans==1 or humans==2,"humanPlayers must be 1 or 2")
     assert(difficulty=="Easy" or difficulty=="Normal" or difficulty=="Hard","unknown difficulty")
     assert(turns%1==0 and turns>=20 and turns<=500,"maxTurns must be 20 to 500")
+    -- G7 pacing: without an explicit value the policy cost growth follows the match pace (the golden-age pace, the round
+    -- limit against 120 rounds, 50-200%): policyCostIncrease (140) x pace%, rounded, so Quick 45 rounds 70, Standard 80
+    -- rounds 94, Full 120 rounds 140 and 240 rounds or more 280. It was a flat 50 before G7.
+    if increase==nil then
+        local g=R.goldenAge; local pace=math.clamp(math.floor(turns*100/g.paceTurns+0.5),g.minPacePercent,g.maxPacePercent)
+        increase=math.min(400,math.floor(R.policyCostIncrease*pace/100+0.5))
+    end
     assert(type(threshold)=="number" and threshold%1==0 and threshold>=1 and threshold<=#R.policyOrder,"cultureVictoryPolicies must be 1 to "..#R.policyOrder)
     assert(type(increase)=="number" and increase%1==0 and increase>=0 and increase<=400,"policyCostIncrease must be 0 to 400")
     assert(o.mapShape==nil or o.mapShape=="Hex" or o.mapShape=="Sphere","unknown map shape")

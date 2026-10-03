@@ -228,7 +228,7 @@ do
     end
     -- Oracle: every policy costs 25% less (after escalation, rounded down), in the menu and when adopted.
     do
-        local s=fresh(); s.players[1].culture=1000; s.players[1].policies={"Tradition"}
+        local s=fresh(); s.players[1].culture=1000; s.players[1].policies={"Tradition"}; s.policyCostIncrease=50
         local plain=Game.snapshot(s,1).availablePolicies
         table.insert(cityById(s,home.id).buildings,"Oracle")
         local cheap=Game.snapshot(s,1).availablePolicies

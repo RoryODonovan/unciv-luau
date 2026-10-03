@@ -35,7 +35,7 @@ npm run check
 npm run check:roblox
 ```
 
-If Luau is not on PATH, set `LUAU_BIN` and `LUAU_ANALYZE_BIN` to the executable paths. The tests currently include 124,497 hex assertions plus statistics and counter scenarios. CI uses the same pinned Luau release and verifies its ZIP checksum.
+If Luau is not on PATH, set `LUAU_BIN` and `LUAU_ANALYZE_BIN` to the executable paths. `node tools/balance-sim.mjs [seeds] [on|off]` runs the AI-against-AI [balance harness](docs/base-game.md#balance) (outside the test gate). The tests currently include 124,497 hex assertions plus statistics and counter scenarios. CI uses the same pinned Luau release and verifies its ZIP checksum.
 
 ## Roblox module form
 

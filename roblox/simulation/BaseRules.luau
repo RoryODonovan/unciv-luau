@@ -1,6 +1,6 @@
 --!strict
 -- Generated module-only Roblox form. Source: src/simulation/BaseRules.luau
--- Source SHA-256: c6399cb61b3e2c82ce13162f9ed73d58ae561ae13b533b4bcc52ee0b434141b6
+-- Source SHA-256: 2008c8ae4dacafeb0ab4356f93e3c8bd249f5c00a8de100a3aa6c7f5e2d1e9cf
 -- Reproduce with tools/roblox-export.mjs; preserve MPL notices below.
 -- Covered source: https://github.com/RoryODonovan/unciv-luau
 -- This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
@@ -298,7 +298,11 @@ local rules = {
     -- riverAttackPercent of its attack (Civ V's -20%).
     riverGold=1,riverFarmFood=1,riverAttackPercent=20,
     -- The science victory needs Space Flight, the last technology (G7; it was Rocketry), and a completed Space Project.
-    scienceVictoryTechnology="SpaceFlight",scienceVictoryBuilding="SpaceProject",cultureVictoryPolicies=6,score={city=10,population=3,unit=2,technology=5,policy=5,wonder=10},
+    scienceVictoryTechnology="SpaceFlight",scienceVictoryBuilding="SpaceProject",cultureVictoryPolicies=6,
+    -- The default policy cost growth (percent of a policy's base cost per policy already adopted) at a 120-round pace; a
+    -- new match without an explicit policyCostIncrease scales it by its pace (50-200%). G7 raised it from a flat 50 so the
+    -- culture race keeps pace with the forty-technology science race (see docs/base-game.md, Balance).
+    policyCostIncrease=140,score={city=10,population=3,unit=2,technology=5,policy=5,wonder=10},
     maxTradeTurns=20,maxTradeDeals=16,maxEvents=64,maxLog=24,
     -- Combat percentages: fortification adds to the terrain percentage in one defence multiplier; each other
     -- friendly military unit next to a defending unit adds to a melee attack, up to the cap.

@@ -138,6 +138,23 @@ do
     rules.units.Horseman.attack=99; assert(Game.getRules().units.Horseman.attack==18,"getRules is detached")
 end
 
+-- 1b. Victory pacing (G7): the science victory needs Space Flight, and a match without an explicit policy cost growth
+--     takes policyCostIncrease (140) scaled by its pace (the round limit against 120 rounds, 50-200%).
+do
+    assert(Rules.scienceVictoryTechnology=="SpaceFlight" and Rules.cultureVictoryPolicies==6 and Rules.policyCostIncrease==140)
+    for _, row in {{20,70},{45,70},{60,70},{80,94},{100,116},{120,140},{150,175},{240,280},{500,280}} do
+        local s=Game.new(3,{maxTurns=row[1]}); assert(s.policyCostIncrease==row[2],"growth "..tostring(s.policyCostIncrease).." at "..row[1].." rounds")
+        assert(Game.snapshot(s,1).policyCostIncrease==row[2],"the snapshot echoes it")
+    end
+    assert(Game.new(3,{maxTurns=45,policyCostIncrease=50}).policyCostIncrease==50 and Game.new(3,{policyCostIncrease=0}).policyCostIncrease==0,"an explicit value wins")
+    -- Six policies at the Full default cost 235 + 1.4 x 750 = 1,285 culture (609 at the pre-G7 50%).
+    local s: any=Game.new(3,{humanPlayers=2}); apply(s,1,{kind="FoundCity",unitId=firstUnit(s,1,"Settler").id}); s.players[1].culture=5000
+    local spent=0
+    for _, id in Rules.policyOrder do local before=s.players[1].culture; apply(s,1,{kind="AdoptPolicy",policy=id}); spent += before-s.players[1].culture end
+    local expected=0; for index, id in Rules.policyOrder do expected += math.floor(Rules.policies[id].cost*(100+140*(index-1))/100) end
+    assert(spent==expected and expected==1285,"six policies cost "..spent)
+end
+
 -- Combat fixture (as in base-combat): an open field away from both cities, at war, every technology known.
 local function founded(seed: number): any
     local s=Game.new(seed,{humanPlayers=2,radius=8})
