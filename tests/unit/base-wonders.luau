@@ -251,6 +251,29 @@ do
         local plain=fresh(); plain.players[1].gold=1000; apply(plain,1,{kind="Purchase",cityId=home.id,item="Warrior"}); assert(plain.units[#plain.units].xp==nil)
         assert(Save.valid(Game.serialize(s)))
     end
+    -- Regression (Astra PR #10): the Terracotta Army takes effect from the step after its completion in either city
+    -- order. A Warrior completed in the same step gets no experience whether its city is processed after the wonder's
+    -- city or before it; the next step's Warrior and a purchase after the step get 15.
+    for _, wonderFirst in {true,false} do
+        local s=fresh(); s.players[1].gold=1000
+        local early,late=cityById(s,home.id),cityById(s,second.id); assert(early.id<late.id)
+        local wonderCity,unitCity=if wonderFirst then early else late,if wonderFirst then late else early
+        wonderCity.queue="TerracottaArmy"; wonderCity.production=89; unitCity.queue="Warrior"; unitCity.production=11
+        local view=Game.snapshot(s,1)
+        assert(view.cityForecasts[tostring(wonderCity.id)].productionTurns==1 and view.cityForecasts[tostring(unitCity.id)].productionTurns==1)
+        local before=s.nextUnit
+        apply(s,1,{kind="EndTurn"})
+        assert(has(wonderCity.buildings,"TerracottaArmy"))
+        local made: any=nil; for _, u in s.units do if u.id>=before then made=u end end
+        assert(made and made.kind=="Warrior" and made.xp==nil,"no experience in the completing step (wonder city "..(if wonderFirst then "first" else "second")..")")
+        apply(s,2,{kind="EndTurn"})
+        apply(s,1,{kind="Purchase",cityId=unitCity.id,item="Warrior"})
+        assert(s.units[#s.units].xp==15,"a purchase after the step reads the wonder")
+        unitCity.queue="Warrior"; unitCity.production=11; before=s.nextUnit
+        apply(s,1,{kind="EndTurn"})
+        made=nil; for _, u in s.units do if u.id>=before and u.kind=="Warrior" then made=u end end
+        assert(made and made.xp==15,"the next step's Warrior gets the experience")
+    end
     -- Wonders follow the city: when the rival holds the city, the effects serve the rival and the score counts for it.
     do
         local s=fresh(); table.insert(cityById(s,second.id).buildings,"HangingGardens")

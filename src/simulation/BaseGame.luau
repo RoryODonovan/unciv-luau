@@ -287,12 +287,18 @@ local function wonderBuilt(s: any, city: any, item: string, converted: {[number]
         event(s,"WonderLost",message,nil,nil,c.ownerId,c.production,nil,nil,city.ownerId,nil,c.id,item)
     end
 end
-local function complete(s: any, city: any, item: string, spawn: number?, converted: {[number]: boolean}?)
+-- `bonus` is the owner's empireBonus captured at the start of an economy step, so a wonder completed earlier in the
+-- same step (in a city processed first) changes nothing until the next step, whatever the city order. A purchase,
+-- outside any economy step, passes none and reads the owner's wonders as they stand.
+local function complete(s: any, city: any, item: string, spawn: number?, converted: {[number]: boolean}?, bonus: any?)
     if R.buildings[item] then table.insert(city.buildings,item); if city.queue==item then city.queue="Warrior" end
     else
         assert(spawn); local u=addUnit(s,city.ownerId,item,spawn)
         -- New military units start with the experience the owner's wonders give (Terracotta Army); civilians never gain any.
-        if R.units[item].unitClass~="Civilian" then local xp=empireBonus(s,city.ownerId).unitExperience; if xp>0 then u.xp=xp end end
+        if R.units[item].unitClass~="Civilian" then
+            local xp=(bonus or empireBonus(s,city.ownerId)).unitExperience
+            if xp>0 then u.xp=xp end
+        end
     end
     event(s,"Production","Completed "..item..".",city.tileId,nil,city.ownerId)
     if isWonder(item) then wonderBuilt(s,city,item,converted) end
@@ -842,7 +848,7 @@ local function economy(s: any, owner: number)
         if not converted[c.id] and productionAvailable(s,c,c.queue) and c.production>=(R.productionCosts[c.queue] or math.huge) then
             local spawn=spawnTile(s,c)
             if R.buildings[c.queue] or spawn then
-                local item=c.queue; c.production -= R.productionCosts[item]; complete(s,c,item,spawn,converted)
+                local item=c.queue; c.production -= R.productionCosts[item]; complete(s,c,item,spawn,converted,bonus)
                 if R.buildings[item] and R.buildings[item].startsGoldenAge then granted += goldenAgeTurns(s); grantedBy=item end
             end
         end
