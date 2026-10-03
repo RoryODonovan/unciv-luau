@@ -90,7 +90,10 @@ local unitsAt={}; for _, u in movement.units do unitsAt[u.tileId]=true end
 local destination: number?=nil
 for _, id in map.neighbors[warrior.tileId] do if not unitsAt[id] and not movement.tiles[id].ownerId then destination=id; break end end
 assert(destination); movement.tiles[destination].terrain="Hills"; movement.tiles[destination].resource=nil
-warrior.moves=1
+-- A unit with any movement left may enter costlier terrain; doing so ends its movement (G3 partial moves).
+local partial=Game.restore(Game.serialize(movement)); assert(partial); local partialWarrior=firstUnit(partial,1,"Warrior")
+partialWarrior.moves=1; apply(partial,1,{kind="MoveUnit",unitId=partialWarrior.id,tileId=destination}); assert(partialWarrior.moves==0 and partialWarrior.tileId==destination)
+warrior.moves=0
 rejected(movement,1,{kind="MoveUnit",unitId=warrior.id,tileId=destination})
 warrior.moves=2; apply(movement,1,{kind="MoveUnit",unitId=warrior.id,tileId=destination}); assert(warrior.moves==0)
 local roadDestination: number?=nil

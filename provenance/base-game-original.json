@@ -8,9 +8,10 @@
     "tests/unit/base-game.luau",
     "tests/unit/world-game.luau",
     "tests/unit/base-events.luau",
-    "tests/unit/base-combat.luau"
+    "tests/unit/base-combat.luau",
+    "tests/unit/base-movement.luau"
   ],
-  "description": "Original service-independent deterministic civilization base-game orchestration, generated fair starting-site deployment, actor turns, city economy, worker orders, research, policies, diplomacy, trade, AI, four victory conditions with a configurable escalating culture race, loser-owned loss events, deterministic combat with percentage terrain/fortification defence, wounded defenders and flanking, healing by location, fog-safe combat previews, final score reveal with coarse public progress and fog-safe projections. Uses separately attributed HexMath through WorldMap. Synthetic balance and original gameplay code, no copied upstream ruleset/media, no claim of complete Unciv parity.",
+  "description": "Original service-independent deterministic civilization base-game orchestration, generated fair starting-site deployment, actor turns, city economy, worker orders, research, policies, diplomacy, trade, AI, four victory conditions with a configurable escalating culture race, loser-owned loss events, deterministic combat with percentage terrain/fortification defence, wounded defenders and flanking, healing by location, fog-safe combat previews, Civ V-style movement (partial moves, a same-enemy zone of control from visible enemies at war, one-third road steps in exact sixths) with fog-safe move previews, final score reveal with coarse public progress and fog-safe projections. Uses separately attributed HexMath through WorldMap. Synthetic balance and original gameplay code, no copied upstream ruleset/media, no claim of complete Unciv parity.",
   "documentationPath": "docs/base-game.md",
   "additionalDocumentationPaths": [
     "docs/world-generation.md"

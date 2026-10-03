@@ -10,6 +10,11 @@ local BaseSave={}
 local maxTreeEntries=65536
 local function number(value: any,low: number,high: number): boolean return type(value)=="number" and value==value and value>=low and value<=high end
 local function integer(value: any,low: number,high: number): boolean return number(value,low,high) and value%1==0 end
+-- Movement is a multiple of 1/6: whole and half moves (every earlier save) and the thirds a road step leaves.
+-- A third has no exact binary form and an encoder may shorten it (0.333333), so a value within 1e-6 of a move of
+-- a sixth is accepted; restore snaps it to that sixth.
+local function nearestSixth(value: number): number return math.round(value*6)/6 end
+local function sixths(value: number): boolean return math.abs(value-nearestSixth(value))<=1e-6 end
 local function owner(value: any): boolean return value==1 or value==2 end
 local function id(value: any): boolean return integer(value,1,1000000) end
 local function text(value: any,limit: number): boolean return type(value)=="string" and #value>0 and #value<=limit end
@@ -128,7 +133,7 @@ function BaseSave.valid(saved: any): boolean
         if type(u.kind)~="string" or not Rules.units[u.kind] then return false end
         local rule=Rules.units[u.kind]
         if rule.technology and not table.find(s.players[u.ownerId].technologies,rule.technology) then return false end
-        if not Rules.terrains[tiles[u.tileId].terrain].passable or not integer(u.hp,1,rule.hp) or not number(u.moves,0,rule.moves) or u.moves*2%1~=0 or type(u.fortified)~="boolean" or not integer(u.level,0,3) then return false end
+        if not Rules.terrains[tiles[u.tileId].terrain].passable or not integer(u.hp,1,rule.hp) or not number(u.moves,0,rule.moves) or not sixths(u.moves) or type(u.fortified)~="boolean" or not integer(u.level,0,3) then return false end
         if u.fortified and rule.strength==0 then return false end
         if u.work~=nil then
             local w=u.work
@@ -199,7 +204,10 @@ function BaseSave.serialize(state: any): any
 end
 function BaseSave.restore(saved: any): (any?,string?)
     if not BaseSave.valid(saved) then return nil,"Unsupported or corrupt base-game save." end
-    return copy(saved.state),nil
+    local state=copy(saved.state)
+    -- Canonical movement: each unit's moves becomes its exact sixth (1e-16 becomes 0, 0.333333 becomes 1/3).
+    for _, u in state.units do u.moves=nearestSixth(u.moves) end
+    return state,nil
 end
 return table.freeze(BaseSave)
 

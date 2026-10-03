@@ -91,7 +91,9 @@ local rules = {
     terrains=terrains,terrainYields=terrainYields,resources=resources,improvements=improvements,improvementOrder={"Farm","Mine","Pasture","Plantation","Camp","Road"},
     productionCosts=productionCosts,purchaseCosts=purchaseCosts,upgradeCost=40,workerTurns=2,
     cityHp=150,cityBaseYields=yields(2,2,2,2,1),cityWorkRadius=2,foodPerPopulation=2,baseHappiness=9,unhappinessPerCity=2,unhappinessPerPopulation=1,
-    growthBase=20,growthPerPopulation=8,starvationLoss=1,roadMovement=1,unitVision=2,cityVision=2,
+    growthBase=20,growthPerPopulation=8,starvationLoss=1,unitVision=2,cityVision=2,
+    -- Moving between two road tiles costs a third of a move (Civ V), whatever the terrain.
+    roadMovement=1/3,
     scienceVictoryTechnology="Rocketry",scienceVictoryBuilding="SpaceProject",cultureVictoryPolicies=6,score={city=10,population=3,unit=2,technology=5,policy=5},
     maxTradeTurns=20,maxTradeDeals=16,maxEvents=64,maxLog=24,
     -- Combat percentages: fortification adds to the terrain percentage in one defence multiplier; each other

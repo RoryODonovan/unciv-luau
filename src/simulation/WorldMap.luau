@@ -120,7 +120,9 @@ end
 function WorldMap.movementCost(tile: Tile): number?
     local terrain=Rules.terrains[tile.terrain]
     if not terrain or not terrain.passable then return nil end
-    return if tile.road then Rules.roadMovement else terrain.movement
+    -- The generic per-tile entry cost keeps one move on a road. The base game's road rule depends on the tile moved
+    -- from (a third of a move between two road tiles, Rules.roadMovement), which an entry cost cannot express.
+    return if tile.road then 1 else terrain.movement
 end
 -- Heap order matches the former scan: minimum cost first, then ascending tile ID.
 type Entry = {id: number, cost: number}
