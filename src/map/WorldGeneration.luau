@@ -82,39 +82,55 @@ local function carveRivers(tiles: {Tile},neighbors: {{number}},height: {number},
  -- 0: all three tiles passable land; 1: a mouth (touches water); 2: blocked (touches a mountain, no water).
  local kinds: {number}={};local heights: {number}={}
  for v=1,#va do
-  local water,mountain=false,false
-  for _,id in {va[v],vb[v],vc[v]}do local t=tiles[id].terrain;if t=='Water' then water=true elseif t=='Mountain' then mountain=true end end
-  kinds[v]=if water then 1 elseif mountain then 2 else 0
+  local ta,tb,tc=tiles[va[v]].terrain,tiles[vb[v]].terrain,tiles[vc[v]].terrain
+  kinds[v]=if ta=='Water' or tb=='Water' or tc=='Water' then 1 elseif ta=='Mountain' or tb=='Mountain' or tc=='Mountain' then 2 else 0
   heights[v]=height[va[v]]+height[vb[v]]+height[vc[v]]
+ end
+ -- Steepest descent is a fixed property of a corner, computed once: the strictly lowest neighbouring corner that does not
+ -- touch a mountain (0 when none) and the edge leading to it. Ties keep the first in edge order (a-b, b-c, a-c).
+ local down: {number}={};local downA: {number}={};local downB: {number}={}
+ local function descend(v: number): number
+  local cached=down[v];if cached then return cached end
+  local best,bestHeight,bx,by=0,heights[v],0,0
+  local a,b,c=va[v],vb[v],vc[v]
+  for pair=1,3 do
+   local x,y=if pair==1 then a elseif pair==2 then b else a,if pair==1 then b else c
+   for _,other in edgeVertices[edgeKey(x,y)]do
+    if other~=v and kinds[other]~=2 and heights[other]<bestHeight then best,bestHeight,bx,by=other,heights[other],x,y end
+   end
+  end
+  down[v]=best;downA[v]=bx;downB[v]=by
+  return best
  end
  local sources: {number}={};local score: {number}={}
  for v=1,#va do if kinds[v]==0 then table.insert(sources,v);score[v]=heights[v]+hash(fieldSeed+293,v,0,0)*.06 end end
  table.sort(sources,function(a: number,b: number): boolean return if score[a]==score[b] then a<b else score[a]>score[b] end)
  local masks: {[number]: number}={};local onRiver: {[number]: boolean}={};local near: {[number]: boolean}={}
+ -- A corner whose descent ended in a local minimum leads there again from any later walk: a later river could only pass
+ -- it by following the same descent, so it would fail too. Marking such corners skips repeated walks without changing
+ -- which rivers are kept.
+ local dead: {[number]: boolean}={}
  local made=0
  for _,source in sources do
   if made>=target then break end
-  if near[va[source]] or near[vb[source]] or near[vc[source]] then continue end
-  local edges: {{number}}={};local corners={source};local current=source;local reached=false
+  if dead[source] or near[va[source]] or near[vb[source]] or near[vc[source]] then continue end
+  local corners={source};local current=source;local reached,stuck=false,false
   while true do
-   local best: number?=nil;local bestHeight=heights[current];local bx,by=0,0
-   local a,b,c=va[current],vb[current],vc[current]
-   for _,pair in {{a,b},{b,c},{a,c}}do
-    for _,other in edgeVertices[edgeKey(pair[1],pair[2])]do
-     if other~=current and kinds[other]~=2 and heights[other]<bestHeight then best,bestHeight,bx,by=other,heights[other],pair[1],pair[2] end
-    end
-   end
-   if not best then break end
-   table.insert(edges,{bx,by});table.insert(corners,best)
+   local best=descend(current)
+   if best==0 or dead[best] then stuck=true;break end
+   table.insert(corners,best)
    if kinds[best]==1 or onRiver[best] then reached=true;break end
    current=best
   end
-  if not reached or #edges<3 then continue end
-  for _,edge in edges do
-   local x,y=edge[1],edge[2]
+  if stuck then for _,corner in corners do dead[corner]=true end end
+  if not reached or #corners<4 then continue end
+  for index=1,#corners-1 do
+   local corner=corners[index];local x,y=downA[corner],downB[corner]
    masks[x]=bit32.bor(masks[x] or 0,bit32.lshift(1,position[x][y]-1))
    masks[y]=bit32.bor(masks[y] or 0,bit32.lshift(1,position[y][x]-1))
-   for _,id in {x,y}do near[id]=true;for _,other in neighbors[id]do near[other]=true end end
+   near[x]=true;near[y]=true
+   for _,other in neighbors[x]do near[other]=true end
+   for _,other in neighbors[y]do near[other]=true end
   end
   for _,corner in corners do onRiver[corner]=true end
   made+=1

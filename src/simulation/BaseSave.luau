@@ -82,26 +82,30 @@ local function rivers(s: any,sphere: boolean): boolean
     local any=false
     for _,tile in s.tiles do if tile.river~=nil then any=true; break end end
     if not any then return true end
-    local neighbors: {{number}}={}
-    if sphere then
-        for id,cell in SphereTopology.generate(s.frequency).cells do neighbors[id]=cell.neighbors end
-    else
-        local ids: {[string]: number}={}
-        for id,tile in s.tiles do ids[tostring(tile.x)..":"..tostring(tile.y)]=id end
-        for id,tile in s.tiles do
-            local list: {number}={}
-            for _,offset in hexOffsets do local other=ids[tostring(tile.x+offset[1])..":"..tostring(tile.y+offset[2])]; if other then table.insert(list,other) end end
-            table.sort(list); neighbors[id]=list
-        end
+    -- Neighbour lists, built only for river tiles and the tiles across their marked edges. Hex coordinates are validated
+    -- integers within the radius, so each has a distinct numeric key (outside coordinates map to nothing).
+    local cells=if sphere then SphereTopology.generate(s.frequency).cells else nil
+    local width=if sphere then 0 else 2*s.radius+3
+    local function key(x: number,y: number): number return (x+s.radius+1)*width+(y+s.radius+1) end
+    local ids: {[number]: number}={}
+    if not sphere then for id,tile in s.tiles do ids[key(tile.x,tile.y)]=id end end
+    local lists: {[number]: {number}}={}
+    local function neighborsOf(id: number): {number}
+        if cells then return cells[id].neighbors end
+        local list=lists[id]
+        if list then return list end
+        local tile=s.tiles[id]; list={}
+        for _,offset in hexOffsets do local other=ids[key(tile.x+offset[1],tile.y+offset[2])]; if other then table.insert(list,other) end end
+        table.sort(list); lists[id]=list; return list
     end
     for id,tile in s.tiles do
         local mask=tile.river
         if mask==nil then continue end
-        local list=neighbors[id]
+        local list=neighborsOf(id)
         if mask>=bit32.lshift(1,#list) or not Rules.terrains[tile.terrain].passable then return false end
         for index,other in list do
             if not bit32.btest(mask,bit32.lshift(1,index-1)) then continue end
-            local opposite=s.tiles[other]; local back=table.find(neighbors[other],id)
+            local opposite=s.tiles[other]; local back=table.find(neighborsOf(other),id)
             if opposite.river==nil or not back or not bit32.btest(opposite.river,bit32.lshift(1,back-1)) or not Rules.terrains[opposite.terrain].passable then return false end
         end
     end
