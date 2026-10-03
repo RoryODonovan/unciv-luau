@@ -17,7 +17,9 @@ export type Command = {kind: "MoveUnit" | "RangedAttack", unitId: number, tileId
     | {kind: "AcceptTrade" | "CancelTrade", tradeId: number} | {kind: "EndTurn"}
     | {kind: "PromoteUnit", unitId: number, promotion: string}
     | {kind: "CityRangedStrike", cityId: number, targetUnitId: number}
-export type Tile = {id: number, x: number?, y: number?, terrain: string, resource: string?, ownerId: number?, improvement: string?, road: boolean?}
+-- `feature` (Forest, Jungle, Marsh or Oasis) and `river` (an edge mask over the tile's neighbours in ascending id order;
+-- see WorldMap) are optional.
+export type Tile = {id: number, x: number?, y: number?, terrain: string, resource: string?, ownerId: number?, improvement: string?, road: boolean?, feature: string?, river: number?}
 -- `xp` and `promotions` are optional (absent means 0 and none). `level` counts the promotions taken.
 export type Unit = {id: number, ownerId: number, kind: string, tileId: number, hp: number, moves: number, fortified: boolean, level: number, xp: number?, promotions: {string}?, work: {improvement: string, remaining: number}?}
 -- A unit in a snapshot. Every listed unit carries `level` and `promotions` (visible, as in Civ V). Only the actor's own
@@ -32,7 +34,9 @@ export type Player = {id: number, human: boolean, gold: number, science: number,
 export type Event = {id: number, kind: string, message: string, tileId: number?, unitId: number?, ownerId: number?, amount: number?, public: boolean?, cause: string?, byOwnerId: number?, unitKind: string?, cityId: number?}
 export type Diplomacy = {status: string, peaceOfferBy: number?, peaceUntil: number}
 export type Trade = {id: number, fromId: number, toId: number, giveGold: number, receiveGold: number, expires: number}
-export type TileView = {id: number, x: number?, y: number?, visible: boolean, explored: boolean, terrain: string?, resource: string?, ownerId: number?, improvement: string?, road: boolean?, food: number?, production: number?, gold: number?}
+-- An explored tile shows its terrain, resource, `feature` and `river` mask (static knowledge, like terrain); an unexplored
+-- tile shows none of them.
+export type TileView = {id: number, x: number?, y: number?, visible: boolean, explored: boolean, terrain: string?, resource: string?, feature: string?, river: number?, ownerId: number?, improvement: string?, road: boolean?, food: number?, production: number?, gold: number?}
 -- A city in a snapshot. Only the actor's own cities carry the economy fields and the city-combat fields: `strength`
 -- (combat strength), `rangedStrength` (what its strike uses), `strikeReady` (its strike for this round is unused),
 -- `canStrike` (ready, the actor can act now and at least one target is legal) and `strikeTargets` (the unit ids
@@ -40,10 +44,12 @@ export type TileView = {id: number, x: number?, y: number?, visible: boolean, ex
 export type CityView = {id: number, ownerId: number, originalOwnerId: number, capital: boolean, tileId: number, name: string, population: number, hp: number, food: number?, production: number?, queue: string?, buildings: {string}?, focus: string?, strength: number?, rangedStrength: number?, strikeReady: boolean?, canStrike: boolean?, strikeTargets: {number}?}
 export type Statistics = {cities: number, units: number, population: number, technologies: number, policies: number}
 export type Progress = {cities: number, policies: number, era: number}
-export type AttackPreview = {unitId: number, tileId: number, target: string, ranged: boolean, exact: boolean, hiddenDefense: boolean, dealt: number?, received: number?, dealtMin: number, dealtMax: number, receivedMin: number, receivedMax: number, attackerHp: number, defenderHp: number, attackerDefeated: string, defenderDefeated: string, captures: string}
+-- `acrossRiver` is true when a melee attack crosses a river edge (its attack loses riverAttackPercent).
+export type AttackPreview = {unitId: number, tileId: number, target: string, ranged: boolean, exact: boolean, hiddenDefense: boolean, acrossRiver: boolean, dealt: number?, received: number?, dealtMin: number, dealtMax: number, receivedMin: number, receivedMax: number, attackerHp: number, defenderHp: number, attackerDefeated: string, defenderDefeated: string, captures: string}
 -- One legal move: the path from the unit's tile (first) to the destination (last), the movement it spends and keeps,
--- whether it ends the unit's movement and whether the zone of control ended it. Values are in moves (multiples of 1/6).
-export type MovePreview = {unitId: number, tileId: number, path: {number}, movesSpent: number, movesLeft: number, endsMovement: boolean, zoneOfControl: boolean}
+-- whether it ends the unit's movement, whether the zone of control ended it and whether its final step crossed a river
+-- (which also ends it). Values are in moves (multiples of 1/6).
+export type MovePreview = {unitId: number, tileId: number, path: {number}, movesSpent: number, movesLeft: number, endsMovement: boolean, zoneOfControl: boolean, riverCrossing: boolean}
 -- One legal city strike: the striking city, the target unit and its tile, the city's ranged strength, the exact damage
 -- (a strike is deterministic and reads only visible facts, so `exact` is always true), `received` (always 0: the
 -- city takes no damage), the target's hit points before the strike and whether it dies ("Yes" or "No").
@@ -147,6 +153,8 @@ local function addCity(s: any, owner: number, tileId: number): any
     for _, c in s.cities do if c.originalOwnerId == owner then founded += 1; if c.capital then capital=false end end end
     local names=CITY_NAMES[owner]; local name=names and names[founded+1] or "City "..s.nextCity
     local c = {id=s.nextCity, ownerId=owner, originalOwnerId=owner, capital=capital, tileId=tileId, name=name, population=1, food=0, production=0, queue="Warrior", hp=R.cityHp, buildings={}, focus="Balanced"}
+    -- Founding a city clears the tile's feature, as in Civ V; its resource and any river stay.
+    s.tiles[tileId].feature=nil
     s.nextCity += 1; table.insert(s.cities,c); claim(s,c); return c
 end
 local function eligible(player: any, entry: any, list: any): boolean
@@ -255,8 +263,31 @@ local SIXTHS=6
 local function toSixths(moves: number): number return math.round(moves*SIXTHS) end
 local function fromSixths(sixths: number): number return sixths/SIXTHS end
 local roadSixths=toSixths(R.roadMovement)
+-- Terrain features. A tile's movement cost is the larger of its terrain's and its feature's; its defence percentage is
+-- their sum; it is rough when either is.
+local function tileMovement(tile: any): number
+    local moves=R.terrains[tile.terrain].movement
+    if tile.feature then moves=math.max(moves,R.features[tile.feature].movement) end
+    return moves
+end
+local function defensePercentAt(s: any, tileId: number): number
+    local tile=s.tiles[tileId]; local percent=R.terrains[tile.terrain].defensePercent or 0
+    if tile.feature then percent += R.features[tile.feature].defensePercent end
+    return percent
+end
+local function roughAt(s: any, tileId: number): boolean
+    local tile=s.tiles[tileId]
+    return R.terrains[tile.terrain].rough or (tile.feature~=nil and R.features[tile.feature].rough)
+end
+-- Rivers run along tile edges (WorldMap.riverBetween reads the edge mask).
+local function riverBetween(s: any, a: number, b: number): boolean return W.riverBetween(mapFor(s),a,b) end
+-- A step across a river edge spends all remaining movement, unless both tiles have roads (the road bridges the river).
+local function riverCrossing(s: any, fromId: number, toId: number): boolean
+    return riverBetween(s,fromId,toId) and not (s.tiles[fromId].road and s.tiles[toId].road)
+end
 -- The cost in sixths of stepping from `fromId` into the adjacent `toId`, or nil when the step is not allowed. Only
--- tiles the mover can see may be entered. Between two road tiles a step costs a third of a move, whatever the terrain.
+-- tiles the mover can see may be entered. Between two road tiles a step costs a third of a move, whatever the terrain
+-- or feature.
 local function movementCost(s: any, unit: any, fromId: number, toId: number, seen: any, units: any, cities: any): number?
     if not seen[toId] then return nil end
     local tile=s.tiles[toId]; local terrain=R.terrains[tile.terrain]
@@ -266,7 +297,7 @@ local function movementCost(s: any, unit: any, fromId: number, toId: number, see
     if city and city.ownerId~=unit.ownerId then return nil end
     if tile.ownerId and tile.ownerId~=unit.ownerId and s.diplomacy.status~="War" then return nil end
     if tile.road and s.tiles[fromId].road then return roadSixths end
-    return terrain.movement*SIXTHS
+    return tileMovement(tile)*SIXTHS
 end
 -- Tiles that exert a zone of control on this unit: enemy military units (strength above zero) and enemy cities,
 -- only while at war and only where the moving civilization can see them, so a move never reveals a hidden unit.
@@ -287,17 +318,17 @@ local function zoneOfControl(s: any, sources: {[number]: boolean}?, fromId: numb
     return false
 end
 -- One turn of movement for a unit. Returns, for every tile it can reach, the sixths spent getting there (the start
--- costs 0), the previous tile on the cheapest path, and whether the zone of control ended the final step.
--- A unit with any movement left may always enter an adjacent allowed tile: when the step costs at least what remains
--- or the zone of control applies, the unit arrives with no movement left. Arrival never decreases as the spent
--- amount grows, so Dijkstra's order stays exact. Ties settle the lowest tile id first and keep the first path found.
--- Costs are whole sixths and every step arrives strictly later than it leaves, so a bucket per spent sixth (at most
--- the unit's maximum moves times six) is complete when reached; sorting it settles that cost's tiles by id. The search
--- is therefore linear in the tiles it reaches, apart from those small sorts.
-local function movementSearch(s: any, unit: any, seen: any, units: any, cities: any): ({[number]: number}, {[number]: number}, {[number]: boolean})
+-- costs 0), the previous tile on the cheapest path, whether the zone of control ended the final step and whether the
+-- final step crossed a river. A unit with any movement left may always enter an adjacent allowed tile: when the step
+-- costs at least what remains, the zone of control applies or it crosses a river, the unit arrives with no movement
+-- left. Arrival never decreases as the spent amount grows, so Dijkstra's order stays exact. Ties settle the lowest tile
+-- id first and keep the first path found. Costs are whole sixths and every step arrives strictly later than it leaves,
+-- so a bucket per spent sixth (at most the unit's maximum moves times six) is complete when reached; sorting it settles
+-- that cost's tiles by id. The search is therefore linear in the tiles it reaches, apart from those small sorts.
+local function movementSearch(s: any, unit: any, seen: any, units: any, cities: any): ({[number]: number}, {[number]: number}, {[number]: boolean}, {[number]: boolean})
     local budget=toSixths(unit.moves)
-    local spent: {[number]: number}={[unit.tileId]=0}; local previous: {[number]: number}={}; local zoc: {[number]: boolean}={}
-    if budget<=0 then return spent,previous,zoc end
+    local spent: {[number]: number}={[unit.tileId]=0}; local previous: {[number]: number}={}; local zoc: {[number]: boolean}={}; local crossed: {[number]: boolean}={}
+    if budget<=0 then return spent,previous,zoc,crossed end
     local sources=zoneSources(s,unit,seen,units,cities); local neighbors=mapFor(s).neighbors; local settled: {[number]: boolean}={}
     local buckets: {[number]: {number}}={[0]={unit.tileId}}
     for here=0,budget do
@@ -314,15 +345,16 @@ local function movementSearch(s: any, unit: any, seen: any, units: any, cities: 
                 local step=movementCost(s,unit,current,nextId,seen,units,cities)
                 if step==nil then continue end
                 local controlled=zoneOfControl(s,sources,current,nextId)
-                local arrival=if controlled then budget else math.min(budget,here+step)
+                local crossing=riverCrossing(s,current,nextId)
+                local arrival=if controlled or crossing then budget else math.min(budget,here+step)
                 if spent[nextId]==nil or arrival<spent[nextId] then
-                    spent[nextId]=arrival; previous[nextId]=current; zoc[nextId]=controlled
+                    spent[nextId]=arrival; previous[nextId]=current; zoc[nextId]=controlled; crossed[nextId]=crossing
                     local later=buckets[arrival]; if later then table.insert(later,nextId) else buckets[arrival]={nextId} end
                 end
             end
         end
     end
-    return spent,previous,zoc
+    return spent,previous,zoc,crossed
 end
 local function reachable(s: any, unit: any, vision: any?, occupancyUnits: any?, occupancyCities: any?): any
     if unit.moves<=0 then return {} end
@@ -331,11 +363,11 @@ local function reachable(s: any, unit: any, vision: any?, occupancyUnits: any?, 
     return (movementSearch(s,unit,seen,units,cities))
 end
 -- The fog-safe record of one legal move, built from a movement search.
-local function movePreviewFor(unit: any, target: number, spent: any, previous: any, zoc: any): MovePreview
+local function movePreviewFor(unit: any, target: number, spent: any, previous: any, zoc: any, crossed: any): MovePreview
     local path={target}; local current=target
     while current~=unit.tileId do current=previous[current]; table.insert(path,1,current) end
     local left=fromSixths(toSixths(unit.moves)-spent[target])
-    return {unitId=unit.id,tileId=target,path=path,movesSpent=fromSixths(spent[target]),movesLeft=left,endsMovement=left<=0,zoneOfControl=zoc[target]==true}
+    return {unitId=unit.id,tileId=target,path=path,movesSpent=fromSixths(spent[target]),movesLeft=left,endsMovement=left<=0,zoneOfControl=zoc[target]==true,riverCrossing=crossed[target]==true}
 end
 local function attackable(s: any, unit: any, target: number, seen: any, occupancyUnits: any?, occupancyCities: any?): boolean
     if not seen[target] or unit.moves<=0 or R.units[unit.kind].strength<=0 or s.diplomacy.status~="War" then return false end
@@ -399,7 +431,7 @@ end
 -- first available promotion in rule order (Accuracy, then Cover, then Medic for ranged units).
 local function aiPromotion(s: any, u: any): string?
     local options=promotionsAvailable(u); if #options==0 then return nil end
-    local rough=R.terrains[s.tiles[u.tileId].terrain].rough
+    local rough=roughAt(s,u.tileId)
     for _, id in options do local p=R.promotions[id]; if (if rough then p.roughPercent else p.openPercent)>0 then return id end end
     return options[1]
 end
@@ -408,7 +440,7 @@ end
 -- against a unit. A unit's promotions are visible with the unit, so the preview may read the defender's.
 local function promotionPercent(s: any, u: any, target: number, attacking: boolean, rangedStrike: boolean, againstUnit: boolean): number
     local taken=u.promotions; if not taken then return 0 end
-    local rough=R.terrains[s.tiles[target].terrain].rough
+    local rough=roughAt(s,target)
     local total=0
     for _, id in taken do
         local p=R.promotions[id]
@@ -420,15 +452,17 @@ local function promotionPercent(s: any, u: any, target: number, attacking: boole
     return total
 end
 -- A unit's defence on the target tile against one strike (ranged or melee): max(3, strength) x (100 + terrain% +
--- fortified% + promotion%)/100 x (0.5 + hp/200). Shared by unit strikes and city strikes.
+-- fortified% + promotion%)/100 x (0.5 + hp/200), where the terrain percentage includes the tile's feature. Shared by
+-- unit strikes and city strikes.
 local function unitDefense(s: any, defender: any, target: number, rangedStrike: boolean): number
-    local terrain=R.terrains[s.tiles[target].terrain].defensePercent or 0
+    local terrain=defensePercentAt(s,target)
     local modifier=terrain+(if defender.fortified then R.fortifyDefensePercent else 0)+promotionPercent(s,defender,target,false,rangedStrike,true)
     return math.max(3,R.units[defender.kind].strength)*(100+modifier)/100*(0.5+defender.hp/200)
 end
 -- Deterministic damage for one strike, given the target city's building defence and the tile-to-unit occupancy.
--- Attack: base strength x (0.5 + hp/200) x (100 + flanking% + promotion% + siege%)/100; flanking applies only to melee
--- attacks on a defending unit, siege only when the target tile holds an (enemy) city. Defence of a unit: see
+-- Attack: base strength x (0.5 + hp/200) x (100 + flanking% + promotion% + siege% - river%)/100; flanking applies only to
+-- melee attacks on a defending unit, siege only when the target tile holds an (enemy) city, the river penalty only to a
+-- melee attack across a river edge (the attacker's tile and the target share one). Defence of a unit: see
 -- unitDefense; of an undefended city: (cityBaseStrength 14 + population) x (100 + terrain%)/100. City buildings (Walls)
 -- add a flat amount on top in both cases, so damage stays monotonic in the hidden building defence. `level` adds nothing
 -- itself (it was +3 strength per level before promotions); the promotions it counts carry the bonuses.
@@ -438,8 +472,9 @@ local function strike(s: any, unit: any, defender: any, city: any, target: numbe
     local flanking=if ranged or not defender then 0 else flankingPercent(s,unit,target,units)
     local promoted=promotionPercent(s,unit,target,true,ranged,defender~=nil)
     local siege=if city then R.units[unit.kind].siegePercent else 0
-    attack=math.max(1,attack)*(0.5+unit.hp/200)*(100+flanking+promoted+siege)/100
-    local terrain=R.terrains[s.tiles[target].terrain].defensePercent or 0
+    local river=if not ranged and riverBetween(s,unit.tileId,target) then R.riverAttackPercent else 0
+    attack=math.max(1,attack)*(0.5+unit.hp/200)*(100+flanking+promoted+siege-river)/100
+    local terrain=defensePercentAt(s,target)
     local defense: number
     if defender then
         defense=unitDefense(s,defender,target,ranged)
@@ -500,7 +535,7 @@ local function previewFor(s: any, unit: any, target: number, units: any, cities:
     local attackerLow,defenderLow,captureLow=result(dealtMin,receivedMax)
     local attackerHigh,defenderHigh,captureHigh=result(dealtMax,receivedMin)
     local exact=dealtMin==dealtMax and receivedMin==receivedMax
-    return {unitId=unit.id,tileId=target,target=if defender then "Unit" else "City",ranged=ranged,exact=exact,hiddenDefense=high>0,
+    return {unitId=unit.id,tileId=target,target=if defender then "Unit" else "City",ranged=ranged,exact=exact,hiddenDefense=high>0,acrossRiver=not ranged and riverBetween(s,unit.tileId,target),
         dealt=if exact then dealtMin else nil,received=if exact then receivedMin else nil,
         dealtMin=dealtMin,dealtMax=dealtMax,receivedMin=receivedMin,receivedMax=receivedMax,
         attackerHp=unit.hp,defenderHp=if defender then defender.hp else city.hp,
@@ -589,15 +624,27 @@ local function improvementAvailable(s: any, unit: any, improvement: string): boo
     if rule.technology and not has(s.players[unit.ownerId].technologies,rule.technology) then return false end
     if rule.road then return not tile.road end
     if tile.improvement==improvement or not has(rule.terrains,tile.terrain) then return false end
+    -- Features cannot be removed, so only the improvements a feature lists may be built on it.
+    if tile.feature and not has(R.features[tile.feature].improvements,improvement) then return false end
     if #rule.resources>0 and tile.resource and not has(rule.resources,tile.resource) then return false end
     if (improvement=="Pasture" or improvement=="Plantation" or improvement=="Camp") and not tile.resource then return false end
     return true
 end
+-- A tile's yields: its terrain's, replaced by (or, for Marsh, added to) its feature's, then its resource and improvement;
+-- a river adds riverGold and gives a Farm riverFarmFood more (fresh water). No yield drops below zero.
+local yieldKeys={"food","production","gold","science","culture"}
 local function yieldFor(tile: any): any
-    local result=copy(R.terrains[tile.terrain].yields)
-    for _, key in {"food","production","gold","science","culture"} do result[key]=result[key] or 0 end
+    local feature=if tile.feature then R.features[tile.feature] else nil
+    local result=copy(if feature and feature.overrideYields then feature.yields else R.terrains[tile.terrain].yields)
+    for _, key in yieldKeys do result[key]=result[key] or 0 end
+    if feature and not feature.overrideYields then for key,value in feature.yields do result[key] += value end end
     if tile.resource then for key,value in R.resources[tile.resource].yields do result[key] += value end end
     if tile.improvement then for key,value in R.improvements[tile.improvement].yields do result[key] += value end end
+    if tile.river then
+        result.gold += R.riverGold
+        if tile.improvement=="Farm" then result.food += R.riverFarmFood end
+    end
+    for _, key in yieldKeys do result[key]=math.max(0,result[key]) end
     return result
 end
 -- One city's yields this turn: the free center, each citizen on the best distinct nearby owned tile for its
@@ -983,8 +1030,8 @@ function BaseGame.snapshot(state: State, actorId: number): View
     for _, tile in s.tiles do
         local projected: any={id=tile.id,x=tile.x,y=tile.y,visible=seen[tile.id]==true,explored=discovered[tile.id]==true}
         if discovered[tile.id] then
-            projected.terrain=tile.terrain; projected.resource=tile.resource
-            local yields=yieldFor({terrain=tile.terrain,resource=tile.resource})
+            projected.terrain=tile.terrain; projected.resource=tile.resource; projected.feature=tile.feature; projected.river=tile.river
+            local yields=yieldFor({terrain=tile.terrain,resource=tile.resource,feature=tile.feature,river=tile.river})
             projected.food=yields.food; projected.production=yields.production; projected.gold=yields.gold
         end
         if seen[tile.id] then
@@ -1135,9 +1182,9 @@ function BaseGame.previewMove(state: State, actorId: number, unitId: number, til
     local u=unitById(s,unitId); if not u or u.ownerId~=actorId then return nil,"Select your unit." end
     if u.moves<=0 or tileId==u.tileId then return nil,"Destination is unavailable or movement is insufficient." end
     local units,cities=occupants(s)
-    local spent,previous,zoc=movementSearch(s,u,visible(s,actorId),units,cities)
+    local spent,previous,zoc,crossed=movementSearch(s,u,visible(s,actorId),units,cities)
     if not spent[tileId] then return nil,"Destination is unavailable or movement is insufficient." end
-    return movePreviewFor(u,tileId,spent,previous,zoc),nil
+    return movePreviewFor(u,tileId,spent,previous,zoc,crossed),nil
 end
 function BaseGame.serialize(state: State): any
     local saved={format="unciv-luau-base",version=if state.mapShape=="Sphere" then 2 else 1,state=state}

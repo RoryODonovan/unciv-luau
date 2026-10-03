@@ -26,6 +26,8 @@ local function unitById(s: any,id: number): any
 end
 local function founded(seed: number,radius: number?): any
     local s=Game.new(seed,{humanPlayers=2,radius=radius or 8})
+    -- These fixtures pin earlier rules on bare terrain: terrain features and rivers (G4) are removed from the whole map.
+    for _, t in s.tiles do t.feature=nil; t.river=nil end
     apply(s,1,{kind="FoundCity",unitId=firstUnit(s,1,"Settler").id}); apply(s,1,{kind="EndTurn"})
     apply(s,2,{kind="FoundCity",unitId=firstUnit(s,2,"Settler").id}); apply(s,2,{kind="EndTurn"}); return s
 end
@@ -342,6 +344,8 @@ end
 -- 7. Saves written before these rules restore unchanged and play under them; no new state fields.
 do
     local map=WorldMap.generate(124,3)
+    -- A save written before G4 has no features or rivers.
+    for _, t in map.tiles do t.feature=nil; t.river=nil end
     local function at(x: number,y: number): number return WorldMap.tileId(map,x,y) :: number end
     local hub,west,north,east,rival=at(0,0),at(-2,0),at(0,-2),at(1,0),at(2,0)
     local foe: number?=nil

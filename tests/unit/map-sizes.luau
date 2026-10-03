@@ -42,10 +42,14 @@ for radius=3,7 do assert(Game.restore(Game.serialize(Game.new(42,{radius=radius}
 assert(not pcall(function() Game.new(1,{radius=41}) end))
 assert(not pcall(function() Game.new(1,{radius=2}) end))
 assert(not pcall(function() Game.new(1,{radius=10.5}) end))
--- Entire Huge topology, every tile field and both complete explored arrays exceed
--- the old 16,384-entry budget but must remain inside the new bounded trust boundary.
+-- Entire Huge topology, every tile field (all ten, a feature and a river on every edge included) and both complete
+-- explored arrays exceed the old 16,384-entry budget but must remain inside the new bounded trust boundary.
 local full=Game.new(42,{radius=40,humanPlayers=2})
-for _,tile in full.tiles do tile.terrain="Plains"; tile.resource="Wheat"; tile.ownerId=1; tile.improvement="Farm"; tile.road=true end
+local fullGraph=Map.fromTiles(full.tiles,40)
+for id,tile in full.tiles do
+    tile.terrain="Plains"; tile.feature="Forest"; tile.resource="Deer"; tile.ownerId=1; tile.improvement="Camp"; tile.road=true
+    tile.river=bit32.lshift(1,#fullGraph.neighbors[id])-1
+end
 for _,p in full.players do p.explored={}; for id=1,#full.tiles do table.insert(p.explored,id) end end
 local saved=Game.serialize(full)
 assert(saved.version==1 and #saved.state.tiles==4921 and Save.valid(saved))
@@ -63,6 +67,8 @@ corrupt(function(s) s.state.tiles[4922]=copy(s.state.tiles[1]) end)
 corrupt(function(s) s.state.tiles[4921].x=s.state.tiles[1].x; s.state.tiles[4921].y=s.state.tiles[1].y end)
 corrupt(function(s) s.state.players[1].explored[4921]=4922 end)
 corrupt(function(s) s.state.tiles[1].extra=true end)
+corrupt(function(s) s.state.tiles[1].river=1 end)
+corrupt(function(s) s.state.tiles[1].feature="Oasis" end)
 corrupt(function(s) s.state.mapSize="Huge" end)
 corrupt(function(s) for _=1,164 do table.insert(s.state.units,copy(s.state.units[1])) end end)
 corrupt(function(s) for _=1,25 do table.insert(s.state.cities,{}) end end)
@@ -78,7 +84,7 @@ for _,range in {0,1,2,5,80} do
     for id=1,#map.tiles do if Map.distance(map,center,id)<=range or Map.distance(map,edge,id)<=range then table.insert(expected,id) end end
     assert(equal(expected,Map.visibility(map,{center,edge,center},range)))
 end
-for _,tile in map.tiles do tile.terrain="Plains" end
+for _,tile in map.tiles do tile.terrain="Plains"; tile.feature=nil end
 local first=Map.tileId(map,-39,0) :: number
 local last=Map.tileId(map,39,0) :: number
 local path,cost=Map.shortestPath(map,first,last)

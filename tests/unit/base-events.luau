@@ -23,6 +23,8 @@ local function firstCity(s: any,owner: number): any
 end
 local function founded(seed: number,radius: number?): any
     local s=Game.new(seed,{humanPlayers=2,radius=radius or 4})
+    -- These fixtures pin earlier rules on bare terrain: terrain features and rivers (G4) are removed from the whole map.
+    for _, t in s.tiles do t.feature=nil; t.river=nil end
     apply(s,1,{kind="FoundCity",unitId=firstUnit(s,1,"Settler").id}); apply(s,1,{kind="EndTurn"})
     apply(s,2,{kind="FoundCity",unitId=firstUnit(s,2,"Settler").id}); apply(s,2,{kind="EndTurn"}); return s
 end

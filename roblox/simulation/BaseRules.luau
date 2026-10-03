@@ -1,6 +1,6 @@
 --!strict
 -- Generated module-only Roblox form. Source: src/simulation/BaseRules.luau
--- Source SHA-256: 26e5274c65628d4996b33d21e2f4e5a5a914e020dcaeee8e46c7d23ee63ba71e
+-- Source SHA-256: 3ba8bf6efd64ee7eb48f53293eb52358f32f8549de9e86530b880d589f12b5c7
 -- Reproduce with tools/roblox-export.mjs; preserve MPL notices below.
 -- Covered source: https://github.com/RoryODonovan/unciv-luau
 -- This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
@@ -22,6 +22,13 @@ export type Improvement = {id: string, technology: string?, terrains: {string}, 
 -- rough: Hills and Forest (and impassable Mountain) are rough terrain for promotions (Drill); every other passable
 -- terrain is open (Shock).
 export type Terrain = {id: string, movement: number, passable: boolean, defensePercent: number, rough: boolean, yields: Yields}
+-- A terrain feature on top of a tile's terrain (Civ V's Forest, Jungle, Marsh and Oasis), stored in the optional tile field
+-- `feature`. It may stand only on the listed `terrains`. `movement` is the feature's movement cost (a step costs the larger
+-- of it and the terrain's). `defensePercent` adds to the terrain's defence percentage and `rough` makes the tile rough
+-- for promotions. With `overrideYields` the feature's `yields` replace the terrain's, otherwise they add to them (a
+-- tile's yield never drops below zero). Of the non-road improvements only the listed `improvements` may be built on the
+-- feature (there is no feature removal); roads may be built on any feature.
+export type Feature = {id: string, terrains: {string}, movement: number, defensePercent: number, rough: boolean, yields: Yields, overrideYields: boolean, improvements: {string}}
 -- A promotion's percentages add to the unit's combat strength in one strike, in the same sum as the other modifiers:
 -- roughPercent when the strike's target tile is rough, openPercent when it is open, coverPercent while defending
 -- against a ranged attack, accuracyPercent on a ranged attack against a unit. adjacentHeal is extra healing for the
@@ -82,6 +89,15 @@ local terrains: {[string]: Terrain} = {
     Water={id="Water",movement=1,passable=false,defensePercent=0,rough=false,yields=yields(1,0,1)},
     Mountain={id="Mountain",movement=1,passable=false,defensePercent=0,rough=true,yields=yields()},
 }
+-- Civ V-flavoured synthetic features. Forest keeps the values of the legacy Forest terrain (which earlier generators
+-- produced and older saves still hold); Jungle trades production for food, Marsh is wet lowland that is hard to cross and
+-- to hold, and the Oasis is a fertile desert spring.
+local features: {[string]: Feature} = {
+    Forest={id="Forest",terrains={"Plains","Grassland","Tundra"},movement=2,defensePercent=25,rough=true,yields=yields(1,2),overrideYields=true,improvements={"Camp","Plantation"}},
+    Jungle={id="Jungle",terrains={"Plains","Grassland"},movement=2,defensePercent=25,rough=true,yields=yields(2),overrideYields=true,improvements={"Plantation"}},
+    Marsh={id="Marsh",terrains={"Grassland"},movement=2,defensePercent=-15,rough=true,yields=yields(-1),overrideYields=false,improvements={}},
+    Oasis={id="Oasis",terrains={"Desert"},movement=1,defensePercent=-10,rough=false,yields=yields(3,0,1),overrideYields=true,improvements={}},
+}
 local resources: {[string]: Resource} = {
     Wheat={id="Wheat",category="Bonus",yields=yields(1),happiness=0,improvement="Farm"},
     Iron={id="Iron",category="Strategic",yields=yields(0,1),happiness=0,improvement="Mine"},
@@ -95,7 +111,9 @@ local improvements: {[string]: Improvement} = {
     Mine={id="Mine",technology="Mining",terrains={"Hills","Plains","Desert"},resources={"Iron","Gold"},turns=3,yields=yields(0,1),road=false},
     Pasture={id="Pasture",technology="Agriculture",terrains={"Plains","Grassland"},resources={"Horses"},turns=2,yields=yields(0,1),road=false},
     Plantation={id="Plantation",technology="Currency",terrains={"Plains","Grassland","Forest"},resources={"Spices"},turns=3,yields=yields(0,0,2),road=false},
-    Camp={id="Camp",technology="Archery",terrains={"Forest","Plains"},resources={"Deer"},turns=2,yields=yields(1),road=false},
+    -- Camp lists Grassland and Tundra so Deer under a Forest feature on those terrains stays valid (and keeps its Camp
+    -- when a city founded on the tile clears the feature). A Camp always needs its Deer, so bare land gains nothing.
+    Camp={id="Camp",technology="Archery",terrains={"Forest","Plains","Grassland","Tundra"},resources={"Deer"},turns=2,yields=yields(1),road=false},
     Road={id="Road",technology="Engineering",terrains={"Plains","Grassland","Hills","Forest","Desert","Tundra"},resources={},turns=2,yields=yields(),road=true},
 }
 local promotions: {[string]: Promotion} = {}
@@ -119,12 +137,17 @@ local rules = {
     units=units,unitStats=units,buildings=buildings,buildingEffects=buildings,technologies=technologies,technologyOrder=technologyOrder,
     unitOrder={"Scout","Warrior","Settler","Worker","Archer","Swordsman","Pikeman","Knight","Catapult","Musketman","Rifleman"},buildingOrder={"Monument","Granary","Library","Walls","Market","Workshop","Temple","University","GuildHall","Observatory","SpaceProject"},
     policies=policies,policyOrder={"Tradition","Liberty","Honor","Commerce","Rationalism","Patronage"},
-    terrains=terrains,terrainYields=terrainYields,resources=resources,improvements=improvements,improvementOrder={"Farm","Mine","Pasture","Plantation","Camp","Road"},
+    terrains=terrains,terrainYields=terrainYields,features=features,featureOrder={"Forest","Jungle","Marsh","Oasis"},resources=resources,improvements=improvements,improvementOrder={"Farm","Mine","Pasture","Plantation","Camp","Road"},
     productionCosts=productionCosts,purchaseCosts=purchaseCosts,upgradeCost=40,workerTurns=2,
     cityHp=150,cityBaseYields=yields(2,2,2,2,1),cityWorkRadius=2,foodPerPopulation=2,baseHappiness=9,unhappinessPerCity=2,unhappinessPerPopulation=1,
     growthBase=20,growthPerPopulation=8,starvationLoss=1,unitVision=2,cityVision=2,
     -- Moving between two road tiles costs a third of a move (Civ V), whatever the terrain.
     roadMovement=1/3,
+    -- Rivers run along tile edges (the optional tile mask `river`). A tile with a river on any edge yields riverGold more
+    -- gold, and a Farm on it riverFarmFood more food (fresh water). A step across a river edge spends all remaining
+    -- movement unless both tiles have roads (the road bridges it), and a melee attack across a river loses
+    -- riverAttackPercent of its attack (Civ V's -20%).
+    riverGold=1,riverFarmFood=1,riverAttackPercent=20,
     scienceVictoryTechnology="Rocketry",scienceVictoryBuilding="SpaceProject",cultureVictoryPolicies=6,score={city=10,population=3,unit=2,technology=5,policy=5},
     maxTradeTurns=20,maxTradeDeals=16,maxEvents=64,maxLog=24,
     -- Combat percentages: fortification adds to the terrain percentage in one defence multiplier; each other

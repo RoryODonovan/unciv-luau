@@ -23,8 +23,21 @@ local function hex(radius: number): Fixture
  end
  return {shape='Hex',size=radius,centers=centers,neighbors=neighbors}
 end
-local compatible: {[string]: {[string]: boolean}}={Wheat={Grassland=true,Plains=true},Horses={Grassland=true,Plains=true},Deer={Forest=true},Spices={Forest=true},Iron={Hills=true},Gold={Hills=true,Desert=true}}
-local allowed: {[string]: boolean}={Grassland=true,Plains=true,Forest=true,Hills=true,Mountain=true,Water=true,Desert=true,Tundra=true}
+-- Resources by bare terrain, and by feature (woods are a feature on their own terrain since G4).
+local compatible: {[string]: {[string]: boolean}}={Wheat={Grassland=true,Plains=true},Horses={Grassland=true,Plains=true},Iron={Hills=true},Gold={Hills=true,Desert=true},Spices={Plains=true},Deer={}}
+local featureResources: {[string]: {[string]: boolean}}={Forest={Deer=true,Spices=true},Jungle={Spices=true},Marsh={},Oasis={}}
+local allowed: {[string]: boolean}={Grassland=true,Plains=true,Hills=true,Mountain=true,Water=true,Desert=true,Tundra=true}
+-- Natural food and production under the game rules, features included.
+local function natural(tile: Generator.Tile): (number,number)
+ local rule=Rules.terrains[tile.terrain];local feature=if tile.feature then Rules.features[tile.feature] else nil
+ local f,p=rule.yields.food,rule.yields.production
+ if feature and feature.overrideYields then f,p=feature.yields.food,feature.yields.production
+ elseif feature then f+=feature.yields.food;p+=feature.yields.production end
+ f,p=math.max(0,f),math.max(0,p)
+ if tile.resource then local yields=Rules.resources[tile.resource].yields;f+=yields.food;p+=yields.production end
+ return f,p
+end
+local featureTypes: {[string]: boolean}={};local riverMaps=0
 local function passable(tile: Generator.Tile): boolean return tile.terrain~='Water' and tile.terrain~='Mountain'end
 local function bfs(fixture: Fixture,tiles: {Generator.Tile},start: number,limit: number?): ({number},{number})
  local ids={start};local distances: {number}={[start]=0};local head=1
@@ -49,29 +62,31 @@ local function check(fixture: Fixture,seed: number): Generator.Result
   assert(tile.id==id and allowed[tile.terrain],'stable ID and declared terrain')
   terrainTypes[tile.terrain]=true
   if tile.terrain~='Water'then land+=1 end;if passable(tile)then walkable+=1 end
-  if tile.resource then assert(compatible[tile.resource]and compatible[tile.resource][tile.terrain],'resource terrain compatibility');resourceTypes[tile.resource]=true;resourceCount+=1 end
+  if tile.feature then assert(table.find(Rules.features[tile.feature].terrains,tile.terrain),'feature terrain compatibility');featureTypes[tile.feature]=true end
+  if tile.resource then
+   if tile.feature then assert(featureResources[tile.feature][tile.resource] and table.find(Rules.improvements[Rules.resources[tile.resource].improvement].terrains,tile.terrain),'resource feature compatibility')
+   else assert(compatible[tile.resource]and compatible[tile.resource][tile.terrain],'resource terrain compatibility') end
+   resourceTypes[tile.resource]=true;resourceCount+=1
+  end
  end
  assert(land/#tiles>.3 and land/#tiles<(if #tiles<=20 then .96 else .91),'usable land and meaningful ocean')
  local reachable,distance=bfs(fixture,tiles,result.starts[1])
  assert(distance[result.starts[2]]and distance[result.starts[2]]>=3,'distinct city-separated starts on the same traversable mainland')
  assert(#reachable/math.max(1,walkable)>.5,'land-only actors can reach a substantial mainland')
  for player,start in result.starts do
-  assert(tiles[start].terrain=='Plains' or tiles[start].terrain=='Grassland','fertile capital site')
+  assert((tiles[start].terrain=='Plains' or tiles[start].terrain=='Grassland') and not tiles[start].feature,'fertile capital site')
   local deployment=0;for _,other in fixture.neighbors[start]do if passable(tiles[other])then deployment+=1 end end
   assert(deployment>=3,'three free passable unit deployment neighbors')
   local adjacentYield=false
   for _,id in fixture.neighbors[start]do if passable(tiles[id])then
-   local tile=tiles[id];local rule=Rules.terrains[tile.terrain];local f=if rule then rule.yields.food else 1;local p=if rule then rule.yields.production else 0
-   if tile.resource then local yields=Rules.resources[tile.resource].yields;f+=yields.food;p+=yields.production end
+   local f,p=natural(tiles[id])
    if f>=2 and p>=1 then adjacentYield=true end
   end end
   assert(adjacentYield,'same adjacent worked plot supports initial food and production')
   local localIds=bfs(fixture,tiles,start,2);local found: {[string]: boolean}={};local f,p=0,0
   for _,id in localIds do
    local tile=tiles[id];if tile.resource then found[tile.resource]=true end
-   local rule=Rules.terrains[tile.terrain]
-   if rule then f+=rule.yields.food;p+=rule.yields.production elseif tile.terrain=='Tundra'then f+=1 end
-   if tile.resource then local yields=Rules.resources[tile.resource].yields;f+=yields.food;p+=yields.production end
+   local tf,tp=natural(tile);f+=tf;p+=tp
   end
   assert(found.Wheat or found.Deer,'local renewable food resource')
   assert(found.Iron and found.Horses,'both strategic upgrade paths available locally')
@@ -158,6 +173,8 @@ assert(aggregate.mountainBorder/math.max(1,aggregate.mountainCount)>.75,'mountai
 assert(aggregate.resourceEdges/math.max(1,aggregate.resourceEdgesCount)>.3,'resource deposits form neighboring compatible clusters')
 assert(aggregate.lakes>0,'sample ensemble contains genuine enclosed inland lakes')
 for terrain in allowed do assert(terrainTypes[terrain],'ensemble includes '..terrain)end
+assert(not terrainTypes.Forest,'woods are a feature, not the legacy Forest terrain')
+for _,feature in Rules.featureOrder do assert(featureTypes[feature],'ensemble includes '..feature)end
 for resource in compatible do assert(resourceTypes[resource],'ensemble includes '..resource)end
 local fixture=sphere(12);local a=Generator.generate(42,fixture.centers,fixture.neighbors,'Sphere');local b=Generator.generate(43,fixture.centers,fixture.neighbors,'Sphere')
 local changed=0;for id,tile in a.tiles do if tile.terrain~=b.tiles[id].terrain then changed+=1 end end
