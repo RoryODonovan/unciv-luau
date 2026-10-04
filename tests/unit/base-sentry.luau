@@ -122,6 +122,25 @@ do
     apply(s,1,{kind="EndTurn"}); apply(s,2,{kind="RangedAttack",unitId=5,tileId=s.units[2].tileId})
     assert(s.units[2].sentry==nil and s.units[3].sentry==nil and #wakes(s,1)==2 and #wakes(s,2)==0)
 end
+-- A witnessed city strike rechecks nearby hostile units immediately; the city alone is not a wake trigger.
+do
+    local s,map=fixture(); local sleeper=s.units[2]; local enemy=s.units[5]
+    s.activePlayerId=2; s.units[4].tileId=tile(map,2)
+    apply(s,2,{kind="FoundCity",unitId=4}); local city=s.cities[1]
+    enemy.tileId=tile(map,1); s.diplomacy.status="War"; s.activePlayerId=1
+    sentry(s,1,sleeper.id); apply(s,1,{kind="EndTurn"})
+    assert(sleeper.sentry==true and #wakes(s,1)==0,"city-strike fixture woke before the strike")
+    assert(unitView(s,1,enemy.id).tileId==enemy.tileId and Map.distance(map,sleeper.tileId,enemy.tileId)<=2)
+    local hp=sleeper.hp
+    apply(s,2,{kind="CityRangedStrike",cityId=city.id,targetUnitId=sleeper.id})
+    assert(sleeper.hp>0 and sleeper.hp<hp and city.strikeTurn==s.turn,"city strike must hit the surviving sentry")
+    assert(s.activePlayerId==2 and sleeper.sentry==nil and #wakes(s,1)==1,"city strike failed to wake immediately")
+    local e=wakes(s,1)[1]
+    assert(e.ownerId==1 and e.unitId==sleeper.id and e.tileId==sleeper.tileId and e.public~=true)
+    assert(#wakes(s,2)==0,"city-strike waking leaked to rival")
+    for _, strike in s.events do if strike.kind=="CityStrike" then assert(strike.id<e.id,"waking must follow city strike") end end
+    apply(s,2,{kind="EndTurn"}); assert(#wakes(s,1)==1,"city-strike wake event duplicated at turn start")
+end
 -- At war, a stationary visible hostile also wakes at the next turn start.
 do
     local s,map=fixture(); s.diplomacy.status="War"; s.units[5].tileId=tile(map,2)

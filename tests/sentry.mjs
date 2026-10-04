@@ -36,6 +36,7 @@ try {
     ['mid-turn movement waking',game,'wakeAfterAction(s,unit.ownerId,from,target,witnesses); return true','return true'],
     ['barbarian movement waking',game,'wakeAfterAction(s,u.ownerId,from,best,witnesses)',''],
     ['attack waking',game,'wakeAfterAction(s,unit.ownerId,from,target,witnesses)\nend','-- removed waking\nend'],
+    ['city-strike waking',game,'wakeAfterAction(s,city.ownerId,city.tileId,tileId,witnesses)',''],
     ['peaceful rival filter',game,'hostile(s,owner,u.ownerId) and seen[u.tileId]','owner~=u.ownerId and seen[u.tileId]'],
     ['wake distance',game,'nearby(s,u.tileId,2)','nearby(s,u.tileId,3)'],
     ['own-only unit view',game,'else view.xp=nil; view.sentry=nil end','else view.xp=nil end'],
