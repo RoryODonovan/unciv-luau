@@ -59,7 +59,7 @@ Every unit in `units` carries `level` and `promotions` (a list of ids, empty whe
 
 Each of the actor's own cities in `cities` also carries its [city combat](#city-combat) fields: `strength` (combat strength, an integer), `rangedStrength` (what its strike uses), `strikeReady` (its strike for this round is unused), `canStrike` (ready, the actor can act now and at least one target is legal) and `strikeTargets` (the unit ids `CityRangedStrike` accepts now, ascending, empty while the actor cannot act). The stored `strikeTurn` is not projected. `cityStrikePreviews`, keyed by string city ID like `attackPreviews`, lists one record per entry of `strikeTargets`: `{cityId, unitId, tileId, rangedStrength, exact, dealt, received, defenderHp, defenderDefeated}`. A strike is deterministic and reads only the actor's own city and garrison, its era and the visible target, so `exact` is always true, `dealt` equals the applied damage, `received` is always 0 and `defenderDefeated` is `"Yes"` or `"No"`. `previewCityStrike(state, actorId, cityId, targetUnitId)` answers the same record for one target, or `nil` plus a message. It never mutates state and ignores turn ownership. It gives one message for a missing, hidden, friendly, out-of-range or peaceful target. A rival city never carries these fields, and the snapshot has no preview list for it.
 
-`cityForecasts`, keyed by string city ID, covers only the actor's own cities: `{food, production, gold, science, culture, growthTurns?, productionTurns?, productionBlocked?}`. It replays the actor's next economy step without mutating the state: the actor's cities in id order, each using the same per-city yield function the economy uses (citizens on the best distinct owned tiles, including culture acquisitions by earlier cities in this step for the focus, earlier cities' citizens excluded, buildings, policies, the Science/Culture conversion) and the same happiness and AI-difficulty adjustments, with happiness computed as the step computes it. `growthTurns` is 1 exactly when the step grows the city and is omitted when the city cannot grow at this rate (food not positive and the store short, happiness negative, or maximum population). `productionTurns` is 1 exactly when the step completes the queue, except for the unit-cap case below. When the queue cannot complete now it is omitted and `productionBlocked` gives the reason. `"NotAvailable"` means the item is unavailable: a missing technology, a building already present, the global unit cap, or too few strategic resources. Resources include improved resources on culture tiles earlier own cities acquire after their production, minus those used by units that earlier own cities complete in the same step. The overlay models these single-tile acquisitions and the extra sight from predicted unit completions; population never makes a virtual claim. `"Idle"` means the queue is empty (see [Idle production](#idle-production)); its production yield is reported but is not stored. `"NoSpace"` means a unit has no free deployment tile (the city tile and its neighbours, as purchases also require), counting tiles taken by earlier own completions. These reasons read only the actor's own cities, units, technologies and territory, the tiles around its cities and the units it can see. Unseen rival units never change a forecast. The global unit cap counts every unit, so the forecast applies it in two fog-safe ways. It uses the current total, the same `#units >= cap` check `availableProductionByCity` already exposes. It also adds earlier own completions this step to the units the actor can see (its own, visible rival units and visible barbarians), which makes the block certain when that count reaches the cap. If unseen rival or barbarian units bring the true total within those earlier completions of the cap, a later city's unit can still be stopped although its forecast says 1. This is the one fog exception (the cap is 169 units). Otherwise forecast and step agree exactly whenever nothing changes in between. They can differ if the actor acts first (moves, purchases, queue or focus changes, new cities) or, in a two-human game, when the other civilization's turn runs first and claims tiles, captures a city or occupies a deployment tile. Turn counts above 1 assume the current rate and conditions hold.
+`cityForecasts`, keyed by string city ID, covers only the actor's own cities: `{food, production, gold, science, culture, growthTurns?, productionTurns?, productionBlocked?}`. It replays the actor's next economy step without mutating the state: the actor's cities in id order, each using the same per-city yield function the economy uses (citizens on the best distinct owned tiles, including culture acquisitions by earlier cities in this step for the focus, earlier cities' citizens excluded, buildings, policies, the Science/Culture conversion) and the same happiness and AI-difficulty adjustments, with happiness computed as the step computes it. `growthTurns` is 1 exactly when the step grows the city and is omitted when the city cannot grow at this rate (food not positive and the store short, happiness negative, or maximum population). `productionTurns` is 1 exactly when the step completes the queue, except for the unit-cap case below. When the queue cannot complete now it is omitted and `productionBlocked` gives the reason. `"NotAvailable"` means the item is unavailable: a missing technology, a building already present, the global unit cap, or too few strategic resources. Resources include improved resources on culture tiles earlier own cities acquire after their production, minus those used by units that earlier own cities complete in the same step. The overlay models these single-tile acquisitions using current projected knowledge; population never makes a virtual claim. `"Idle"` means the queue is empty (see [Idle production](#idle-production)); its production yield is reported but is not stored. `"NoSpace"` means a unit has no free deployment tile (the city tile and its neighbours, as purchases also require), counting tiles taken by earlier own completions. These reasons read only the actor's own cities, units, technologies and territory, the tiles around its cities and the units it can see. Unseen rival units never change a forecast. The global unit cap counts every unit, so the forecast applies it in two fog-safe ways. It uses the current total, the same `#units >= cap` check `availableProductionByCity` already exposes. It also adds earlier own completions this step to the units the actor can see (its own, visible rival units and visible barbarians), which makes the block certain when that count reaches the cap. If unseen rival or barbarian units bring the true total within those earlier completions of the cap, a later city's unit can still be stopped although its forecast says 1. This unit-cap limitation concerns the global cap of 169 units. Culture forecasts can also differ when production discovers a resource or actual ownership forces a silent candidate skip. Otherwise forecast and step agree exactly whenever nothing changes in between. They can differ if the actor acts first (moves, purchases, queue or focus changes, new cities) or, in a two-human game, when the other civilization's turn runs first and claims tiles, captures a city or occupies a deployment tile. Turn counts above 1 assume the current rate and conditions hold.
 
 Cities are named in founding order from an original list per civilization: Sunhaven, Brightwater, Oakridge… for civilization 1 and Ironcliff, Embermark, Duskwall… for civilization 2, then `City <id>` once a list runs out. Capture changes the owner, never the name. Saves are unaffected because names were already free text.
 
@@ -615,21 +615,25 @@ This is a bounded two-civilization land game. Unit obsolescence, strategic resou
 
 Founding claims the unowned first ring as before (seven tiles on an interior hex city). Existing territory stays owned. Each city stores `borderCulture` and `borderTiles`, initially zero. Capture preserves both and retains the existing capture ownership rule. After applying yields and completing production, each city adds `max(0, city culture yield) + 1` to border culture. The same culture yield also funds empire policies, unchanged. At most one tile grows per city per owner economy step, with excess culture carried over. The new tile can be worked by a later city in that step; it does not retroactively change the acquiring city's yields or production.
 
-Chosen constants: base **20**, multiplier **2**, exponent **1.1**, base rate **1**, purchase base **50**, purchase increase **5**. The next tile costs `scaledCost(s, floor(20 + (2 * borderTiles)^1.1), "policy")`, without adoption inflation or wonder discounts. Sufficient culture subtracts that cost, acquires the best candidate and increments `borderTiles`. No candidate means no acquisition and the store is capped at the current cost. Population never expands borders in the economy or forecasts. This engine has no separate virtual settling-claim implementation.
+Chosen constants: base **20**, multiplier **2**, exponent **1.1**, base rate **1**, purchase base **50**, purchase increase **5**. The next tile costs `scaledCost(s, floor(20 + (2 * borderTiles)^1.1), "policy")`, without adoption inflation or wonder discounts. Sufficient culture subtracts that cost, acquires the best actually unowned candidate and increments `borderTiles`. No projected candidate means no acquisition and the store is capped at the current cost. Population never expands borders in the economy or forecasts. This engine has no separate virtual settling-claim implementation.
 
-Candidates are unowned, within distance three, adjacent to any tile of the same owner, without foreign units, foreign cities or barbarian camps. Water and mountains are allowed. Physical blockers are checked even outside current sight, as specified. The score is `2*food + 2*production + gold + science + culture` from natural terrain/feature/river yields without improvements, plus visible resource bonus (luxury 6, strategic 4, bonus 2), minus `3*(distance-1)`. Lowest tile id deliberately breaks ties: deterministic and seat-neutral. Resources contribute neither natural resource yields nor bonuses unless currently in sight and revealed.
+Candidates follow the acquiring owner's snapshot projection: within distance three, apparently unowned, adjacent to a tile projected as owned by that owner, and without a **currently visible** foreign unit, foreign city or barbarian camp. Ownership is projected only in current sight, including on explored tiles; unseen ownership neither removes a candidate nor establishes adjacency. Water and mountains are allowed. Hidden units, cities and camps never change candidates, `buyableTiles`, `nextBorderTile`, `borderTurns`, culture choice or a `BuyTile` result/message. The score is `2*food + 2*production + gold + science + culture` from natural terrain/feature/river yields without improvements, plus projected resource bonus (luxury 6, strategic 4, bonus 2), minus `3*(distance-1)`. Lowest tile id deliberately breaks ties: deterministic and seat-neutral.
 
-The engine previously exposed strategic resources in static tile projections and had no reveal helper. Borders use a local reveal map: Horses / Animal Husbandry, Iron / Bronze Working, Saltpeter / Gunpowder, Oil / Combustion. Other projections and economy rules stay as before; this is border-specific visibility, not full Civ V parity. Saltpeter is original engine content; Combustion substitutes for Civ V's unavailable Biology.
+Resources contribute natural resource yields and bonuses exactly when the owner's projection shows them: on explored tiles, even outside current sight and regardless of technology. Unexplored resources contribute neither. There is no border-only strategic reveal map. The existing projection's technology-independent strategic reveal is a documented parity gap outside this change. Actual production may reveal new tiles before culture selection; forecasts use current projected knowledge and can differ after new exploration, rather than disclose an unexplored resource through a later city's forecast.
+
+At apply time, actual ownership still prevents taking already owned land. Culture silently skips owned candidates to the next highest score, without a skipped-tile event or reason and without spending culture on a skipped candidate. The only acquisition event names the tile acquired; the menu is still recomputed from the next snapshot's visibility, so no hidden rival owner or skipped-tile identity is disclosed. If all projected candidates are actually owned, growth retains its culture until a valid acquisition is possible; the cap applies when there are no projected candidates. `BuyTile` returns the same generic non-candidate refusal for unseen owned land, before checking gold. No hidden blocker is consulted at apply time.
+
+Acquisition around a hidden foreign unit or camp is deliberately allowed and leaves it in place. A foreign unit at peace can leave by normal movement: territory restrictions check **entering** a tile, not leaving its starting tile, and still forbid re-entry into peaceful foreign land. An owned camp continues spawning and operating under the existing barbarian rules. These are fog-honest simplifications; Civ V pushes foreign units out, this engine does not.
 
 `{kind="BuyTile", cityId, tileId}` requires the actor's turn, its own city, any current candidate and enough gold. The cost is `scaledCost(s, floor((50 + 5*borderTiles) * factor), "production")`, where distance one/two/three uses 0.75/1/1.5. Production is the existing gold-purchase pace category. Success deducts gold, takes the tile and increments `borderTiles`, without spending border culture. Both acquisition kinds emit `BorderGrowth`, carrying `tileId`, `cityId`, owner and the city's expansion message. Purchases also carry paid gold as `amount`; culture events omit it. These events are strictly owner-private even in rival sight. Save validation requires their owner, tile and city and forbids public border events.
 
-After production planning the AI buys at most one tile per empire per turn. It considers currently visible luxury or revealed strategic resources and keeps the existing **60-gold** budget reserve. It ranks candidates across all own cities by the same score, then lowest tile id; two cities offering the same tile finally use lowest city id. Both seats use the same logic.
+After production planning the AI buys at most one tile per empire per turn. It uses the identical candidate rule from its own visibility, considers projected luxury or strategic resources on explored tiles and keeps the existing **60-gold** budget reserve. It ranks candidates across all own cities by the same score, then lowest tile id; two cities offering the same tile finally use lowest city id. Actual owned candidates are silently skipped. Both seats use the same logic.
 
 Only own `CityView` entries carry `borderCulture`, `nextTileCost`, `borderTurns`, `buyableTiles` and `nextBorderTile`. `buyableTiles` is a detached array of `{tileId,cost}` for every current candidate, ascending by tile id, regardless of treasury or turn readiness. `nextBorderTile` is the best current candidate or absent. `borderTurns=ceil((nextTileCost-borderCulture)/(max(0,forecast culture)+1))`, absent with no candidate. Excess carried culture can make it zero or negative; growth still waits for the next economy step. Rival cities carry none of these fields. Stored `borderTiles` is not projected.
 
 **Save compatibility.** Versions remain 1 (Hex) and 2 (Sphere). Optional `borderCulture` accepts finite numbers from 0 through 1,000,000,000; optional `borderTiles` accepts integers from 0 through 1,000,000. Both restore APIs default absent culture to zero. For absent tile counts, assign each owned tile within distance three to its nearest own city, breaking equal distances by lowest city id; each city gets `max(0, assigned tiles - 7)`. The subtraction is deliberately seven even at clipped map edges and sphere pentagons. Existing ownership never changes, including old population-three claims. Restore copies before migration and preserves present fields. Earlier libraries reject the new fields or event kind rather than misreading them; hosts must keep a compatible pinned library after these saves exist.
 
-**Tests.** `tests/unit/base-borders.luau` covers population and forecast claims, pace, carry-over, one tile per step, scoring, visibility, blockers, adjacency, distance, ties, impassable ownership, prices and refusals, private views/events, sorted detached menus, no-candidate caps, current/legacy Hex and Sphere saves and corrupt fields. `node tests/borders.mjs` adds full AI rich/poor decisions, reserve boundary, seat swaps, two AI empires and cross-city ranking in a disposable copy. Capture fixtures assert both fields survive on Hex and Sphere. Existing forecast and legacy fixtures account for the new rule. `node tests/borders.mjs --mutations` verifies 19 isolated rule regressions each fail a fixture assertion, including production revealing a luxury before border selection.
+**Tests.** `tests/unit/base-borders.luau` covers population and forecast claims, pace, carry-over, one tile per step, projected resources, visibility, blockers, adjacency, distance, ties, impassable ownership, prices and refusals, private views/events, sorted detached menus, no-candidate caps, current/legacy Hex and Sphere saves and corrupt fields. Full snapshot equality covers hidden units, camps, cities and ownership. Hidden blockers preserve culture choice; visible blockers remove the tile from the menu and choice. A purchase around a hidden peaceful unit succeeds and the unit leaves through normal movement, while re-entry is refused. `node tests/borders.mjs` adds full AI rich/poor decisions, reserve boundary, seat swaps, two AI empires, cross-city ranking, both seats' hidden/visible blockers and explored strategic purchase without reveal technology, plus spawning from an owned camp, in a disposable copy. Capture fixtures assert both fields survive on Hex and Sphere. `node tests/borders.mjs --mutations` verifies 25 isolated rule regressions each fail a fixture assertion, including the fog and resource rules.
 
 ### G11a balance evidence
 
@@ -643,76 +647,86 @@ Only own `CityView` entries carry `borderCulture`, `nextTileCost`, `borderTurns`
 
 Every route count has denominator 24; no draws. Standard Science changes 83.3% to 75%, Culture 12.5% to 20.8%, Domination 0% to 4.2%. Full Science changes 29.2% to 45.8%, Culture 66.7% to 50%, Domination stays 4.2%. Quick Science stays zero, Culture 66.7% to 62.5%, Domination stays 8.3%.
 
-The specified multiplier 10 yielded only **10** Standard tiles/city at round 50 (capital first tile round 8), with Science/Culture/Domination 18/4/2. Multiplier 4 yielded **11** (round 8), routes 16/6/1 plus one Score. Multiplier **2** reaches **12** (round 8), retaining all three non-score routes. Only this multiplier changed; the other authorized constants retain their specified values. Capital timing and territory targets are met. Every route's individual share is not preserved by these tested sets: Standard Science drops two wins as culture and domination rise. We stopped at the closest reasonable tested set instead of changing forbidden numbers. Claude should assess this explicit tradeoff.
+The specified multiplier 10 yielded only **10** Standard tiles/city at round 50 (capital first tile round 8), with Science/Culture/Domination 18/4/2. Multiplier 4 yielded **11** (round 8), routes 16/6/1 plus one Score. Multiplier **2** reaches **12** (round 8), retaining all three non-score routes. Only this multiplier changed; the other authorized constants retain their specified values. Capital timing and territory targets are met. Claude accepted these constants and the Standard Science share falling from 83.3% to 75%, above the roadmap's 15% floor. The table above records the initial G11a implementation, before the fog/resource follow-up below.
 
 Checkpoint city sample counts before/after: Quick round 25 140/140; Standard round 25 142/141, round 50 144/145, round 75 20/6; Full round 25 141/141, rounds 50 and 75 144/144. Observed first-culture cities: Quick 141, Standard 145, Full 144; capitals 48 each.
 
+### W3-E follow-up balance evidence
+
+Golden route and ending changes warranted re-running `node tools/balance-sim.mjs 24 on` with the accepted constants unchanged. Same presets, Normal, both AI seats, barbarians on, seeds `n*7919`. The initial G11a tables above remain historical evidence; the following compares accepted G11a with the fog/resource follow-up. Every route count has denominator 24; no draws.
+
+| Preset | Accepted Science / Culture / Domination / Score | Follow-up Science / Culture / Domination / Score | Median end round accepted / follow-up | Follow-up tiles/city 25 / 50 / 75 | First culture round follow-up (all / capital) |
+| --- | --- | --- | --- | --- | --- |
+| Quick | 0 / 15 / 2 / 7 | 0 / 15 / 2 / 7 | 44 / 45 | 8 / n/a / n/a | 18 / 9 |
+| Standard | 18 / 5 / 1 / 0 | 19 / 3 / 2 / 0 | 68 / 68 | 9 / 12 / 13 | 18 / 8 |
+| Full | 11 / 12 / 1 / 0 | 6 / 16 / 2 / 0 | 100 / 97 | 9 / 12 / 15 | 20 / 7 |
+
+Standard Science is now 79.2%, Culture 12.5%, Domination 8.3%. Full Science is 25%, Culture 66.7%, Domination 8.3%; Quick shares stay 0%, 62.5%, 8.3% plus 29.2% Score. Standard Science remains above the roadmap's 15% floor. Capital first-culture timing (9 / 8 / 7) and Standard round-50 territory (12) stay at the accepted targets. No constants were retuned. Checkpoint city counts: Quick round 25 141; Standard rounds 25/50/75 142/145/6; Full 141/144/146. Observed first-culture cities: Quick 143, Standard 145, Full 147; capitals 48 each. Later checkpoints remain survivor samples.
+
 ### G11a golden changes
 
-All 48 games change state/view hashes because territory, city stores, menus and events changed. The full baseline was regenerated with `GOLDEN_UPDATE=1`; outcomes include winning seat and final round. Unchanged endings still have changed hashes.
+The initial G11a implementation changed all 48 state/view hash records and 32 endings relative to pre-G11a. The follow-up regenerated all 48 baselines again: 48/48 state hash records and 48/48 observer hash records change relative to accepted G11a; 25/48 endings change (route, winning seat or round), including 5 route changes and 0 winning-seat changes. Explored resource scoring, fog-honest candidates and current-knowledge forecasts account for the changes. Constants remain accepted and unchanged.
 
-| Game | Before outcome, round | After outcome, round |
-| --- | --- | --- |
-| Quick/Hex/seed-7919/barbarians-on | Culture (P2), 45 | Culture (P2), 45 |
-| Quick/Hex/seed-15838/barbarians-off | Score (P2), 45 | Score (P2), 45 |
-| Quick/Hex/seed-23757/barbarians-on | Score (P2), 45 | Score (P2), 45 |
-| Quick/Hex/seed-31676/barbarians-off | Culture (P2), 45 | Culture (P2), 45 |
-| Quick/Hex/seed-39595/barbarians-on | Domination (P2), 33 | Domination (P2), 33 |
-| Quick/Hex/seed-47514/barbarians-off | Score (P2), 45 | Score (P2), 45 |
-| Quick/Hex/seed-55433/barbarians-on | Domination (P2), 43 | Domination (P2), 41 |
-| Quick/Hex/seed-63352/barbarians-off | Culture (P2), 45 | Culture (P2), 45 |
-| Quick/Sphere/seed-7919/barbarians-on | Culture (P2), 43 | Culture (P2), 43 |
-| Quick/Sphere/seed-15838/barbarians-off | Culture (P2), 45 | Culture (P2), 44 |
-| Quick/Sphere/seed-23757/barbarians-on | Culture (P2), 45 | Culture (P2), 45 |
-| Quick/Sphere/seed-31676/barbarians-off | Culture (P2), 45 | Culture (P2), 45 |
-| Quick/Sphere/seed-39595/barbarians-on | Domination (P2), 42 | Domination (P2), 38 |
-| Quick/Sphere/seed-47514/barbarians-off | Culture (P2), 42 | Culture (P2), 42 |
-| Quick/Sphere/seed-55433/barbarians-on | Domination (P2), 42 | Score (P2), 45 |
-| Quick/Sphere/seed-63352/barbarians-off | Score (P2), 45 | Score (P2), 45 |
-| Standard/Hex/seed-7919/barbarians-on | Science (P2), 68 | Science (P2), 67 |
-| Standard/Hex/seed-15838/barbarians-off | Domination (P2), 69 | Science (P2), 69 |
-| Standard/Hex/seed-23757/barbarians-on | Science (P2), 69 | Science (P2), 66 |
-| Standard/Hex/seed-31676/barbarians-off | Science (P2), 66 | Science (P2), 66 |
-| Standard/Hex/seed-39595/barbarians-on | Science (P2), 73 | Science (P2), 75 |
-| Standard/Hex/seed-47514/barbarians-off | Culture (P2), 75 | Culture (P2), 75 |
-| Standard/Hex/seed-55433/barbarians-on | Science (P2), 77 | Science (P2), 74 |
-| Standard/Hex/seed-63352/barbarians-off | Science (P2), 67 | Science (P2), 69 |
-| Standard/Sphere/seed-7919/barbarians-on | Science (P2), 68 | Science (P2), 68 |
-| Standard/Sphere/seed-15838/barbarians-off | Science (P2), 68 | Science (P2), 68 |
-| Standard/Sphere/seed-23757/barbarians-on | Score (P2), 80 | Science (P2), 78 |
-| Standard/Sphere/seed-31676/barbarians-off | Science (P2), 69 | Science (P2), 68 |
-| Standard/Sphere/seed-39595/barbarians-on | Science (P2), 65 | Science (P2), 67 |
-| Standard/Sphere/seed-47514/barbarians-off | Science (P2), 68 | Science (P2), 67 |
-| Standard/Sphere/seed-55433/barbarians-on | Science (P2), 68 | Science (P2), 70 |
-| Standard/Sphere/seed-63352/barbarians-off | Culture (P2), 68 | Science (P2), 68 |
-| Full/Hex/seed-7919/barbarians-on | Domination (P2), 79 | Culture (P2), 93 |
-| Full/Hex/seed-15838/barbarians-off | Culture (P2), 103 | Culture (P2), 100 |
-| Full/Hex/seed-23757/barbarians-on | Culture (P2), 102 | Culture (P2), 101 |
-| Full/Hex/seed-31676/barbarians-off | Culture (P2), 97 | Science (P2), 97 |
-| Full/Hex/seed-39595/barbarians-on | Domination (P2), 68 | Domination (P2), 69 |
-| Full/Hex/seed-47514/barbarians-off | Domination (P2), 80 | Domination (P2), 94 |
-| Full/Hex/seed-55433/barbarians-on | Culture (P2), 95 | Domination (P2), 70 |
-| Full/Hex/seed-63352/barbarians-off | Science (P2), 100 | Science (P2), 99 |
-| Full/Sphere/seed-7919/barbarians-on | Science (P2), 99 | Science (P2), 101 |
-| Full/Sphere/seed-15838/barbarians-off | Science (P2), 101 | Science (P2), 100 |
-| Full/Sphere/seed-23757/barbarians-on | Domination (P2), 67 | Domination (P2), 68 |
-| Full/Sphere/seed-31676/barbarians-off | Culture (P2), 97 | Science (P2), 98 |
-| Full/Sphere/seed-39595/barbarians-on | Domination (P2), 97 | Culture (P2), 96 |
-| Full/Sphere/seed-47514/barbarians-off | Science (P2), 98 | Science (P2), 100 |
-| Full/Sphere/seed-55433/barbarians-on | Domination (P2), 89 | Culture (P2), 100 |
-| Full/Sphere/seed-63352/barbarians-off | Culture (P2), 94 | Culture (P2), 93 |
-
-32 of 48 games change outcome, winning seat or final round.
+| Game | Before G11a outcome, round | Accepted G11a outcome, round | Fog/resource follow-up outcome, round |
+| --- | --- | --- | --- |
+| Quick/Hex/seed-7919/barbarians-on | Culture (P2), 45 | Culture (P2), 45 | Culture (P2), 45 |
+| Quick/Hex/seed-15838/barbarians-off | Score (P2), 45 | Score (P2), 45 | Score (P2), 45 |
+| Quick/Hex/seed-23757/barbarians-on | Score (P2), 45 | Score (P2), 45 | Score (P2), 45 |
+| Quick/Hex/seed-31676/barbarians-off | Culture (P2), 45 | Culture (P2), 45 | Culture (P2), 45 |
+| Quick/Hex/seed-39595/barbarians-on | Domination (P2), 33 | Domination (P2), 33 | Domination (P2), 33 |
+| Quick/Hex/seed-47514/barbarians-off | Score (P2), 45 | Score (P2), 45 | Score (P2), 45 |
+| Quick/Hex/seed-55433/barbarians-on | Domination (P2), 43 | Domination (P2), 41 | Culture (P2), 43 |
+| Quick/Hex/seed-63352/barbarians-off | Culture (P2), 45 | Culture (P2), 45 | Culture (P2), 45 |
+| Quick/Sphere/seed-7919/barbarians-on | Culture (P2), 43 | Culture (P2), 43 | Culture (P2), 40 |
+| Quick/Sphere/seed-15838/barbarians-off | Culture (P2), 45 | Culture (P2), 44 | Culture (P2), 44 |
+| Quick/Sphere/seed-23757/barbarians-on | Culture (P2), 45 | Culture (P2), 45 | Culture (P2), 45 |
+| Quick/Sphere/seed-31676/barbarians-off | Culture (P2), 45 | Culture (P2), 45 | Score (P2), 45 |
+| Quick/Sphere/seed-39595/barbarians-on | Domination (P2), 42 | Domination (P2), 38 | Domination (P2), 38 |
+| Quick/Sphere/seed-47514/barbarians-off | Culture (P2), 42 | Culture (P2), 42 | Culture (P2), 42 |
+| Quick/Sphere/seed-55433/barbarians-on | Domination (P2), 42 | Score (P2), 45 | Score (P2), 45 |
+| Quick/Sphere/seed-63352/barbarians-off | Score (P2), 45 | Score (P2), 45 | Score (P2), 45 |
+| Standard/Hex/seed-7919/barbarians-on | Science (P2), 68 | Science (P2), 67 | Science (P2), 70 |
+| Standard/Hex/seed-15838/barbarians-off | Domination (P2), 69 | Science (P2), 69 | Science (P2), 69 |
+| Standard/Hex/seed-23757/barbarians-on | Science (P2), 69 | Science (P2), 66 | Science (P2), 67 |
+| Standard/Hex/seed-31676/barbarians-off | Science (P2), 66 | Science (P2), 66 | Science (P2), 65 |
+| Standard/Hex/seed-39595/barbarians-on | Science (P2), 73 | Science (P2), 75 | Science (P2), 72 |
+| Standard/Hex/seed-47514/barbarians-off | Culture (P2), 75 | Culture (P2), 75 | Culture (P2), 75 |
+| Standard/Hex/seed-55433/barbarians-on | Science (P2), 77 | Science (P2), 74 | Science (P2), 74 |
+| Standard/Hex/seed-63352/barbarians-off | Science (P2), 67 | Science (P2), 69 | Science (P2), 69 |
+| Standard/Sphere/seed-7919/barbarians-on | Science (P2), 68 | Science (P2), 68 | Science (P2), 68 |
+| Standard/Sphere/seed-15838/barbarians-off | Science (P2), 68 | Science (P2), 68 | Science (P2), 68 |
+| Standard/Sphere/seed-23757/barbarians-on | Score (P2), 80 | Science (P2), 78 | Science (P2), 77 |
+| Standard/Sphere/seed-31676/barbarians-off | Science (P2), 69 | Science (P2), 68 | Science (P2), 70 |
+| Standard/Sphere/seed-39595/barbarians-on | Science (P2), 65 | Science (P2), 67 | Science (P2), 67 |
+| Standard/Sphere/seed-47514/barbarians-off | Science (P2), 68 | Science (P2), 67 | Science (P2), 69 |
+| Standard/Sphere/seed-55433/barbarians-on | Science (P2), 68 | Science (P2), 70 | Science (P2), 70 |
+| Standard/Sphere/seed-63352/barbarians-off | Culture (P2), 68 | Science (P2), 68 | Science (P2), 69 |
+| Full/Hex/seed-7919/barbarians-on | Domination (P2), 79 | Culture (P2), 93 | Culture (P2), 94 |
+| Full/Hex/seed-15838/barbarians-off | Culture (P2), 103 | Culture (P2), 100 | Culture (P2), 100 |
+| Full/Hex/seed-23757/barbarians-on | Culture (P2), 102 | Culture (P2), 101 | Culture (P2), 100 |
+| Full/Hex/seed-31676/barbarians-off | Culture (P2), 97 | Science (P2), 97 | Science (P2), 98 |
+| Full/Hex/seed-39595/barbarians-on | Domination (P2), 68 | Domination (P2), 69 | Domination (P2), 74 |
+| Full/Hex/seed-47514/barbarians-off | Domination (P2), 80 | Domination (P2), 94 | Science (P2), 102 |
+| Full/Hex/seed-55433/barbarians-on | Culture (P2), 95 | Domination (P2), 70 | Domination (P2), 82 |
+| Full/Hex/seed-63352/barbarians-off | Science (P2), 100 | Science (P2), 99 | Science (P2), 102 |
+| Full/Sphere/seed-7919/barbarians-on | Science (P2), 99 | Science (P2), 101 | Science (P2), 101 |
+| Full/Sphere/seed-15838/barbarians-off | Science (P2), 101 | Science (P2), 100 | Science (P2), 101 |
+| Full/Sphere/seed-23757/barbarians-on | Domination (P2), 67 | Domination (P2), 68 | Domination (P2), 60 |
+| Full/Sphere/seed-31676/barbarians-off | Culture (P2), 97 | Science (P2), 98 | Domination (P2), 93 |
+| Full/Sphere/seed-39595/barbarians-on | Domination (P2), 97 | Culture (P2), 96 | Culture (P2), 95 |
+| Full/Sphere/seed-47514/barbarians-off | Science (P2), 98 | Science (P2), 100 | Science (P2), 99 |
+| Full/Sphere/seed-55433/barbarians-on | Domination (P2), 89 | Culture (P2), 100 | Domination (P2), 86 |
+| Full/Sphere/seed-63352/barbarians-off | Culture (P2), 94 | Culture (P2), 93 | Culture (P2), 94 |
 
 ### G11a review handoff
 
-Open decisions for Claude/Astra: accept the Standard Science-share tradeoff above; confirm the border-only strategic reveal map (the engine had no existing reveal helper); confirm that the specified complete radius-three candidate menu should reflect physical ownership and blockers outside current sight. The latter can disclose candidate legality in fog even though resource ranking and rival culture remain private. An online peer review was not invoked because this work order forbids network; Claude leads the requested review after handoff. No push or PR was performed.
+Claude's follow-up decisions are implemented: accepted constants unchanged, candidates use the owner's projected ownership and visible blockers, and scoring uses all projected explored resources with no separate technology reveal map. An online peer review was not invoked because this work order forbids network; Claude leads the independent review after handoff. No push or PR was performed.
 
 Changed files and line pointers (paths relative to repository root):
 
 | File | Relevant line |
 | --- | ---: |
-| `src/simulation/BaseGame.luau` | 956 (costs/selection), 1594 (AI), 1829 (command), 1960 (view), 2022 (forecast) |
+| `src/simulation/BaseGame.luau` | 956 (costs/selection), 1599 (AI), 1835 (command), 1965 (view), 2025 (forecast) |
 | `src/simulation/BaseRules.luau` | 287 |
 | `src/simulation/BaseSave.luau` | 244 (validation), 342 (migration) |
 | `tests/unit/base-borders.luau` | 1 |
@@ -727,7 +741,7 @@ Changed files and line pointers (paths relative to repository root):
 | `tests/unit/base-promotions.luau` | 506 |
 | `tests/golden/baseline.json` | 1 |
 | `tools/balance-sim.luau` | 34 |
-| `docs/base-game.md` | 39 (command), 614 (territory/saves), 634 (balance), 650 (all golden endings) |
+| `docs/base-game.md` | 39 (command), 614 (territory/saves), 638 (initial balance), 654 (follow-up balance), 666 (all golden endings) |
 | `roblox/simulation/BaseGame.luau` | 963 |
 | `roblox/simulation/BaseRules.luau` | 294 |
 | `roblox/simulation/BaseSave.luau` | 251 |
@@ -742,4 +756,4 @@ Final gate tails (all exit 0; Windows used `npm.cmd` because the PowerShell npm 
 | `GOLDEN_FULL=1 node tests/golden/run.mjs` | Golden full: 48 games passed, 12 resume replays. |
 | `node tools/roblox-export.mjs --check` | Roblox module export reproducible (16 modules) |
 | `npm run test:export` | Roblox exporter regression checks passed |
-| `node tests/borders.mjs --mutations` | Border regression mutations: 19 rejected by assertions. |
+| `node tests/borders.mjs --mutations` | Border regression mutations: 25 rejected by assertions. |

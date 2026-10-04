@@ -961,31 +961,33 @@ local function buyTileCost(s: any, c: any, tileId: number): number
     local factor=if d==3 then 1.5 elseif d==2 then 1 else 0.75
     return scaledCost(s,math.floor((R.borderBuyBase+R.borderBuyPerTile*(c.borderTiles or 0))*factor),"production")
 end
--- Strategic reveal for border decisions. The existing tile/economy projection predates reveal rules; keep this
--- local to borders. Hidden resources contribute neither natural resource yields nor a resource bonus.
-local BORDER_REVEAL={Horses="AnimalHusbandry",Iron="BronzeWorking",Saltpeter="Gunpowder",Oil="Combustion"}
-local function borderResource(s: any, owner: number, tile: any, seen: any): any
-    if not tile.resource or not seen[tile.id] then return nil end
-    local tech=BORDER_REVEAL[tile.resource]
-    if tech and not has(s.players[owner].technologies,tech) then return nil end
-    return R.resources[tile.resource]
+-- Match the tile projection: explored resources are known regardless of technology. Current sight also counts
+-- during production, before refreshVision persists newly explored tiles at the end of the command.
+local function borderKnowledge(s: any, owner: number, seen: any): any
+    local known=table.clone(seen)
+    for _, id in s.players[owner].explored do known[id]=true end
+    return known
+end
+local function borderResource(tile: any, known: any): any
+    return if tile.resource and known[tile.id] then R.resources[tile.resource] else nil
 end
 local function borderScore(s: any, c: any, tileId: number, seen: any): number
-    local tile=s.tiles[tileId]; local resource=borderResource(s,c.ownerId,tile,seen)
+    local tile=s.tiles[tileId]; local resource=borderResource(tile,seen)
     local y=yieldFor({terrain=tile.terrain,feature=tile.feature,river=tile.river,resource=if resource then tile.resource else nil})
     local extra=if not resource then 0 elseif resource.category=="Luxury" then 6 elseif resource.category=="Strategic" then 4 else 2
     return 2*y.food+2*y.production+y.gold+y.science+y.culture+extra-3*(distance(s,c.tileId,tileId)-1)
 end
--- Shared physical legality for growth, purchase and projection. Water and mountains are legal. `claimed` is the
+-- Shared projected legality for growth, purchase and AI. Ownership and blockers exist only in current sight,
+-- exactly as in snapshot. Water and mountains are legal. `claimed` is the
 -- forecast's virtual culture acquisitions, applied after the yielding city's production, never a population claim.
-local function borderCandidates(s: any, c: any, claimed: {[number]: boolean}?): {number}
+local function borderCandidates(s: any, c: any, seen: any, claimed: {[number]: boolean}?): {number}
     local units,cities=occupants(s); local camps=campTiles(s); local result={}
     for _, id in nearby(s,c.tileId,3) do
         local tile=s.tiles[id]
-        if tile.ownerId or (claimed and claimed[id]) or (units[id] and units[id].ownerId~=c.ownerId)
-            or (cities[id] and cities[id].ownerId~=c.ownerId) or camps[id] then continue end
+        if (claimed and claimed[id]) or (seen[id] and (tile.ownerId or (units[id] and units[id].ownerId~=c.ownerId)
+            or (cities[id] and cities[id].ownerId~=c.ownerId) or camps[id])) then continue end
         for _, neighbor in mapFor(s).neighbors[id] do
-            if s.tiles[neighbor].ownerId==c.ownerId or (claimed and claimed[neighbor]) then table.insert(result,id); break end
+            if (seen[neighbor] and s.tiles[neighbor].ownerId==c.ownerId) or (claimed and claimed[neighbor]) then table.insert(result,id); break end
         end
     end
     table.sort(result); return result
@@ -1005,10 +1007,13 @@ end
 local function borderStep(s: any, c: any, culture: number)
     local cost=nextTileCost(s,c)
     c.borderCulture=math.min(1000000000,(c.borderCulture or 0)+math.max(0,culture)+R.borderBaseRate)
-    local candidates=borderCandidates(s,c)
+    local seen=visible(s,c.ownerId); local candidates=borderCandidates(s,c,seen)
+    -- Actual ownership is checked only when applying growth. Silently skip stale fog candidates; never expose
+    -- skipped ids or reasons. Hidden units and camps remain in place on the acquired tile.
+    local available={}; for _, id in candidates do if not s.tiles[id].ownerId then table.insert(available,id) end end
     if #candidates==0 then c.borderCulture=math.min(c.borderCulture,cost)
-    elseif c.borderCulture>=cost then
-        local tileId=bestBorderTile(s,c,candidates,visible(s,c.ownerId)) :: number
+    elseif c.borderCulture>=cost and #available>0 then
+        local tileId=bestBorderTile(s,c,available,borderKnowledge(s,c.ownerId,seen)) :: number
         c.borderCulture-=cost; acquireBorderTile(s,c,tileId)
     end
 end
@@ -1592,14 +1597,15 @@ end
 -- One empire purchase after production, using the existing 60-gold reserve. Resource visibility and ranking are
 -- shared with culture growth. City id only resolves the same tile offered by two cities, so neither seat is favoured.
 local function aiBuyTile(s: any, owner: number)
-    local seen=visible(s,owner); local p=s.players[owner]
+    local seen=visible(s,owner); local known=borderKnowledge(s,owner,seen); local p=s.players[owner]
     local bestCity: any=nil; local bestTile: number?=nil; local bestScore=-math.huge
     for _, c in s.cities do
         if c.ownerId~=owner then continue end
-        for _, id in borderCandidates(s,c) do
-            local resource=borderResource(s,owner,s.tiles[id],seen)
+        for _, id in borderCandidates(s,c,seen) do
+            if s.tiles[id].ownerId then continue end
+            local resource=borderResource(s.tiles[id],known)
             if not resource or (resource.category~="Luxury" and resource.category~="Strategic") or p.gold<buyTileCost(s,c,id)+AI_GOLD_RESERVE then continue end
-            local score=borderScore(s,c,id,seen)
+            local score=borderScore(s,c,id,known)
             if score>bestScore or (score==bestScore and (not bestTile or id<bestTile or (id==bestTile and c.id<bestCity.id))) then
                 bestCity=c; bestTile=id; bestScore=score
             end
@@ -1827,7 +1833,7 @@ function BaseGame.apply(state: State, actorId: number, command: Command): {ok: b
             if not has({"Balanced","Food","Production","Gold","Science","Culture"},cmd.focus) or c.focus==cmd.focus then return reject("Choose a different valid city focus.") end
             c.focus=cmd.focus
         elseif cmd.kind=="BuyTile" then
-            if not finiteId(cmd.tileId) or not table.find(borderCandidates(s,c),cmd.tileId) then return reject("Choose an unowned adjacent tile within three tiles of your city, without foreign occupants or a camp.") end
+            if not finiteId(cmd.tileId) or not table.find(borderCandidates(s,c,visible(s,actorId)),cmd.tileId) or s.tiles[cmd.tileId].ownerId then return reject("Choose an unowned adjacent tile within three tiles of your city.") end
             local cost=buyTileCost(s,c,cmd.tileId)
             if p.gold<cost then return reject("Buying this tile needs "..cost.." gold.") end
             p.gold-=cost; acquireBorderTile(s,c,cmd.tileId,cost)
@@ -1956,9 +1962,9 @@ function BaseGame.snapshot(state: State, actorId: number): View
             end
             view.strength=cityStrength(s,c,occupancyUnits); view.rangedStrength=cityRangedStrength(s,c,occupancyUnits)
             view.strikeReady=ready; view.canStrike=#targets>0; view.strikeTargets=targets
-            local candidates=borderCandidates(s,c)
+            local candidates=borderCandidates(s,c,seen)
             view.borderCulture=c.borderCulture or 0; view.nextTileCost=nextTileCost(s,c)
-            view.nextBorderTile=bestBorderTile(s,c,candidates,seen)
+            view.nextBorderTile=bestBorderTile(s,c,candidates,borderKnowledge(s,actorId,seen))
             view.buyableTiles={}; for _, id in candidates do table.insert(view.buyableTiles,{tileId=id,cost=buyTileCost(s,c,id)}) end
             strikePreviews[tostring(c.id)]=list
             table.insert(cities,view)
@@ -2019,7 +2025,7 @@ function BaseGame.snapshot(state: State, actorId: number): View
     local forecasts={}
     do
         local actor=s.players[actorId]; local worked,claimed,added={},{},{}; local _,cityTiles=occupants(s)
-        local forecastSeen=table.clone(seen)
+        local known=borderKnowledge(s,actorId,seen)
         local stepMood=stepHappiness(s,actorId,resourceInventory(s,actorId))
         local bonus=empireBonus(s,actorId); bonus.golden=goldenActive(actor)
         -- Wonders earlier own cities complete in this step: a later city queuing one loses the race and completes nothing.
@@ -2040,20 +2046,19 @@ function BaseGame.snapshot(state: State, actorId: number): View
                 if c.production+made>=cost then turns=1 elseif made>0 then turns=math.ceil((cost-c.production)/made) end
                 if turns==1 and spawn then
                     table.insert(added,{ownerId=actorId,kind=c.queue,tileId=spawn})
-                    for _, id in nearby(s,spawn,2) do forecastSeen[id]=true end
                 end
                 if turns==1 and isWonder(c.queue) then wondersNow[c.queue]=true end
             end
             forecasts[tostring(c.id)]={food=food,production=made,gold=yields.gold,science=yields.science,culture=yields.culture,
                 growthTurns=if not canGrow then nil elseif c.food+food>=growAt then 1 elseif food>0 then math.ceil((growAt-c.food)/food) else nil,
                 productionTurns=turns,productionBlocked=blocked}
-            local candidates=borderCandidates(s,c,claimed)
+            local candidates=borderCandidates(s,c,seen,claimed)
             local rate=math.max(0,yields.culture)+R.borderBaseRate
             for _, view in cities do
                 if view.id==c.id then view.borderTurns=if #(view :: any).buyableTiles>0 then math.ceil((nextTileCost(s,c)-(c.borderCulture or 0))/rate) else nil end
             end
             if (c.borderCulture or 0)+rate>=nextTileCost(s,c) then
-                local tileId=bestBorderTile(s,c,candidates,forecastSeen); if tileId then claimed[tileId]=true end
+                local tileId=bestBorderTile(s,c,candidates,known); if tileId then claimed[tileId]=true end
             end
         end
     end

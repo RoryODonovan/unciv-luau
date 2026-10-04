@@ -63,7 +63,7 @@ for _, turns in {120,80} do
     assert(view(s,c).nextTileCost==math.floor(base*percent/100+0.5))
     step(s); assert(owned(s,1)==before+2 and c.borderTiles==2)
 end
--- Natural yield order, resource bonuses, hidden strategic yields, improvement exclusion and low-id ties.
+-- Natural yield order, projected strategic resources without technology, improvement exclusion and low-id ties.
 do
     local s,c,map=fixture(); local ids=ring(s,c,map,2); local a,b=ids[1],ids[2]; isolate(s,c,map,{a,b})
     s.tiles[a].terrain="Tundra"; s.tiles[b].terrain="Grassland"
@@ -71,7 +71,7 @@ do
     s.tiles[a].terrain="Plains"; s.tiles[b].terrain="Plains"
     assert(view(s,c).nextBorderTile==a,"low tile id tie")
     s.tiles[b].improvement="Farm"; assert(view(s,c).nextBorderTile==a,"improvements are ignored")
-    s.tiles[b].resource="Iron"; assert(view(s,c).nextBorderTile==a,"unrevealed Iron yields and bonus are ignored")
+    s.tiles[b].resource="Iron"; assert(view(s,c).nextBorderTile==b,"projected strategic resource is preferred without reveal technology")
     table.insert(s.players[1].technologies,"Mining"); table.insert(s.players[1].technologies,"BronzeWorking")
     assert(view(s,c).nextBorderTile==b,"revealed strategic bonus")
     s.tiles[a].resource="Gold"; assert(view(s,c).nextBorderTile==a,"luxury beats strategic")
@@ -93,7 +93,10 @@ do
     s.tiles[bridge].ownerId=1
     -- All candidates now have equal natural yields at distance three, so a fogged luxury cannot break the tie.
     local v=view(s,c); local first=v.buyableTiles[1].tileId; local last=v.buyableTiles[#v.buyableTiles].tileId
-    s.tiles[last].resource="Gold"; assert(view(s,c).nextBorderTile==first,"resource outside current sight")
+    s.players[1].explored=Map.range(map,c.tileId,2)
+    s.tiles[last].resource="Gold"; assert(view(s,c).nextBorderTile==first,"unexplored resource is ignored")
+    table.insert(s.players[1].explored,last)
+    assert(view(s,c).nextBorderTile==last,"explored resource outside current sight is preferred")
     local a=ring(s,c,map,2)[1]; s.tiles[a].ownerId=nil; s.tiles[a].terrain="Mountain"
     local hasMountain=false; for _, row in view(s,c).buyableTiles do if row.tileId==a then hasMountain=true end end
     assert(hasMountain,"mountains may be owned")
@@ -102,8 +105,8 @@ do
     for _, row in view(s,c).buyableTiles do if row.tileId==a then hasWater=true end end
     assert(hasWater,"water may be owned")
 end
--- Production can reveal a resource before this step's culture acquisition. A later city's yield forecast
--- must reflect that selection, even though the current nextBorderTile preview still uses current sight.
+-- Production can discover a resource before actual acquisition. Forecasts use only current projected knowledge:
+-- new exploration may change the actual choice, without leaking unexplored resources through later city yields.
 do
     local s,c,map=fixture(); local site=assert(Map.tileId(map,0,4))
     table.insert(s.units,{id=s.nextUnit,ownerId=1,kind="Settler",tileId=site,hp=50,moves=2,fortified=false,level=0}); s.nextUnit+=1
@@ -120,9 +123,75 @@ do
     assert(view(s,c).nextBorderTile==shared,"current preview uses current resource sight")
     local forecast=Game.snapshot(s,1).cityForecasts[tostring(later.id)]
     local expected=2+3*Rules.terrains.Plains.yields.food-3*Rules.foodPerPopulation
-    assert(forecast.food==expected,"forecast culture selection uses production's new vision")
+    assert(forecast.food==expected+2,"forecast culture selection cannot read an unexplored resource")
     local before=later.food; step(s)
     assert(s.tiles[luxury].ownerId==1 and s.tiles[shared].ownerId==nil and later.food-before==expected,"culture uses new unit sight after production")
+end
+local function equal(a: any,b: any): boolean
+    if type(a)~=type(b) then return false end
+    if type(a)~="table" then return a==b end
+    for k,v in a do if not equal(v,b[k]) then return false end end
+    for k in b do if a[k]==nil then return false end end
+    return true
+end
+local function fogFixture(): (any,any,any,number)
+    local s,c,map=fixture(); local target=assert(Map.tileId(map,3,0)); local bridge=assert(Map.tileId(map,2,0))
+    isolate(s,c,map,{bridge}); s.tiles[bridge].ownerId=1
+    s.tiles[target].resource="Gold"; table.insert(s.players[1].explored,target)
+    assert(not Game.snapshot(s,1).tiles[target].visible and view(s,c).nextBorderTile==target)
+    s.barbarians={nextCamp=1,camps={}}
+    return s,c,map,target
+end
+local function blocker(s: any,target: number,kind: string)
+    if kind=="camp" then s.barbarians={nextCamp=2,camps={{id=1,tileId=target,founded=1,lastSpawn=1}}}
+    elseif kind=="city" then s.cities[2].tileId=target
+    else table.insert(s.units,{id=s.nextUnit,ownerId=2,kind="Worker",tileId=target,hp=50,moves=2,fortified=false,level=0}); s.nextUnit+=1 end
+end
+-- Hidden blockers never affect any snapshot field (including menus, countdowns or later-city forecasts), nor
+-- culture choice. Visible blockers change both the menu and actual selection. Acquisition keeps blockers in place.
+for _, kind in {"unit","camp","city"} do
+    local s,c,map,target=fogFixture(); local before=Game.snapshot(s,1)
+    blocker(s,target,kind)
+    assert(equal(before,Game.snapshot(s,1)),"snapshots differ only in hidden "..kind)
+    c.borderCulture=view(s,c).nextTileCost; step(s)
+    assert(s.tiles[target].ownerId==1,"hidden "..kind.." does not change culture choice")
+    if kind=="unit" then assert(s.units[1].tileId==target)
+    elseif kind=="camp" then assert(s.barbarians.camps[1].tileId==target)
+    else assert(s.cities[2].tileId==target) end
+    s,c,map,target=fogFixture(); blocker(s,target,kind)
+    table.insert(s.units,{id=s.nextUnit,ownerId=1,kind="Worker",tileId=assert(Map.tileId(map,1,0)),hp=50,moves=0,fortified=false,level=0}); s.nextUnit+=1
+    assert(Game.snapshot(s,1).tiles[target].visible)
+    local v=view(s,c); assert(v.nextBorderTile~=target,"visible blocker changes best tile")
+    for _, row in v.buyableTiles do assert(row.tileId~=target,"visible blocker removes candidate") end
+    local refused=Game.apply(s,1,{kind="BuyTile",cityId=c.id,tileId=target}); assert(not refused.ok)
+    c.borderCulture=v.nextTileCost; step(s); assert(s.tiles[target].ownerId==nil,"visible blocker changes culture choice")
+end
+-- Buying around a hidden peaceful unit succeeds. Territory restrictions apply to entry, so it can leave normally.
+do
+    local s,c,map,target=fogFixture(); blocker(s,target,"unit"); s.players[1].gold=1000
+    apply(s,1,{kind="BuyTile",cityId=c.id,tileId=target})
+    local u=s.units[1]; assert(u.tileId==target and s.tiles[target].ownerId==1 and s.diplomacy.status=="Peace")
+    local exit=assert(Map.tileId(map,4,0)); s.activePlayerId=2
+    assert(table.find(Game.snapshot(s,2).legalMoves[tostring(u.id)],exit),"unit can leave peaceful foreign land")
+    apply(s,2,{kind="MoveUnit",unitId=u.id,tileId=exit}); assert(u.tileId==exit)
+    local refused=Game.apply(s,2,{kind="MoveUnit",unitId=u.id,tileId=target})
+    assert(not refused.ok,"entering peaceful foreign land remains forbidden")
+end
+-- Hidden ownership follows the projection (ownerId only in current sight). Apply skips owned candidates silently;
+-- purchase uses the identical generic refusal as any other non-candidate, without consuming gold or culture.
+do
+    local s,c,_,target=fogFixture(); local before=Game.snapshot(s,1)
+    s.tiles[target].ownerId=2; assert(equal(before,Game.snapshot(s,1)),"unseen ownership must follow projection")
+    s.players[1].gold=1000; local gold=s.players[1].gold; local revision=s.revision
+    local refused=Game.apply(s,1,{kind="BuyTile",cityId=c.id,tileId=target})
+    local cmd: any={kind="BuyTile",cityId=c.id,tileId=c.tileId}; local generic=Game.apply(s,1,cmd)
+    assert(not refused.ok and refused.message==generic.message and s.players[1].gold==gold and s.revision==revision)
+    local nextChoice=nil; s.tiles[target].ownerId=nil; s.tiles[target].resource=nil
+    nextChoice=view(s,c).nextBorderTile; assert(nextChoice~=target)
+    s.tiles[target].resource="Gold"; s.tiles[target].ownerId=2; c.borderCulture=view(s,c).nextTileCost
+    step(s); assert(s.tiles[target].ownerId==2 and s.tiles[nextChoice].ownerId==1,"silently skip owned best candidate")
+    local count=0; for _, e in s.events do if e.kind=="BorderGrowth" then count+=1; assert(e.tileId==nextChoice) end end
+    assert(count==1,"no skipped-candidate event")
 end
 -- Foreign units, foreign city (even with a raw unowned tile), and barbarian camps are excluded.
 do
@@ -179,6 +248,9 @@ do
     for _, row in v.buyableTiles do assert(row.tileId>last); last=row.tileId end
     v.buyableTiles[1].cost=9999; assert(view(s,c).buyableTiles[1].cost~=9999)
     for _, id in Map.range(map,c.tileId,3) do s.tiles[id].ownerId=1 end
+    for _, id in ring(s,c,map,2) do
+        table.insert(s.units,{id=s.nextUnit,ownerId=1,kind="Worker",tileId=id,hp=50,moves=0,fortified=false,level=0}); s.nextUnit+=1
+    end
     c.borderCulture=1000; local cost=view(s,c).nextTileCost; step(s)
     v=view(s,c); assert(c.borderCulture==cost and c.borderTiles==0 and v.borderTurns==nil and v.nextBorderTile==nil and #v.buyableTiles==0)
 end
@@ -246,6 +318,26 @@ do
 end
 -- Internal harness executes the full AI in both seats and two-AI games, with identical geography after seat swap.
 if I then
+    -- The AI purchase helper uses the same observer rule in both seats, including explored strategic resources.
+    for owner=1,2 do for _, kind in {"unit","camp"} do for _, inSight in {false,true} do
+        local s,c,map,target=fogFixture()
+        if owner==2 then
+            for _, p in s.players do p.id=3-p.id end; s.players[1],s.players[2]=s.players[2],s.players[1]
+            for _, city in s.cities do city.ownerId=3-city.ownerId; city.originalOwnerId=3-city.originalOwnerId end
+            for _, t in s.tiles do if t.ownerId then t.ownerId=3-t.ownerId end end
+        end
+        s.tiles[target].resource="Iron"; blocker(s,target,kind)
+        if kind=="unit" then s.units[1].ownerId=3-owner end
+        if inSight then
+            table.insert(s.units,{id=s.nextUnit,ownerId=owner,kind="Worker",tileId=assert(Map.tileId(map,1,0)),hp=50,moves=0,fortified=false,level=0}); s.nextUnit+=1
+        end
+        s.players[owner].gold=1000; I.aiBuyTile(s,owner)
+        assert(s.tiles[target].ownerId==(if inSight then nil else owner),"AI observer blockers and projected strategic resource")
+        if kind=="camp" and not inSight then
+            assert(I.campSpawn(s,s.barbarians.camps[1]),"owned camp still spawns")
+            assert(s.units[1].ownerId==Rules.barbarians.ownerId and s.units[1].tileId==target)
+        end
+    end end end
     local function aiCase(owner: number,gold: number): (number,number)
         local s,c,map=fixture(); if owner==2 then
             for _, p in s.players do p.id=3-p.id end; s.players[1],s.players[2]=s.players[2],s.players[1]
