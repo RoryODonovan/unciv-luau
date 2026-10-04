@@ -12,7 +12,7 @@ assert(I,"run this through tools/balance-sim.mjs")
 local args={...}
 local seeds=tonumber(args[1]) or 12
 local culture=args[2]~="off"
--- The private match presets this library is tuned for (Quick 4 policies, Standard and Full 6): map radius, round limit
+-- The host match presets measured here (Quick 4 policies, Standard and Full 6): map radius, round limit
 -- and culture threshold. The policy cost growth is the engine default for the round limit.
 local presets={
     {name="Quick",radius=10,maxTurns=45,policies=4},
@@ -26,8 +26,8 @@ local function median(list: {number}): number
     local sorted=table.clone(list); table.sort(sorted); return sorted[math.max(1,math.ceil(#sorted/2))] or 0
 end
 print(string.format("AI against AI, %d seeds per preset (seed = n x 7919), barbarians on, Normal, culture victory %s",seeds,if culture then "on" else "off"))
-print("| Preset | Policy cost growth | Victories | End round, median (range) | Technologies at the end, median (max) | Highest era at the end, median | Eras first reached, median round (games) |")
-print("| --- | ---: | --- | --- | --- | ---: | --- |")
+print("| Preset | Policy cost growth | Victories | Draw | End round, median (range) | Technologies at the end, median (max) | Highest era at the end, median | Eras first reached, median round (games) |")
+print("| --- | ---: | --- | ---: | --- | --- | ---: | --- |")
 for _, preset in presets do
     local wins: {[string]: number}={}; local ends,techs,eras={},{},{}; local reached: {[number]: {number}}={}; local growth=0
     for n=1,seeds do
@@ -42,7 +42,17 @@ for _, preset in presets do
                 if s.phase~="Playing" then break end
             end
             if s.phase~="Playing" then break end
-            if s.turn>=s.maxTurns then local v=I.scores(s); s.phase="Finished"; s.winner=if v[1]>=v[2] then 1 else 2; s.victoryType="Score"; break end
+            if s.turn>=s.maxTurns then
+                local v=I.scores(s); s.phase="Finished"
+                if v[1]~=v[2] then s.winner=if v[1]>v[2] then 1 else 2; s.victoryType="Score"
+                else
+                    local one,two=s.players[1],s.players[2]
+                    local k1,k2=#one.technologies+#one.policies,#two.technologies+#two.policies
+                    if k1~=k2 then s.winner=if k1>k2 then 1 else 2; s.victoryType="Score"
+                    else s.winner=nil; s.victoryType="Draw" end
+                end
+                break
+            end
             if s.barbarians then I.barbarianTurn(s); I.refreshVision(s); I.evaluate(s); if s.phase~="Playing" then break end end
             for owner=1,2 do for era=1,eraOf(s.players[owner]) do if not first[era] then first[era]=s.turn end end end
             s.turn += 1
@@ -51,8 +61,8 @@ for _, preset in presets do
         for owner=1,2 do table.insert(techs,#s.players[owner].technologies); table.insert(eras,eraOf(s.players[owner])) end
         for era,round in first do reached[era]=reached[era] or {}; table.insert(reached[era],round) end
     end
-    local kinds={}; for kind,count in wins do table.insert(kinds,kind.." "..count) end; table.sort(kinds)
+    local kinds={}; for kind,count in wins do if kind~="Draw" then table.insert(kinds,kind.." "..count) end end; table.sort(kinds)
     local eraText={}; for era=2,#Rules.eras do if reached[era] then table.insert(eraText,string.format("%s %d (%d)",Rules.eras[era],median(reached[era]),#reached[era])) end end
-    print(string.format("| %s (radius %d, %d rounds, %d policies) | %d | %s | %d (%d-%d) | %d (%d) | %d | %s |",preset.name,preset.radius,preset.maxTurns,preset.policies,growth,
-        table.concat(kinds,", "),median(ends),math.min(table.unpack(ends)),math.max(table.unpack(ends)),median(techs),math.max(table.unpack(techs)),median(eras),table.concat(eraText,", ")))
+    print(string.format("| %s (radius %d, %d rounds, %d policies) | %d | %s | %d | %d (%d-%d) | %d (%d) | %d | %s |",preset.name,preset.radius,preset.maxTurns,preset.policies,growth,
+        table.concat(kinds,", "),wins.Draw or 0,median(ends),math.min(table.unpack(ends)),math.max(table.unpack(ends)),median(techs),math.max(table.unpack(techs)),median(eras),table.concat(eraText,", ")))
 end

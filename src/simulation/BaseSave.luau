@@ -16,6 +16,12 @@ local function integer(value: any,low: number,high: number): boolean return numb
 -- a sixth is accepted; restore snaps it to that sixth.
 local function nearestSixth(value: number): number return math.round(value*6)/6 end
 local function sixths(value: number): boolean return math.abs(value-nearestSixth(value))<=1e-6 end
+-- Derived cost pace, shared rule configuration with BaseGame; no save schema field.
+local function researchCost(maxTurns: number, base: number): number
+    local pace=Rules.costPace
+    local percent=math.clamp(math.floor(100*(maxTurns/pace.turns)^pace.exponent+0.5),pace.minPercent,pace.maxPercent)
+    return math.max(1,math.floor(base*percent/100+0.5))
+end
 local function owner(value: any): boolean return value==1 or value==2 end
 -- Barbarian units and their events carry this owner id (0), which no civilization uses.
 local BARBARIAN=Rules.barbarians.ownerId
@@ -183,7 +189,9 @@ function BaseSave.valid(saved: any): boolean
             local r=p.research
             if not object(r,"id progress cost") or type(r.id)~="string" or not Rules.technologies[r.id] or table.find(p.technologies,r.id) then return false end
             local rule=Rules.technologies[r.id]
-            if r.cost~=rule.cost or not integer(r.progress,0,rule.cost-1) then return false end
+            local cost=researchCost(s.maxTurns,rule.cost)
+            -- Before cost pacing, saves stored the base cost. Accept that legacy form as well.
+            if (r.cost~=cost and r.cost~=rule.cost) or not integer(r.progress,0,r.cost-1) then return false end
             for _,prerequisite in rule.prerequisites do if not table.find(p.technologies,prerequisite) then return false end end
         end
     end
@@ -311,12 +319,20 @@ end
 function BaseSave.restore(saved: any): (any?,string?)
     if not BaseSave.valid(saved) then return nil,"Unsupported or corrupt base-game save." end
     local state=copy(saved.state)
+    -- Migrate legacy research to the derived cost, preserving its completed fraction (rounded down).
+    -- Full and already-paced research are byte-identical; accumulated food/production stay absolute.
+    for _, p in state.players do
+        local r=p.research
+        if r then
+            local cost=researchCost(state.maxTurns,Rules.technologies[r.id].cost)
+            if r.cost~=cost then r.progress=math.floor(r.progress*cost/r.cost); r.cost=cost end
+        end
+    end
     -- Canonical movement: each unit's moves becomes its exact sixth (1e-16 becomes 0, 0.333333 becomes 1/3).
     for _, u in state.units do u.moves=nearestSixth(u.moves) end
     return state,nil
 end
 return table.freeze(BaseSave)
-
 
 
 

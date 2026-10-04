@@ -96,6 +96,16 @@ The own-city forecast says `productionBlocked="Idle"` and omits `productionTurns
 
 Saves accept the empty queue without a version bump. Existing saves restore unchanged. Earlier library versions reject saves containing an idle city, just as versions before G7 reject its content ids; hosts must retain a compatible library once such saves exist.
 
+## Cost pacing (W2-D)
+
+Research, production and city food-to-grow thresholds scale with the match's round limit. `BaseRules.costPace` defines `costPercent = clamp(round(100 * (maxTurns / 120)^1.5), 30, 200)`: 30% at 45 rounds, 54% at 80, exactly 100% at 120, and 200% at 200. Each cost becomes `max(1, round(base * costPercent / 100))`, with positive halves rounded up. `BaseGame.costPercent(state)` derives the percentage from `maxTurns`; it is not a host option or a stored state field. The rule tables returned by `getRules()` retain their Full base costs.
+
+Current research, `availableResearch`, snapshot `productionCosts` and `purchaseCosts`, purchase menus, actual completions and `cityForecasts.growthTurns`/`productionTurns` all use paced costs. Production includes units, buildings, wonders and the Space Project. Purchase gold follows the rounded production cost at the existing ratio (4). Upgrade gold uses `max(paced upgradeMinimumGold, paced new-unit cost - paced old-unit cost) * upgradeCostMultiplier`. The AI reads these costs in research, wonder estimates, cost ordering and upgrade affordability; its priorities and reserves are unchanged.
+
+Policy costs and the culture victory threshold retain their existing pacing. Combat, yields, happiness and the separate golden-age/barbarian pace are unchanged. Full games preserve all previous state and snapshot hashes. **Balance targets are not all met:** the selected 24-seed sample reaches Renaissance at Quick and Modern at Standard, with 7 Standard Science wins, but Quick remains all Culture and median end rounds are too early (25 and 59). Cost-only tuning stopped as instructed; see [the before/after tables, curve search, golden changes and remaining decision](balance/2026-10-science-pacing.md). The G7 balance tables below describe the earlier, unscaled-cost engine.
+
+Saves keep their existing versions and derive cost pace from their saved round limit. Both restore paths accept legacy research at its base cost and convert it to the paced cost while preserving its completed fraction, rounded down. Already-paced research round-trips exactly; at Full nothing changes. Stored food and production remain absolute. Earlier engines reject paced non-Full research costs, so rolling a host back after writing these saves is unsupported.
+
 ## Functional systems and evidence
 
 The map contains plains, grassland, hills, desert, tundra, water and mountains, the Forest, Jungle, Marsh and Oasis features, rivers along tile edges and six bonus/luxury/strategic resources (the legacy Forest terrain remains valid in saves). Water and mountains are impassable for the land-only roster. Stable coordinate and neighbor indexes support weighted Dijkstra movement; cached local rings support vision and city work areas. Movement follows the [rules below](#movement-and-zone-of-control): partial moves, the zone of control and one-third road steps. Occupied friendly tiles and peaceful foreign land block travel.

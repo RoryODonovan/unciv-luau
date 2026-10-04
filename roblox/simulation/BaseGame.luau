@@ -1,6 +1,6 @@
 --!strict
 -- Generated module-only Roblox form. Source: src/simulation/BaseGame.luau
--- Source SHA-256: d69b4f8006662bce37e4845a29c8e5632bd7391367f8934f153d28d9e3e94d7f
+-- Source SHA-256: 81f5c1b6e1f707c44f857a0bc3e408aea27491fa24c9806cd86ca317115134df
 -- Reproduce with tools/roblox-export.mjs; preserve MPL notices below.
 -- Covered source: https://github.com/RoryODonovan/unciv-luau
 -- This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
@@ -198,6 +198,17 @@ local function pacePercent(s: any): number
     local g=R.goldenAge
     return math.clamp(math.floor(s.maxTurns*100/g.paceTurns+0.5),g.minPacePercent,g.maxPacePercent)
 end
+-- Independent of golden-age/barbarian pace. Derived from the saved round limit, including on restore.
+local function costPercent(s: any): number
+    local c=R.costPace
+    return math.clamp(math.floor(100*(s.maxTurns/c.turns)^c.exponent+0.5),c.minPercent,c.maxPercent)
+end
+local function scaledCost(s: any, base: number): number return math.max(1,math.floor(base*costPercent(s)/100+0.5)) end
+local function productionCost(s: any, item: string): number return scaledCost(s,R.productionCosts[item]) end
+local function purchaseCost(s: any, item: string): number
+    return productionCost(s,item)*R.purchaseCosts[item]/R.productionCosts[item]
+end
+local function growthCost(s: any, population: number): number return scaledCost(s,R.growthBase+population*R.growthPerPopulation) end
 local function goldenAgeTurns(s: any): number return math.max(1,math.floor(R.goldenAge.turns*pacePercent(s)/100+0.5)) end
 local function goldenAgeThreshold(s: any, ages: number): number
     return math.floor((R.goldenAge.threshold+R.goldenAge.thresholdIncrease*ages)*pacePercent(s)/100)
@@ -385,7 +396,7 @@ local function productionRefusal(s: any, city: any, item: string): string
     return "Production item is unavailable."
 end
 -- Unit upgrades. A unit's upgrade is its rule's `upgradeTo` once its owner knows that kind's technology; it costs
--- max(upgradeMinimumGold, new cost - old cost) x upgradeCostMultiplier gold. UpgradeUnit also needs movement left and the
+-- max(paced upgradeMinimumGold, paced new cost - paced old cost) x upgradeCostMultiplier gold. UpgradeUnit needs movement left and the
 -- new kind's strategic resource, with the unit's own use counted as freed (a Knight becoming a Lancer keeps its Horses).
 -- The global unit cap does not apply, as no unit is added.
 local function upgradeKind(s: any, u: any): string?
@@ -395,8 +406,8 @@ local function upgradeKind(s: any, u: any): string?
     if technology and not has(s.players[u.ownerId].technologies,technology) then return nil end
     return nextKind
 end
-local function upgradeCost(kind: string, nextKind: string): number
-    return math.max(R.upgradeMinimumGold,R.units[nextKind].cost-R.units[kind].cost)*R.upgradeCostMultiplier
+local function upgradeCost(s: any, kind: string, nextKind: string): number
+    return math.max(scaledCost(s,R.upgradeMinimumGold),productionCost(s,nextKind)-productionCost(s,kind))*R.upgradeCostMultiplier
 end
 -- Why UpgradeUnit refuses the unit now, or nil when it accepts it (turn ownership aside).
 local function upgradeRefusal(s: any, u: any): string?
@@ -404,14 +415,14 @@ local function upgradeRefusal(s: any, u: any): string?
     if not nextKind or u.moves<=0 then return "Upgrade technology is unavailable." end
     local stock=strategicStock(s,u.ownerId,nil,nil,u)
     if not resourceSpare(stock,R.units[nextKind]) then return shortageMessage(stock,R.units[nextKind]) end
-    if s.players[u.ownerId].gold<upgradeCost(u.kind,nextKind) then return "Upgrade requires gold and strategic resources." end
+    if s.players[u.ownerId].gold<upgradeCost(s,u.kind,nextKind) then return "Upgrade requires gold and strategic resources." end
     return nil
 end
 -- Applies an accepted upgrade: the gold is spent, the kind changes and movement ends. Hit points, experience,
 -- promotions (an upgrade keeps the unit class) and fortification are kept.
 local function upgrade(s: any, u: any)
     local nextKind=upgradeKind(s,u) :: string
-    s.players[u.ownerId].gold -= upgradeCost(u.kind,nextKind); u.kind=nextKind; u.moves=0
+    s.players[u.ownerId].gold -= upgradeCost(s,u.kind,nextKind); u.kind=nextKind; u.moves=0
     event(s,"Upgrade","Unit upgraded.",u.tileId,u.id,u.ownerId)
 end
 -- A completed world wonder: a public WonderBuilt event (its location is projected only to those who can see the city;
@@ -1023,7 +1034,7 @@ local function economy(s: any, owner: number)
         local yields,maintenance=cityYields(s,p,owner,c,worked,cityTiles,bonus); income.maintenance += maintenance
         local food,production=cityNet(s,p,c,yields,p.happiness,bonus)
         c.food += food
-        local threshold=R.growthBase+c.population*R.growthPerPopulation
+        local threshold=growthCost(s,c.population)
         if c.food>=threshold and p.happiness>=0 and c.population<R.maxPopulation then c.food -= threshold; c.population += 1; event(s,"Growth","City grew.",c.tileId,nil,owner,c.population)
         elseif c.food<0 then
             if c.population>1 then c.population -= 1; event(s,"Starvation","City lost population.",c.tileId,nil,owner,c.population) end
@@ -1034,10 +1045,10 @@ local function economy(s: any, owner: number)
         c.hp=math.min(R.cityHp,c.hp+5)
         for key,value in yields do income[key] += value end
         -- A city that lost a wonder race earlier in this step completes nothing until its next step.
-        if c.queue~="" and not converted[c.id] and productionAvailable(s,c,c.queue) and c.production>=(R.productionCosts[c.queue] or math.huge) then
+        if c.queue~="" and not converted[c.id] and productionAvailable(s,c,c.queue) and c.production>=productionCost(s,c.queue) then
             local spawn=spawnTile(s,c)
             if R.buildings[c.queue] or spawn then
-                local item=c.queue; c.production -= R.productionCosts[item]; complete(s,c,item,spawn,converted,bonus)
+                local item=c.queue; c.production -= productionCost(s,item); complete(s,c,item,spawn,converted,bonus)
                 if R.buildings[item] and R.buildings[item].startsGoldenAge then granted += goldenAgeTurns(s); grantedBy=item end
             end
         end
@@ -1331,7 +1342,7 @@ local function aiWonderPlan(s: any, owner: number): (number?, string?)
     end
     if not best then return nil,nil end
     for _, id in R.wonderOrder do
-        if canChoose(s,best,id) and math.ceil(math.max(0,R.productionCosts[id]-best.production)/bestMade)<=AI_WONDER_TURNS then return best.id,id end
+        if canChoose(s,best,id) and math.ceil(math.max(0,productionCost(s,id)-best.production)/bestMade)<=AI_WONDER_TURNS then return best.id,id end
     end
     return nil,nil
 end
@@ -1364,12 +1375,6 @@ local AI_UPGRADE_RESERVE=40
 -- Exhausted priorities do not imply exhausted legal choices. Prefer the cheapest remaining building (including
 -- wonders), ties by id, then any available unit in rule order before retaining a blocked Warrior queue.
 local aiFallbackItems: {string}=table.clone(R.buildingOrder)
-table.sort(aiFallbackItems,function(a: string,b: string): boolean
-    local x,y=R.buildings[a],R.buildings[b]
-    if x.cost~=y.cost then return x.cost<y.cost end
-    return a<b
-end)
-for _, id in R.unitOrder do table.insert(aiFallbackItems,id) end
 local aiHappinessBuildings: {string}, aiDefenseBuildings: {string}={},{}
 for _, id in R.buildingOrder do
     local rule=R.buildings[id]
@@ -1377,12 +1382,6 @@ for _, id in R.buildingOrder do
     if rule.happiness>0 and rule.yields.culture<=0 then table.insert(aiHappinessBuildings,id) end
     if rule.defense>0 then table.insert(aiDefenseBuildings,id) end
 end
-table.sort(aiHappinessBuildings,function(a: string,b: string): boolean
-    local x,y=R.buildings[a],R.buildings[b]
-    local first,second=x.happiness*y.cost,y.happiness*x.cost
-    if first~=second then return first>second end
-    return a<b
-end)
 -- A unit's value for the AI's choice: a ranged unit's ranged strength plus half its defence, otherwise attack plus
 -- defence.
 local function aiUnitValue(rule: any): number
@@ -1430,6 +1429,20 @@ local function aiGoldFocus(s: any, owner: number)
 end
 aiProduction = function(s: any, owner: number, idleOnly: boolean?)
     local p=s.players[owner]
+    local aiFallbackItems=table.clone(aiFallbackItems)
+    table.sort(aiFallbackItems,function(a: string,b: string): boolean
+        local x,y=productionCost(s,a),productionCost(s,b)
+        if x~=y then return x<y end
+        return a<b
+    end)
+    for _, id in R.unitOrder do table.insert(aiFallbackItems,id) end
+    local aiHappinessBuildings=table.clone(aiHappinessBuildings)
+    table.sort(aiHappinessBuildings,function(a: string,b: string): boolean
+        local x,y=R.buildings[a],R.buildings[b]
+        local first,second=x.happiness*productionCost(s,b),y.happiness*productionCost(s,a)
+        if first~=second then return first>second end
+        return a<b
+    end)
     if not idleOnly then aiGoldFocus(s,owner) end
     local wonderCityId,wonderId=aiWonderPlan(s,owner)
     local counts: {[string]: number}={}; local groups: {[string]: number}={}; local military=0
@@ -1498,12 +1511,12 @@ local function aiUpgrades(s: any, owner: number)
     for _, id in ids do
         local u=unitById(s,id)
         if s.tiles[u.tileId].ownerId~=owner or upgradeRefusal(s,u) then continue end
-        if p.income.gold>=0 and p.gold-upgradeCost(u.kind,upgradeKind(s,u) :: string)>=AI_UPGRADE_RESERVE then upgrade(s,u) end
+        if p.income.gold>=0 and p.gold-upgradeCost(s,u.kind,upgradeKind(s,u) :: string)>=AI_UPGRADE_RESERVE then upgrade(s,u) end
     end
 end
 local function ai(s: any, owner: number)
     local p=s.players[owner]
-    if not p.research then for _, id in R.technologyOrder do local tech=R.technologies[id]; if eligible(p,tech,p.technologies) then p.research={id=id,progress=0,cost=tech.cost}; break end end end
+    if not p.research then for _, id in R.technologyOrder do local tech=R.technologies[id]; if eligible(p,tech,p.technologies) then p.research={id=id,progress=0,cost=scaledCost(s,tech.cost)}; break end end end
     for _, id in R.policyOrder do local policy=R.policies[id]; local cost=policyCost(s,p,policy); if eligible(p,policy,p.policies) and p.culture>=cost then p.culture -= cost; table.insert(p.policies,id); event(s,"Policy","Policy adopted: "..id,nil,nil,owner); break end end
     if s.diplomacy.peaceOfferBy and s.diplomacy.peaceOfferBy~=owner then
         -- The balance of military units with the other civilization (barbarians are no party to the peace).
@@ -1716,7 +1729,7 @@ function BaseGame.apply(state: State, actorId: number, command: Command): {ok: b
             if not canChoose(s,c,cmd.item) then return reject(productionRefusal(s,c,cmd.item)) end
             if cmd.kind=="Purchase" then
                 if isWonder(cmd.item) then return reject("World wonders cannot be purchased.") end
-                local cost=R.purchaseCosts[cmd.item]; local spawn=spawnTile(s,c)
+                local cost=purchaseCost(s,cmd.item); local spawn=spawnTile(s,c)
                 if p.gold<cost or (not R.buildings[cmd.item] and not spawn) then return reject("Purchase needs gold and a free deployment tile.") end
                 p.gold -= cost; complete(s,c,cmd.item,spawn)
             else
@@ -1726,7 +1739,7 @@ function BaseGame.apply(state: State, actorId: number, command: Command): {ok: b
     elseif cmd.kind=="Research" then
         local tech=if type(cmd.technology)=="string" then R.technologies[cmd.technology] else nil
         if not tech or not eligible(p,tech,p.technologies) or (p.research and p.research.id==tech.id) then return reject("Research is unavailable.") end
-        p.research={id=tech.id,progress=0,cost=tech.cost}
+        p.research={id=tech.id,progress=0,cost=scaledCost(s,tech.cost)}
     elseif cmd.kind=="AdoptPolicy" then
         local policy=if type(cmd.policy)=="string" then R.policies[cmd.policy] else nil
         if not policy or not eligible(p,policy,p.policies) or p.culture<policyCost(s,p,policy) then return reject("Policy requires culture and prerequisites.") end
@@ -1793,7 +1806,7 @@ function BaseGame.snapshot(state: State, actorId: number): View
                 view.promotionsAvailable=if canAct then promotionsAvailable(u) else {}
                 -- The upgrade the owner's technology opens, its gold cost and whether UpgradeUnit accepts it now.
                 local nextKind=upgradeKind(s,u)
-                if nextKind then view.upgradeKind=nextKind; view.upgradeCost=upgradeCost(u.kind,nextKind); view.canUpgrade=canAct and upgradeRefusal(s,u)==nil end
+                if nextKind then view.upgradeKind=nextKind; view.upgradeCost=upgradeCost(s,u.kind,nextKind); view.canUpgrade=canAct and upgradeRefusal(s,u)==nil end
             else view.xp=nil end
             table.insert(units,view)
         end
@@ -1845,7 +1858,7 @@ function BaseGame.snapshot(state: State, actorId: number): View
     local research,policies,production={},{},{}
     local productionByCity: {[string]: {string}},purchasesByCity: {[string]: {string}}={},{}
     for _, c in s.cities do if c.ownerId==actorId then productionByCity[tostring(c.id)]={}; purchasesByCity[tostring(c.id)]={} end end
-    for _, id in R.technologyOrder do if eligible(p,R.technologies[id],p.technologies) then table.insert(research,copy(R.technologies[id])) end end
+    for _, id in R.technologyOrder do if eligible(p,R.technologies[id],p.technologies) then local entry=copy(R.technologies[id]); entry.cost=scaledCost(s,entry.cost); table.insert(research,entry) end end
     for _, id in R.policyOrder do if eligible(p,R.policies[id],p.policies) then local entry=copy(R.policies[id]); entry.cost=policyCost(s,p,R.policies[id]); table.insert(policies,entry) end end
     local productionOrder=copy(R.unitOrder); for _, id in R.buildingOrder do table.insert(productionOrder,id) end
     -- The actor's strategic stock, computed once for every menu below and reported as `strategic`: for each strategic
@@ -1858,7 +1871,7 @@ function BaseGame.snapshot(state: State, actorId: number): View
         for _, c in s.cities do
             if c.ownerId==actorId and canChoose(s,c,id,stock) then
                 table.insert(productionByCity[tostring(c.id)],id)
-                if not isWonder(id) and p.gold>=R.purchaseCosts[id] and (R.buildings[id] or spawnTile(s,c)) then table.insert(purchasesByCity[tostring(c.id)],id) end
+                if not isWonder(id) and p.gold>=purchaseCost(s,id) and (R.buildings[id] or spawnTile(s,c)) then table.insert(purchasesByCity[tostring(c.id)],id) end
                 if not added then table.insert(production,id); added=true end
             end
         end
@@ -1896,7 +1909,7 @@ function BaseGame.snapshot(state: State, actorId: number): View
         for _, c in own do
             claim(s,c,claimed)
             local yields=cityYields(s,actor,actorId,c,worked,cityTiles,bonus,claimed); local food,made=cityNet(s,actor,c,yields,stepMood,bonus)
-            local growAt=R.growthBase+c.population*R.growthPerPopulation; local cost=R.productionCosts[c.queue]
+            local growAt=growthCost(s,c.population); local cost=if R.productionCosts[c.queue] then productionCost(s,c.queue) else nil
             local canGrow=stepMood>=0 and c.population<R.maxPopulation
             -- The economy completes the queue only when it is still available and a unit has a free deployment tile.
             local blocked: ("NotAvailable" | "NoSpace" | "Idle")?=nil; local spawn: number?=nil
@@ -1935,7 +1948,9 @@ function BaseGame.snapshot(state: State, actorId: number): View
     local mood=stepHappiness(s,actorId,resourceInventory(s,actorId))
     local goldenAge={active=age.turnsLeft>0,turnsLeft=age.turnsLeft,progress=age.progress,threshold=goldenAgeThreshold(s,age.ages),ages=age.ages,
         progressPerTurn=if age.turnsLeft>0 then 0 else math.max(0,mood),turns=goldenAgeTurns(s)}
-    return {strategic=strategic,barbarians=s.barbarians~=nil,camps=camps,wonders=wonders,goldenAge=goldenAge,cityForecasts=forecasts,seed=if s.humanPlayers==1 or s.phase=="Finished" then s.seed else nil,radius=s.radius,mapShape=s.mapShape,frequency=s.frequency,difficulty=s.difficulty,humanPlayers=s.humanPlayers,turn=s.turn,revision=s.revision,activePlayerId=s.activePlayerId,actorId=actorId,canAct=canAct,phase=s.phase,winner=s.winner,reason=s.reason,victoryType=s.victoryType,gold=p.gold,science=p.science,culture=p.culture,happiness=p.happiness,research=copy(p.research),technologies=copy(p.technologies),policies=copy(p.policies),resources=copy(resourceInventory(s,actorId)),income=copy(p.income),tiles=tiles,units=units,cities=cities,events=events,log={},legalMoves=legal,riverMoves=riverMoves,availableProduction=production,availableProductionByCity=productionByCity,availablePurchasesByCity=purchasesByCity,availableResearch=research,availablePolicies=policies,availableImprovements=improvements,productionCosts=copy(R.productionCosts),purchaseCosts=copy(R.purchaseCosts),scores=score,statistics=stats,progress=progress,cultureVictoryPolicies=threshold,policyCostIncrease=s.policyCostIncrease or 0,attackPreviews=previews,cityStrikePreviews=strikePreviews,diplomacy=copy(s.diplomacy),trades=copy(s.trades),objectives={"Found cities, develop resources and maintain happiness.","Control both original capitals for domination.","Build "..R.buildings[R.scienceVictoryBuilding].name.." after "..R.technologies[R.scienceVictoryTechnology].name.." for science victory.","Adopt "..threshold.." "..(if threshold==1 then "policy" else "policies").." for culture victory.","Highest score wins at the round limit; ties break on technologies plus policies, otherwise a Draw."}}
+    local productionCosts: {[string]: number},purchaseCosts: {[string]: number}={},{}
+    for id in R.productionCosts do productionCosts[id]=productionCost(s,id); purchaseCosts[id]=purchaseCost(s,id) end
+    return {strategic=strategic,barbarians=s.barbarians~=nil,camps=camps,wonders=wonders,goldenAge=goldenAge,cityForecasts=forecasts,seed=if s.humanPlayers==1 or s.phase=="Finished" then s.seed else nil,radius=s.radius,mapShape=s.mapShape,frequency=s.frequency,difficulty=s.difficulty,humanPlayers=s.humanPlayers,turn=s.turn,revision=s.revision,activePlayerId=s.activePlayerId,actorId=actorId,canAct=canAct,phase=s.phase,winner=s.winner,reason=s.reason,victoryType=s.victoryType,gold=p.gold,science=p.science,culture=p.culture,happiness=p.happiness,research=copy(p.research),technologies=copy(p.technologies),policies=copy(p.policies),resources=copy(resourceInventory(s,actorId)),income=copy(p.income),tiles=tiles,units=units,cities=cities,events=events,log={},legalMoves=legal,riverMoves=riverMoves,availableProduction=production,availableProductionByCity=productionByCity,availablePurchasesByCity=purchasesByCity,availableResearch=research,availablePolicies=policies,availableImprovements=improvements,productionCosts=productionCosts,purchaseCosts=purchaseCosts,scores=score,statistics=stats,progress=progress,cultureVictoryPolicies=threshold,policyCostIncrease=s.policyCostIncrease or 0,attackPreviews=previews,cityStrikePreviews=strikePreviews,diplomacy=copy(s.diplomacy),trades=copy(s.trades),objectives={"Found cities, develop resources and maintain happiness.","Control both original capitals for domination.","Build "..R.buildings[R.scienceVictoryBuilding].name.." after "..R.technologies[R.scienceVictoryTechnology].name.." for science victory.","Adopt "..threshold.." "..(if threshold==1 then "policy" else "policies").." for culture victory.","Highest score wins at the round limit; ties break on technologies plus policies, otherwise a Draw."}}
 end
 -- Pure, fog-safe query for one attack the actor's unit could make now. It never mutates the
 -- state and answers the same generic message for hidden, empty or out-of-range targets.
@@ -1988,5 +2003,6 @@ function BaseGame.restore(saved: any): (State?,string?)
     if not s then return nil,message end
     mapFor(s); return s :: State,nil
 end
+function BaseGame.costPercent(state: State): number return costPercent(state) end
 function BaseGame.getRules(): typeof(Rules) return copy(Rules) end
 return table.freeze(BaseGame)
