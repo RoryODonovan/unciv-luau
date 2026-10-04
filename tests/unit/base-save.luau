@@ -24,7 +24,7 @@ map.tiles[center].ownerId=1; map.tiles[worker].ownerId=1; map.tiles[worker].terr
 local explored={}; for id=1,#map.tiles do table.insert(explored,id) end
 local state: any={seed=124,radius=3,difficulty="Normal",humanPlayers=2,forest=true,maxTurns=120,turn=1,revision=4,activePlayerId=1,phase="Playing",tiles=map.tiles,
     units={{id=1,ownerId=1,kind="Settler",tileId=left,hp=50,moves=2,fortified=false,level=0},{id=2,ownerId=2,kind="Settler",tileId=right,hp=50,moves=2,fortified=false,level=0},{id=3,ownerId=1,kind="Worker",tileId=worker,hp=50,moves=0,fortified=false,level=0,work={improvement="Farm",remaining=1}}},
-    cities={{id=1,ownerId=1,originalOwnerId=1,capital=true,tileId=center,name="Fixture",population=2,food=7,production=3,queue="Warrior",hp=150,buildings={"Granary"},focus="Balanced"}},players={},
+    cities={{id=1,ownerId=1,originalOwnerId=1,capital=true,tileId=center,name="Fixture",borderCulture=0,borderTiles=0,population=2,food=7,production=3,queue="Warrior",hp=150,buildings={"Granary"},focus="Balanced"}},players={},
     diplomacy={status="Peace",peaceUntil=0,met=true},trades={{id=1,fromId=1,toId=2,giveGold=5,receiveGold=3,expires=4}},events={{id=1,kind="FoundCity",message="Founded.",tileId=center,unitId=1,ownerId=1,public=false}},nextEvent=2,nextUnit=4,nextCity=2,nextTrade=2,log={}}
 for id=1,2 do table.insert(state.players,{id=id,human=true,gold=30,science=0,culture=0,happiness=9,technologies=if id==1 then {"Agriculture"} else {},policies={},explored=copy(explored),resources={},income={food=0,production=0,gold=0,science=0,culture=0,maintenance=0}}) end
 local valid={format="unciv-luau-base",version=1,state=state}

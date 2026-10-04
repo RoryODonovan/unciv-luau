@@ -138,7 +138,7 @@ for _, shape in {"Hex","Sphere"} do
         local saved=Save.serialize(s)
         for _, restore in {Game.restore,Save.restore} do
             local resumed=restore(saved); assert(resumed and resumed.diplomacy.met==(relation~="unseen"))
-            assert(#events(resumed,1,"Contact")==(if relation=="seen" then 1 else 0))
+            assert(#events(resumed,1,"Contact")==0 and resumed.nextEvent==saved.state.nextEvent,"restore contact is silent")
             assert(Save.valid(Save.serialize(resumed)) and saved.state.diplomacy.met==nil)
             local again=restore(Save.serialize(resumed)); assert(again and equal(again,resumed),"migration repeated")
         end

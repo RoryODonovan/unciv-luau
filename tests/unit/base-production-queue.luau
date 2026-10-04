@@ -187,6 +187,8 @@ for _,shape in {"Hex","Sphere"} do
             if not occupied then s.tiles[tileId].terrain="Plains"; s.tiles[tileId].resource=nil; s.tiles[tileId].feature=nil; u.tileId=tileId; break end
         end; break
     end end
+    -- Reconcile territory sight/contact after the fixture teleports the rival, as commands do in play.
+    apply(s,1,{kind="SetCityFocus",cityId=c.id,focus="Production"})
     local seen=viewCity(Game.snapshot(s,2),c.id)
     assert(seen.queueNext==nil and seen.queueTurns==nil and seen.queue==nil,"rival sees neither queue array")
     local saved=Game.serialize(s); assert(saved.version==(if shape=="Sphere" then 2 else 1))

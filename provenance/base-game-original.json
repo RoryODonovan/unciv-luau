@@ -2,10 +2,12 @@
   "license": "MPL-2.0",
   "provenanceKind": "original",
   "modulePaths": [
-    "src/simulation/BaseGame.luau"
+    "src/simulation/BaseGame.luau",
+    "src/simulation/BaseVision.luau"
   ],
   "testPaths": [
     "tests/unit/base-game.luau",
+    "tests/unit/base-restore-vision.luau",
     "tests/unit/world-game.luau",
     "tests/unit/base-events.luau",
     "tests/unit/base-combat.luau",

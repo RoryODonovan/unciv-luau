@@ -354,6 +354,9 @@ do
         local seen: {[number]: boolean}={}
         for _, u in s.units do if u.ownerId==unit.ownerId then for _, id in WorldMap.range(g,u.tileId,2) do seen[id]=true end end end
         for _, c in s.cities do if c.ownerId==unit.ownerId then for _, id in WorldMap.range(g,c.tileId,2) do seen[id]=true end end end
+        for _, tile in s.tiles do if tile.ownerId==unit.ownerId then
+            seen[tile.id]=true; for _, id in g.neighbors[tile.id] do seen[id]=true end
+        end end
         local unitAt: {[number]: any},cityAt: {[number]: any}={},{}
         for _, u in s.units do unitAt[u.tileId]=u end; for _, c in s.cities do cityAt[c.tileId]=c end
         local atWar=s.diplomacy.status=="War"; local military=Rules.units[unit.kind].strength>0
@@ -711,6 +714,10 @@ do
     local before=deep(legacy)
     local restored: any,err=Game.restore(legacy); assert(restored and err==nil,err)
     local prior=Game.serialize(restored); prior.state.diplomacy.met=nil
+    for _, c in prior.state.cities do
+        assert(c.borderCulture==0 and c.borderTiles==0,"legacy fixture has no post-founding borders")
+        c.borderCulture=nil; c.borderTiles=nil
+    end
     if prior.state.events[#prior.state.events] and prior.state.events[#prior.state.events].kind=="Contact" then
         table.remove(prior.state.events); prior.state.nextEvent-=1
     end
