@@ -1,6 +1,6 @@
 --!strict
 -- Generated module-only Roblox form. Source: src/simulation/BaseGame.luau
--- Source SHA-256: fc4ac2e85e82509ccf66aa643844e2903fcbc8158f8412a103c9af556098f281
+-- Source SHA-256: d5aedf54ac4d4cf3140ab0e88d63e57e2672cc16c0858ec0e0f3b447335453a2
 -- Reproduce with tools/roblox-export.mjs; preserve MPL notices below.
 -- Covered source: https://github.com/RoryODonovan/unciv-luau
 -- This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
@@ -16,7 +16,7 @@ local Vision = require(script.Parent.BaseVision)
 export type CostCategory = "tech" | "production" | "growth" | "policy"
 export type Options = {humanPlayers: number?, radius: number?, mapShape: string?, frequency: number?, difficulty: string?, forest: boolean?, maxTurns: number?, cultureVictoryPolicies: number?, policyCostIncrease: number?, barbarians: boolean?}
 export type Command = {kind: "MoveUnit" | "RangedAttack", unitId: number, tileId: number}
-    | {kind: "FoundCity" | "FortifyUnit" | "UpgradeUnit", unitId: number}
+    | {kind: "FoundCity" | "FortifyUnit" | "SentryUnit" | "UpgradeUnit", unitId: number}
     | {kind: "BuildImprovement", unitId: number, improvement: string}
     | {kind: "SetProduction" | "Purchase" | "QueueProduction", cityId: number, item: string}
     | {kind: "RemoveQueued", cityId: number, index: number}
@@ -32,14 +32,14 @@ export type Command = {kind: "MoveUnit" | "RangedAttack", unitId: number, tileId
 -- see WorldMap) are optional.
 export type Tile = {id: number, x: number?, y: number?, terrain: string, resource: string?, ownerId: number?, improvement: string?, road: boolean?, feature: string?, river: number?}
 -- `xp` and `promotions` are optional (absent means 0 and none). `level` counts the promotions taken.
-export type Unit = {id: number, ownerId: number, kind: string, tileId: number, hp: number, moves: number, fortified: boolean, level: number, xp: number?, promotions: {string}?, work: {improvement: string, remaining: number}?}
+export type Unit = {id: number, ownerId: number, kind: string, tileId: number, hp: number, moves: number, fortified: boolean, level: number, xp: number?, promotions: {string}?, work: {improvement: string, remaining: number}?, sentry: boolean?}
 -- A unit in a snapshot. Every listed unit carries `level` and `promotions` (visible, as in Civ V). Only the actor's own
 -- units carry `xp`, `nextLevelXp` (the next threshold, absent at the last level) and `promotionsAvailable` (the ids
 -- PromoteUnit accepts now, empty while the actor cannot act).
 -- Own units with an upgrade whose technology the owner knows also carry `upgradeKind` (the unit kind it becomes),
 -- `upgradeCost` (gold) and `canUpgrade` (UpgradeUnit accepts it now: movement left, the strategic resource and the
 -- gold, and the actor can act).
-export type UnitView = {id: number, ownerId: number, kind: string, tileId: number, hp: number, moves: number, fortified: boolean, level: number, promotions: {string}, xp: number?, nextLevelXp: number?, promotionsAvailable: {string}?, work: {improvement: string, remaining: number}?, upgradeKind: string?, upgradeCost: number?, canUpgrade: boolean?}
+export type UnitView = {id: number, ownerId: number, kind: string, tileId: number, hp: number, moves: number, fortified: boolean, level: number, promotions: {string}, xp: number?, nextLevelXp: number?, promotionsAvailable: {string}?, work: {improvement: string, remaining: number}?, upgradeKind: string?, upgradeCost: number?, canUpgrade: boolean?, sentry: boolean?}
 -- `strikeTurn` is optional: the round whose ranged strike the city has used (it struck, or it was captured, that
 -- round). Absent means the city has never used one.
 -- Optional border fields: accumulated culture and post-founding culture/purchase acquisitions. Restore migrates
@@ -250,6 +250,45 @@ local function policyCost(s: any, p: any, policy: any): number
 end
 local function visible(s: any, owner: number): any
     return Vision.visible(s,mapFor(s),owner)
+end
+-- No sight work in games without sentries. Sentry belongs only to a civilization, never to barbarians.
+local function sentrySight(s: any, owner: number): any
+    for _, u in s.units do if u.ownerId==owner and u.sentry then return visible(s,owner) end end
+    return nil
+end
+local function wakeSentries(s: any, owner: number, sight: any?)
+    local seen=sight or sentrySight(s,owner)
+    if not seen then return end
+    local enemies={}
+    for _, u in s.units do if hostile(s,owner,u.ownerId) and seen[u.tileId] then enemies[u.tileId]=true end end
+    for _, u in s.units do
+        if u.ownerId~=owner or not u.sentry then continue end
+        for _, id in nearby(s,u.tileId,2) do
+            if enemies[id] then
+                u.sentry=nil
+                event(s,"UnitWoke","Your "..u.kind.." sees an enemy nearby.",u.tileId,u.id,owner)
+                break
+            end
+        end
+    end
+end
+-- Preserve whether an action was witnessed before a kill/capture removes sight. Destination sight after the
+-- action also counts. Waking itself always checks current owner sight, including territory, never exploration.
+local function sentryWitnesses(s: any, actor: number, from: number, target: number): any
+    local witnesses={}
+    for owner=1,2 do
+        if owner==actor then continue end
+        local seen=sentrySight(s,owner)
+        if seen and (seen[from] or seen[target]) then witnesses[owner]=true end
+    end
+    return witnesses
+end
+local function wakeAfterAction(s: any, actor: number, from: number, target: number, witnesses: any)
+    for owner=1,2 do
+        if owner==actor then continue end
+        local seen=sentrySight(s,owner)
+        if seen and (witnesses[owner] or seen[from] or seen[target]) then wakeSentries(s,owner,seen) end
+    end
 end
 local function contact(s: any, owner: number, seen: any)
     if Vision.contact(s,owner,seen) then
@@ -785,6 +824,7 @@ local function strike(s: any, unit: any, defender: any, city: any, target: numbe
     return dealt,received,ranged
 end
 local function combat(s: any, unit: any, target: number)
+    local from=unit.tileId; local witnesses=sentryWitnesses(s,unit.ownerId,from,target)
     local units,cities=occupants(s); local defender,city=units[target],cities[target]
     local dealt,received,ranged=strike(s,unit,defender,city,target,if city then buildingDefense(city) else 0,units)
     local enemyOwner=if defender then defender.ownerId else city.ownerId
@@ -801,7 +841,10 @@ local function combat(s: any, unit: any, target: number)
     end
     event(s,"Attack","Battle dealt "..dealt.." damage.",target,unit.id,unit.ownerId,dealt)
     if defender and defender.hp<=0 then removeUnit(s,defender.id); unitLost(s,defender,target,if ranged then "Ranged" else "Combat",unit.ownerId,dealt) end
-    if unit.hp<=0 then removeUnit(s,unit.id); unitLost(s,unit,unit.tileId,"Combat",enemyOwner,received); return end
+    if unit.hp<=0 then
+        removeUnit(s,unit.id); unitLost(s,unit,unit.tileId,"Combat",enemyOwner,received)
+        wakeAfterAction(s,unit.ownerId,from,target,witnesses); return
+    end
     if not ranged and not select(1,occupants(s))[target] then
         if city and city.ownerId~=unit.ownerId then
             -- Barbarians damage cities but never capture them.
@@ -818,6 +861,7 @@ local function combat(s: any, unit: any, target: number)
         -- killed on the territory of a civilization at peace with the attacker dies, and the attacker stays put.
         elseif territoryOpen(s,unit,target) then unit.tileId=target; enterCamp(s,unit) end
     end
+    wakeAfterAction(s,unit.ownerId,from,target,witnesses)
 end
 local function outcome(low: boolean, high: boolean): string return if low~=high then "Maybe" elseif low then "Yes" else "No" end
 -- Fog-safe preview. It reads only the actor's units (the attacker and its flanking units), the visible
@@ -903,11 +947,13 @@ end
 -- A city strike: damages the target, uses the city's strike for this round and gives the target the experience of a
 -- unit hit by a ranged attack (cities have none; civilians gain none). A target reduced to 0 hit points dies.
 local function cityStrike(s: any, city: any, target: any, units: any)
+    local tileId=target.tileId; local witnesses=sentryWitnesses(s,city.ownerId,city.tileId,tileId)
     local dealt=cityStrikeDamage(s,city,target,units)
     city.strikeTurn=s.turn; target.hp -= dealt
     gainExperience(target,R.experience.rangedDefense)
     event(s,"CityStrike","City strike dealt "..dealt.." damage.",target.tileId,target.id,city.ownerId,dealt,nil,nil,nil,target.kind,city.id)
     if target.hp<=0 then removeUnit(s,target.id); unitLost(s,target,target.tileId,"CityStrike",city.ownerId,dealt) end
+    wakeAfterAction(s,city.ownerId,city.tileId,tileId,witnesses)
 end
 -- The AI's choice for one ready city: a target the strike kills first, then a military unit over a civilian, then the
 -- target left with the fewest hit points; ties go to the lowest unit id.
@@ -926,10 +972,12 @@ local function moveUnit(s: any, unit: any, target: number): boolean
     if attackable(s,unit,target,seen) then combat(s,unit,target); return true end
     local targets=reachable(s,unit,seen); local cost=targets[target]
     if target==unit.tileId or not cost then return false end
+    local from=unit.tileId; local witnesses=sentryWitnesses(s,unit.ownerId,from,target)
     unit.tileId=target; unit.moves=fromSixths(toSixths(unit.moves)-cost); unit.fortified=false; unit.work=nil
     -- Catch contact after each AI move, even if another AI unit later moves out of sight in this turn.
     if not s.diplomacy.met then for owner=1,2 do contact(s,owner,visible(s,owner)) end end
-    event(s,"Move","Unit moved.",target,unit.id,unit.ownerId); enterCamp(s,unit); return true
+    event(s,"Move","Unit moved.",target,unit.id,unit.ownerId); enterCamp(s,unit)
+    wakeAfterAction(s,unit.ownerId,from,target,witnesses); return true
 end
 local function improvementAvailable(s: any, unit: any, improvement: string): boolean
     local rule=R.improvements[improvement]; if not rule or unit.kind~="Worker" or unit.moves<=0 or unit.work then return false end
@@ -1215,6 +1263,7 @@ local function beginTurn(s: any, owner: number)
         u.moves=if u.work then 0 else R.units[u.kind].moves
     end
     refreshVision(s)
+    wakeSentries(s,owner)
 end
 -- Barbarians. A deterministic 32-bit hash (FNV-1a over 32-bit pieces of each value, then a final mix) of the seed, the
 -- round and a salt decides where camps appear, which unit kinds they add and where idle barbarians wander, so every
@@ -1376,7 +1425,9 @@ local function barbarianAct(s: any, u: any)
         end
     end
     if not best then return end
+    local from=u.tileId; local witnesses=sentryWitnesses(s,u.ownerId,from,best)
     u.tileId=best; u.moves=fromSixths(toSixths(u.moves)-spent[best]); u.fortified=false
+    wakeAfterAction(s,u.ownerId,from,best,witnesses)
     if u.moves>0 and (ranged or not camps[best]) then
         local after=barbarianAttack(s,u)
         if after then combat(s,u,after) end
@@ -1798,7 +1849,7 @@ function BaseGame.new(seed: number?, options: Options?): State
     refreshVision(s); refreshEconomyState(s); return s :: State
 end
 local function finiteId(value: any): boolean return type(value)=="number" and value==value and value%1==0 and value>=1 and value<=1000000 end
-local schemas: any={MoveUnit={unitId=true,tileId=true},RangedAttack={unitId=true,tileId=true},FoundCity={unitId=true},FortifyUnit={unitId=true},UpgradeUnit={unitId=true},BuildImprovement={unitId=true,improvement=true},SetProduction={cityId=true,item=true},QueueProduction={cityId=true,item=true},RemoveQueued={cityId=true,index=true},Purchase={cityId=true,item=true},BuyTile={cityId=true,tileId=true},SetCityFocus={cityId=true,focus=true},Research={technology=true},AdoptPolicy={policy=true},DeclareWar={targetId=true},OfferPeace={targetId=true},AcceptPeace={targetId=true},ProposeTrade={targetId=true,giveGold=true,receiveGold=true},AcceptTrade={tradeId=true},CancelTrade={tradeId=true},EndTurn={},PromoteUnit={unitId=true,promotion=true},CityRangedStrike={cityId=true,targetUnitId=true}}
+local schemas: any={MoveUnit={unitId=true,tileId=true},RangedAttack={unitId=true,tileId=true},FoundCity={unitId=true},FortifyUnit={unitId=true},SentryUnit={unitId=true},UpgradeUnit={unitId=true},BuildImprovement={unitId=true,improvement=true},SetProduction={cityId=true,item=true},QueueProduction={cityId=true,item=true},RemoveQueued={cityId=true,index=true},Purchase={cityId=true,item=true},BuyTile={cityId=true,tileId=true},SetCityFocus={cityId=true,focus=true},Research={technology=true},AdoptPolicy={policy=true},DeclareWar={targetId=true},OfferPeace={targetId=true},AcceptPeace={targetId=true},ProposeTrade={targetId=true,giveGold=true,receiveGold=true},AcceptTrade={tradeId=true},CancelTrade={tradeId=true},EndTurn={},PromoteUnit={unitId=true,promotion=true},CityRangedStrike={cityId=true,targetUnitId=true}}
 function BaseGame.apply(state: State, actorId: number, command: Command): {ok: boolean, message: string}
     local s: any=state; local cmd: any=command
     local function reject(message: string): {ok: boolean,message: string} return {ok=false,message=message} end
@@ -1823,6 +1874,11 @@ function BaseGame.apply(state: State, actorId: number, command: Command): {ok: b
         elseif cmd.kind=="FortifyUnit" then
             if u.moves<=0 or u.fortified or R.units[u.kind].strength<=0 then return reject("A military unit needs movement to fortify.") end
             u.fortified=true; u.moves=0
+        elseif cmd.kind=="SentryUnit" then
+            if u.kind=="Settler" then return reject("A settler cannot sentry.") end
+            if u.work then return reject("A unit building an improvement is already busy.") end
+            if u.sentry then return reject("This unit is already on sentry.") end
+            u.sentry=true
         elseif cmd.kind=="UpgradeUnit" then
             local refusal=upgradeRefusal(s,u)
             if refusal then return reject(refusal) end
@@ -1834,6 +1890,8 @@ function BaseGame.apply(state: State, actorId: number, command: Command): {ok: b
             if type(cmd.promotion)~="string" or not promotionAllowed(u,cmd.promotion) then return reject("That promotion is unavailable for this unit.") end
             promote(s,u,cmd.promotion)
         end
+        -- Only accepted commands clear the order; SentryUnit is the command that sets it.
+        if cmd.kind~="SentryUnit" then u.sentry=nil end
     elseif cmd.cityId~=nil then
         if not finiteId(cmd.cityId) then return reject("Invalid city identifier.") end
         local c=cityById(s,cmd.cityId); if not c or c.ownerId~=actorId then return reject("Select your city.") end
@@ -1943,7 +2001,7 @@ function BaseGame.snapshot(state: State, actorId: number): View
                 -- The upgrade the owner's technology opens, its gold cost and whether UpgradeUnit accepts it now.
                 local nextKind=upgradeKind(s,u)
                 if nextKind then view.upgradeKind=nextKind; view.upgradeCost=upgradeCost(s,u.kind,nextKind); view.canUpgrade=canAct and upgradeRefusal(s,u)==nil end
-            else view.xp=nil end
+            else view.xp=nil; view.sentry=nil end
             table.insert(units,view)
         end
         if u.ownerId==actorId then
@@ -1987,7 +2045,7 @@ function BaseGame.snapshot(state: State, actorId: number): View
         elseif seen[c.tileId] then table.insert(cities,{id=c.id,ownerId=c.ownerId,tileId=c.tileId,name=c.name,population=c.population,hp=c.hp,capital=c.capital,originalOwnerId=c.originalOwnerId}) end
     end
     for _, e in s.events do
-        if e.kind=="BorderGrowth" and e.ownerId~=actorId then continue end
+        if (e.kind=="BorderGrowth" or e.kind=="UnitWoke") and e.ownerId~=actorId then continue end
         if e.public or e.ownerId==actorId or (e.tileId and seen[e.tileId]) then
             local view=copy(e)
             -- Every civilization learns that a wonder was completed and by whom, but the city only while it can see the
