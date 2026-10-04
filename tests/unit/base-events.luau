@@ -266,10 +266,11 @@ do
     assert(equal(playing.progress[2],{cities=1,policies=1,era=2}) and equal(playing.progress[1],{cities=1,policies=0,era=1}))
     assert(equal(Game.snapshot(s,2).progress,playing.progress))
     while s.phase=="Playing" do apply(s,1,{kind="EndTurn"}); if s.phase=="Playing" then apply(s,2,{kind="EndTurn"}) end end
-    assert(s.victoryType=="Score")
+    assert(s.victoryType=="Score" or s.victoryType=="Draw")
     local one,two=Game.snapshot(s,1),Game.snapshot(s,2)
     assert(equal(one.scores,two.scores) and equal(one.statistics,two.statistics) and one.scores[2]>0 and one.statistics[2].technologies==5)
-    assert(one.scores[s.winner]>=one.scores[3-s.winner])
+    if s.winner then assert(one.scores[s.winner]>=one.scores[3-s.winner])
+    else assert(s.victoryType=="Draw" and one.scores[1]==one.scores[2]) end
 end
 
 -- 4. Culture race: escalating policy costs by default, configurable threshold, legacy saves.

@@ -1,6 +1,6 @@
 --!strict
 -- Generated module-only Roblox form. Source: src/simulation/BaseGame.luau
--- Source SHA-256: 481f9af58e7d728d62b8783899a3cf32a295f2f60e5e9f5d321fd1fcb4642729
+-- Source SHA-256: d69b4f8006662bce37e4845a29c8e5632bd7391367f8934f153d28d9e3e94d7f
 -- Reproduce with tools/roblox-export.mjs; preserve MPL notices below.
 -- Covered source: https://github.com/RoryODonovan/unciv-luau
 -- This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
@@ -446,8 +446,13 @@ local function complete(s: any, city: any, item: string, spawn: number?, convert
     event(s,"Production","Completed "..item..".",city.tileId,nil,city.ownerId)
     if isWonder(item) then wonderBuilt(s,city,item,converted) end
 end
-local function finish(s: any, winner: number, kind: string)
-    s.phase="Finished"; s.winner=winner; s.victoryType=kind; s.reason=kind.." victory for civilization "..winner.."."
+local function finish(s: any, winner: number?, kind: string, tieBroken: boolean?)
+    s.phase="Finished"; s.winner=winner; s.victoryType=kind
+    if kind=="Draw" then s.reason="Draw: equal score, technologies and policies."
+    else
+        assert(winner)
+        s.reason=kind.." victory for civilization "..winner..(if tieBroken then " (tie broken by technologies and policies)." else ".")
+    end
     event(s,"Victory",s.reason,nil,nil,winner,nil,true)
 end
 local function scores(s: any): (any,any)
@@ -1590,7 +1595,17 @@ local function endTurn(s: any, owner: number)
         if s.phase=="Finished" then return end
     end
     for i=#s.trades,1,-1 do if s.trades[i].expires<=s.turn then table.remove(s.trades,i) end end
-    if s.turn>=s.maxTurns then local values=scores(s); finish(s,if values[1]>=values[2] then 1 else 2,"Score"); return end
+    if s.turn>=s.maxTurns then
+        local values=scores(s)
+        if values[1]~=values[2] then finish(s,if values[1]>values[2] then 1 else 2,"Score")
+        else
+            local one,two=s.players[1],s.players[2]
+            local knowledge1,knowledge2=#one.technologies+#one.policies,#two.technologies+#two.policies
+            if knowledge1~=knowledge2 then finish(s,if knowledge1>knowledge2 then 1 else 2,"Score",true)
+            else finish(s,nil,"Draw") end
+        end
+        return
+    end
     -- Barbarians act once per round, after both civilizations. A civilization whose last settler they kill (before it
     -- founds a city) is eliminated by the evaluation as usual.
     if s.barbarians then
@@ -1920,7 +1935,7 @@ function BaseGame.snapshot(state: State, actorId: number): View
     local mood=stepHappiness(s,actorId,resourceInventory(s,actorId))
     local goldenAge={active=age.turnsLeft>0,turnsLeft=age.turnsLeft,progress=age.progress,threshold=goldenAgeThreshold(s,age.ages),ages=age.ages,
         progressPerTurn=if age.turnsLeft>0 then 0 else math.max(0,mood),turns=goldenAgeTurns(s)}
-    return {strategic=strategic,barbarians=s.barbarians~=nil,camps=camps,wonders=wonders,goldenAge=goldenAge,cityForecasts=forecasts,seed=if s.humanPlayers==1 or s.phase=="Finished" then s.seed else nil,radius=s.radius,mapShape=s.mapShape,frequency=s.frequency,difficulty=s.difficulty,humanPlayers=s.humanPlayers,turn=s.turn,revision=s.revision,activePlayerId=s.activePlayerId,actorId=actorId,canAct=canAct,phase=s.phase,winner=s.winner,reason=s.reason,victoryType=s.victoryType,gold=p.gold,science=p.science,culture=p.culture,happiness=p.happiness,research=copy(p.research),technologies=copy(p.technologies),policies=copy(p.policies),resources=copy(resourceInventory(s,actorId)),income=copy(p.income),tiles=tiles,units=units,cities=cities,events=events,log={},legalMoves=legal,riverMoves=riverMoves,availableProduction=production,availableProductionByCity=productionByCity,availablePurchasesByCity=purchasesByCity,availableResearch=research,availablePolicies=policies,availableImprovements=improvements,productionCosts=copy(R.productionCosts),purchaseCosts=copy(R.purchaseCosts),scores=score,statistics=stats,progress=progress,cultureVictoryPolicies=threshold,policyCostIncrease=s.policyCostIncrease or 0,attackPreviews=previews,cityStrikePreviews=strikePreviews,diplomacy=copy(s.diplomacy),trades=copy(s.trades),objectives={"Found cities, develop resources and maintain happiness.","Control both original capitals for domination.","Build "..R.buildings[R.scienceVictoryBuilding].name.." after "..R.technologies[R.scienceVictoryTechnology].name.." for science victory.","Adopt "..threshold.." "..(if threshold==1 then "policy" else "policies").." for culture victory.","Highest score wins at the round limit; ties favor civilization 1."}}
+    return {strategic=strategic,barbarians=s.barbarians~=nil,camps=camps,wonders=wonders,goldenAge=goldenAge,cityForecasts=forecasts,seed=if s.humanPlayers==1 or s.phase=="Finished" then s.seed else nil,radius=s.radius,mapShape=s.mapShape,frequency=s.frequency,difficulty=s.difficulty,humanPlayers=s.humanPlayers,turn=s.turn,revision=s.revision,activePlayerId=s.activePlayerId,actorId=actorId,canAct=canAct,phase=s.phase,winner=s.winner,reason=s.reason,victoryType=s.victoryType,gold=p.gold,science=p.science,culture=p.culture,happiness=p.happiness,research=copy(p.research),technologies=copy(p.technologies),policies=copy(p.policies),resources=copy(resourceInventory(s,actorId)),income=copy(p.income),tiles=tiles,units=units,cities=cities,events=events,log={},legalMoves=legal,riverMoves=riverMoves,availableProduction=production,availableProductionByCity=productionByCity,availablePurchasesByCity=purchasesByCity,availableResearch=research,availablePolicies=policies,availableImprovements=improvements,productionCosts=copy(R.productionCosts),purchaseCosts=copy(R.purchaseCosts),scores=score,statistics=stats,progress=progress,cultureVictoryPolicies=threshold,policyCostIncrease=s.policyCostIncrease or 0,attackPreviews=previews,cityStrikePreviews=strikePreviews,diplomacy=copy(s.diplomacy),trades=copy(s.trades),objectives={"Found cities, develop resources and maintain happiness.","Control both original capitals for domination.","Build "..R.buildings[R.scienceVictoryBuilding].name.." after "..R.technologies[R.scienceVictoryTechnology].name.." for science victory.","Adopt "..threshold.." "..(if threshold==1 then "policy" else "policies").." for culture victory.","Highest score wins at the round limit; ties break on technologies plus policies, otherwise a Draw."}}
 end
 -- Pure, fog-safe query for one attack the actor's unit could make now. It never mutates the
 -- state and answers the same generic message for hidden, empty or out-of-range targets.
