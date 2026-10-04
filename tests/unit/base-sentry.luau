@@ -63,7 +63,9 @@ do
     reject(s,1,{kind="SentryUnit",unitId=3},"A unit building an improvement is already busy.")
 end
 -- Every accepted unit command clears sentry; rejected commands and unrelated commands preserve it.
-for _, kind in {"MoveUnit","FortifyUnit","BuildImprovement","UpgradeUnit","PromoteUnit","RangedAttack","MeleeAttack"} do
+for _, kindName in {"MoveUnit","FortifyUnit","BuildImprovement","UpgradeUnit","PromoteUnit","RangedAttack","MeleeAttack"} do
+    -- `any` keeps luau-analyze from refining the literal union through every branch below (too complex to typecheck).
+    local kind: any=kindName
     local s,map=fixture(); local u=s.units[if kind=="BuildImprovement" then 3 else 2]
     local cmd: any={kind=kind,unitId=u.id}
     if kind=="MoveUnit" then cmd.tileId=tile(map,1)
