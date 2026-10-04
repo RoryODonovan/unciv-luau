@@ -201,11 +201,13 @@ function BaseSave.valid(saved: any): boolean
     local units,occupancy={},{}; local barbarianUnits=0
     for _,u in s.units do
         -- The entry's shape is checked before any field is read. A barbarian unit (owner 0) needs a match with barbarians.
-        if not object(u,"id ownerId kind tileId hp moves fortified level xp promotions work") then return false end
+        if not object(u,"id ownerId kind tileId hp moves fortified level xp promotions work sentry") then return false end
         local barbarian=u.ownerId==BARBARIAN and barbarians~=nil
         if not id(u.id) or u.id>=s.nextUnit or units[u.id] or not (owner(u.ownerId) or barbarian) or not integer(u.tileId,1,#s.tiles) or occupancy[u.tileId] then return false end
         if type(u.kind)~="string" or not Rules.units[u.kind] then return false end
         local rule=Rules.units[u.kind]
+        -- Optional civilization-only sentry order; absent/false means awake. Settlers and working units cannot sleep.
+        if u.sentry~=nil and (type(u.sentry)~="boolean" or not owner(u.ownerId) or u.kind=="Settler" or (u.sentry and u.work~=nil)) then return false end
         -- Barbarians research nothing; their units are military, never work, gain no experience and take no promotions.
         if barbarian then
             barbarianUnits+=1
@@ -287,7 +289,7 @@ function BaseSave.valid(saved: any): boolean
     end
     if not array(s.log,24) or not array(s.events,64) then return false end
     for _,message in s.log do if not text(message,256) then return false end end
-    local kinds={Move=true,Attack=true,Capture=true,FoundCity=true,Production=true,QueueSkipped=true,Research=true,Growth=true,Starvation=true,Victory=true,Purchase=true,Upgrade=true,Improvement=true,Policy=true,War=true,Peace=true,Trade=true,Defeat=true,RangedAttack=true,Disband=true,UnitLost=true,CityLost=true,Eliminated=true,Promotion=true,CityStrike=true,WonderBuilt=true,WonderLost=true,GoldenAgeStarted=true,GoldenAgeEnded=true,CampCleared=true,Contact=true,WarWarning=true,BorderGrowth=true}
+    local kinds={Move=true,Attack=true,Capture=true,FoundCity=true,Production=true,QueueSkipped=true,Research=true,Growth=true,Starvation=true,Victory=true,Purchase=true,Upgrade=true,Improvement=true,Policy=true,War=true,Peace=true,Trade=true,Defeat=true,RangedAttack=true,Disband=true,UnitLost=true,CityLost=true,Eliminated=true,Promotion=true,CityStrike=true,WonderBuilt=true,WonderLost=true,GoldenAgeStarted=true,GoldenAgeEnded=true,CampCleared=true,Contact=true,WarWarning=true,BorderGrowth=true,UnitWoke=true}
     local causes={Combat=true,Ranged=true,Upkeep=true,Captured=true,NoCities=true,NeverFounded=true,CapitalsLost=true,CityStrike=true,Happiness=true,Wonder=true}
     local previous=0
     for _,e in s.events do
@@ -310,6 +312,7 @@ function BaseSave.valid(saved: any): boolean
         if e.wonder~=nil and (type(e.wonder)~="string" or not Rules.buildings[e.wonder] or not Rules.buildings[e.wonder].wonder) then return false end
         if e.kind=="QueueSkipped" and (not owner(e.ownerId) or e.public==true or e.tileId~=nil or e.unitId~=nil or e.cityId==nil) then return false end
         if e.kind=="BorderGrowth" and (not owner(e.ownerId) or e.public==true or e.tileId==nil or e.cityId==nil) then return false end
+        if e.kind=="UnitWoke" and (not owner(e.ownerId) or e.public==true or e.tileId==nil or e.unitId==nil) then return false end
         if e.kind=="Contact" or e.kind=="WarWarning" then
             -- These announcements must never smuggle a location or an entity through fog, including in a save.
             if e.tileId~=nil or e.unitId~=nil or e.cityId~=nil or e.unitKind~=nil or e.wonder~=nil or e.cause~=nil or e.byOwnerId~=nil or e.amount~=nil then return false end
@@ -390,4 +393,3 @@ function BaseSave.restore(saved: any): (any?,string?)
     return state,nil
 end
 return table.freeze(BaseSave)
-
