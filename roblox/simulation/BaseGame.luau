@@ -1,6 +1,6 @@
 --!strict
 -- Generated module-only Roblox form. Source: src/simulation/BaseGame.luau
--- Source SHA-256: 09c0bd4fc6c3cfdcc066fbfcc130d8184958f46188ee6b0e960076a134abde92
+-- Source SHA-256: 177549fca7293d3fa3847ce689f8fec02df243f0785c0b7352437aa7cc171234
 -- Reproduce with tools/roblox-export.mjs; preserve MPL notices below.
 -- Covered source: https://github.com/RoryODonovan/unciv-luau
 -- This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
@@ -17,7 +17,8 @@ export type Options = {humanPlayers: number?, radius: number?, mapShape: string?
 export type Command = {kind: "MoveUnit" | "RangedAttack", unitId: number, tileId: number}
     | {kind: "FoundCity" | "FortifyUnit" | "UpgradeUnit", unitId: number}
     | {kind: "BuildImprovement", unitId: number, improvement: string}
-    | {kind: "SetProduction" | "Purchase", cityId: number, item: string}
+    | {kind: "SetProduction" | "Purchase" | "QueueProduction", cityId: number, item: string}
+    | {kind: "RemoveQueued", cityId: number, index: number}
     | {kind: "SetCityFocus", cityId: number, focus: string}
     | {kind: "Research", technology: string} | {kind: "AdoptPolicy", policy: string}
     | {kind: "DeclareWar" | "OfferPeace" | "AcceptPeace", targetId: number}
@@ -39,7 +40,7 @@ export type Unit = {id: number, ownerId: number, kind: string, tileId: number, h
 export type UnitView = {id: number, ownerId: number, kind: string, tileId: number, hp: number, moves: number, fortified: boolean, level: number, promotions: {string}, xp: number?, nextLevelXp: number?, promotionsAvailable: {string}?, work: {improvement: string, remaining: number}?, upgradeKind: string?, upgradeCost: number?, canUpgrade: boolean?}
 -- `strikeTurn` is optional: the round whose ranged strike the city has used (it struck, or it was captured, that
 -- round). Absent means the city has never used one.
-export type City = {id: number, ownerId: number, originalOwnerId: number, capital: boolean, tileId: number, name: string, population: number, food: number, production: number, queue: string, hp: number, buildings: {string}, focus: string, strikeTurn: number?}
+export type City = {id: number, ownerId: number, originalOwnerId: number, capital: boolean, tileId: number, name: string, population: number, food: number, production: number, queue: string, queueNext: {string}?, hp: number, buildings: {string}, focus: string, strikeTurn: number?}
 export type Research = {id: string, progress: number, cost: number}
 -- A civilization's golden-age record (optional; absent means an empty meter, no golden age and none so far): the meter's
 -- `progress`, the owner economy steps the current golden age still lasts (`turnsLeft`, 0 outside one) and the number of
@@ -60,7 +61,7 @@ export type TileView = {id: number, x: number?, y: number?, visible: boolean, ex
 -- (combat strength), `rangedStrength` (what its strike uses), `strikeReady` (its strike for this round is unused),
 -- `canStrike` (ready, the actor can act now and at least one target is legal) and `strikeTargets` (the unit ids
 -- CityRangedStrike accepts now, ascending; empty while the actor cannot act).
-export type CityView = {id: number, ownerId: number, originalOwnerId: number, capital: boolean, tileId: number, name: string, population: number, hp: number, food: number?, production: number?, queue: string?, buildings: {string}?, focus: string?, strength: number?, rangedStrength: number?, strikeReady: boolean?, canStrike: boolean?, strikeTargets: {number}?}
+export type CityView = {id: number, ownerId: number, originalOwnerId: number, capital: boolean, tileId: number, name: string, population: number, hp: number, food: number?, production: number?, queue: string?, queueNext: {string}?, queueTurns: {number}?, buildings: {string}?, focus: string?, strength: number?, rangedStrength: number?, strikeReady: boolean?, canStrike: boolean?, strikeTargets: {number}?}
 export type Statistics = {cities: number, units: number, population: number, technologies: number, policies: number}
 export type Progress = {cities: number, policies: number, era: number}
 -- `acrossRiver` is true when a melee attack crosses a river edge (its attack loses riverAttackPercent).
@@ -414,6 +415,18 @@ local function productionRefusal(s: any, city: any, item: string): string
     end
     return "Production item is unavailable."
 end
+-- Consume successors only after completion (or a lost wonder race). Empty queues stay absent in state/saves.
+-- No tile on QueueSkipped: even a rival with sight of this city must not learn its private production plans.
+local function advanceQueue(s: any, city: any)
+    city.queue=""
+    while city.queueNext and #city.queueNext>0 do
+        local item=table.remove(city.queueNext,1) :: string
+        if #city.queueNext==0 then city.queueNext=nil end
+        if canChoose(s,city,item) then city.queue=item; return end
+        event(s,"QueueSkipped","Skipped "..item..": "..productionRefusal(s,city,item),nil,nil,city.ownerId,nil,nil,nil,nil,nil,city.id)
+    end
+    city.queueNext=nil
+end
 -- Unit upgrades. A unit's upgrade is its rule's `upgradeTo` once its owner knows that kind's technology; it costs
 -- max(paced upgradeMinimumGold, paced new cost - paced old cost) x upgradeCostMultiplier gold. UpgradeUnit needs movement left and the
 -- new kind's strategic resource, with the unit's own use counted as freed (a Knight becoming a Lancer keeps its Horses).
@@ -446,7 +459,7 @@ local function upgrade(s: any, u: any)
 end
 -- A completed world wonder: a public WonderBuilt event (its location is projected only to those who can see the city;
 -- see the snapshot), then every other city queuing the same wonder loses the race. Such a city keeps all its
--- accumulated production for its next item, its queue becomes idle (as after any completed building) and its
+-- accumulated production for its next item, its queue advances (or becomes idle without a successor) and its
 -- owner gets a private WonderLost event without a tile. `converted` marks those cities so an economy step in progress
 -- does not complete anything in them this step.
 local function wonderBuilt(s: any, city: any, item: string, converted: {[number]: boolean}?)
@@ -455,7 +468,7 @@ local function wonderBuilt(s: any, city: any, item: string, converted: {[number]
     local losers: {any}={}; for _, c in s.cities do if c~=city and c.queue==item then table.insert(losers,c) end end
     table.sort(losers,function(a: any,b: any) return a.id<b.id end)
     for _, c in losers do
-        c.queue=""; if converted then converted[c.id]=true end
+        advanceQueue(s,c); if converted then converted[c.id]=true end
         local message=if c.ownerId==city.ownerId then "Another of your cities completed "..name.." first; production is kept." else "A rival completed "..name.." first; production is kept."
         event(s,"WonderLost",message,nil,nil,c.ownerId,c.production,nil,nil,city.ownerId,nil,c.id,item)
     end
@@ -464,7 +477,8 @@ end
 -- same step (in a city processed first) changes nothing until the next step, whatever the city order. A purchase,
 -- outside any economy step, passes none and reads the owner's wonders as they stand.
 local function complete(s: any, city: any, item: string, spawn: number?, converted: {[number]: boolean}?, bonus: any?)
-    if R.buildings[item] then table.insert(city.buildings,item); if city.queue==item then city.queue="" end
+    local current=city.queue==item
+    if R.buildings[item] then table.insert(city.buildings,item)
     else
         assert(spawn); local u=addUnit(s,city.ownerId,item,spawn)
         -- New military units start with the experience the owner's wonders give (Terracotta Army); civilians never gain any.
@@ -475,6 +489,8 @@ local function complete(s: any, city: any, item: string, spawn: number?, convert
     end
     event(s,"Production","Completed "..item..".",city.tileId,nil,city.ownerId)
     if isWonder(item) then wonderBuilt(s,city,item,converted) end
+    -- Legacy unit production repeats when no successors exist; buildings go idle as before G14a.
+    if current and (R.buildings[item] or (city.queueNext and #city.queueNext>0)) then advanceQueue(s,city) end
 end
 local function finish(s: any, winner: number?, kind: string, tieBroken: boolean?)
     s.phase="Finished"; s.winner=winner; s.victoryType=kind
@@ -806,7 +822,7 @@ local function combat(s: any, unit: any, target: number)
             if city.hp==0 and unit.ownerId~=BARBARIAN then
                 local loser=city.ownerId
                 -- A city captured this round cannot strike until the next round (its strike counts as used).
-                city.ownerId=unit.ownerId; city.hp=50; city.population=math.max(1,city.population-1); city.production=0; city.queue=""; city.food=0; city.strikeTurn=s.turn
+                city.ownerId=unit.ownerId; city.hp=50; city.population=math.max(1,city.population-1); city.production=0; city.queue=""; city.queueNext=nil; city.food=0; city.strikeTurn=s.turn
                 local ids={target}; for _, id in mapFor(s).neighbors[target] do table.insert(ids,id) end
                 for _, id in ids do s.tiles[id].ownerId=unit.ownerId end
                 unit.tileId=target; event(s,"Capture","City captured.",target,unit.id,unit.ownerId)
@@ -1709,7 +1725,7 @@ function BaseGame.new(seed: number?, options: Options?): State
     refreshVision(s); refreshEconomyState(s); return s :: State
 end
 local function finiteId(value: any): boolean return type(value)=="number" and value==value and value%1==0 and value>=1 and value<=1000000 end
-local schemas: any={MoveUnit={unitId=true,tileId=true},RangedAttack={unitId=true,tileId=true},FoundCity={unitId=true},FortifyUnit={unitId=true},UpgradeUnit={unitId=true},BuildImprovement={unitId=true,improvement=true},SetProduction={cityId=true,item=true},Purchase={cityId=true,item=true},SetCityFocus={cityId=true,focus=true},Research={technology=true},AdoptPolicy={policy=true},DeclareWar={targetId=true},OfferPeace={targetId=true},AcceptPeace={targetId=true},ProposeTrade={targetId=true,giveGold=true,receiveGold=true},AcceptTrade={tradeId=true},CancelTrade={tradeId=true},EndTurn={},PromoteUnit={unitId=true,promotion=true},CityRangedStrike={cityId=true,targetUnitId=true}}
+local schemas: any={MoveUnit={unitId=true,tileId=true},RangedAttack={unitId=true,tileId=true},FoundCity={unitId=true},FortifyUnit={unitId=true},UpgradeUnit={unitId=true},BuildImprovement={unitId=true,improvement=true},SetProduction={cityId=true,item=true},QueueProduction={cityId=true,item=true},RemoveQueued={cityId=true,index=true},Purchase={cityId=true,item=true},SetCityFocus={cityId=true,focus=true},Research={technology=true},AdoptPolicy={policy=true},DeclareWar={targetId=true},OfferPeace={targetId=true},AcceptPeace={targetId=true},ProposeTrade={targetId=true,giveGold=true,receiveGold=true},AcceptTrade={tradeId=true},CancelTrade={tradeId=true},EndTurn={},PromoteUnit={unitId=true,promotion=true},CityRangedStrike={cityId=true,targetUnitId=true}}
 function BaseGame.apply(state: State, actorId: number, command: Command): {ok: boolean, message: string}
     local s: any=state; local cmd: any=command
     local function reject(message: string): {ok: boolean,message: string} return {ok=false,message=message} end
@@ -1751,6 +1767,9 @@ function BaseGame.apply(state: State, actorId: number, command: Command): {ok: b
         if cmd.kind=="SetCityFocus" then
             if not has({"Balanced","Food","Production","Gold","Science","Culture"},cmd.focus) or c.focus==cmd.focus then return reject("Choose a different valid city focus.") end
             c.focus=cmd.focus
+        elseif cmd.kind=="RemoveQueued" then
+            if not finiteId(cmd.index) or not c.queueNext or cmd.index>#c.queueNext then return reject("Invalid queued production index.") end
+            table.remove(c.queueNext,cmd.index); if #c.queueNext==0 then c.queueNext=nil end
         elseif cmd.kind=="CityRangedStrike" then
             if not finiteId(cmd.targetUnitId) then return reject("Invalid unit identifier.") end
             if not strikeReady(s,c) then return reject("This city has used its strike this round.") end
@@ -1760,8 +1779,12 @@ function BaseGame.apply(state: State, actorId: number, command: Command): {ok: b
             cityStrike(s,c,target,units)
         else
             if type(cmd.item)~="string" then return reject("Production item is unavailable.") end
+            if cmd.kind=="QueueProduction" and c.queue~="" and #(c.queueNext or {})>=R.productionQueueLimit-1 then return reject("The production queue is full.") end
             if not canChoose(s,c,cmd.item) then return reject(productionRefusal(s,c,cmd.item)) end
-            if cmd.kind=="Purchase" then
+            if cmd.kind=="QueueProduction" then
+                if R.buildings[cmd.item] and (c.queue==cmd.item or (c.queueNext and has(c.queueNext,cmd.item))) then return reject("This item is already in the production queue.") end
+                if c.queue=="" then c.queue=cmd.item else c.queueNext=c.queueNext or {}; table.insert(c.queueNext,cmd.item) end
+            elseif cmd.kind=="Purchase" then
                 if isWonder(cmd.item) then return reject("World wonders cannot be purchased.") end
                 local cost=purchaseCost(s,cmd.item); local spawn=spawnTile(s,c)
                 if p.gold<cost or (not R.buildings[cmd.item] and not spawn) then return reject("Purchase needs gold and a free deployment tile.") end
@@ -1959,6 +1982,15 @@ function BaseGame.snapshot(state: State, actorId: number): View
             forecasts[tostring(c.id)]={food=food,production=made,gold=yields.gold,science=yields.science,culture=yields.culture,
                 growthTurns=if not canGrow then nil elseif c.food+food>=growAt then 1 elseif food>0 then math.ceil((growAt-c.food)/food) else nil,
                 productionTurns=turns,productionBlocked=blocked}
+            if c.queueNext and #c.queueNext>0 and made>0 then
+                local queuedTurns={}; local total=cost or 0
+                local previous=if cost then math.max(1,math.ceil((total-c.production)/made)) else 0
+                for _, item in c.queueNext do
+                    total+=productionCost(s,item)
+                    previous=math.max(previous+1,math.ceil((total-c.production)/made)); table.insert(queuedTurns,previous)
+                end
+                for _, entry in cities do local view: any=entry; if view.id==c.id then view.queueTurns=queuedTurns; break end end
+            end
         end
     end
     -- Completed world wonders in rule order. Completion and the holder are public (both civilizations always learn of a
@@ -2034,7 +2066,10 @@ function BaseGame.previewMove(state: State, actorId: number, unitId: number, til
 end
 function BaseGame.serialize(state: State): any
     local saved={format="unciv-luau-base",version=if state.mapShape=="Sphere" then 2 else 1,state=state}
-    assert(Save.valid(saved),"cannot serialize an invalid base-game state"); return copy(saved)
+    assert(Save.valid(saved),"cannot serialize an invalid base-game state")
+    local result=copy(saved)
+    for _,c in result.state.cities do if c.queueNext and #c.queueNext==0 then c.queueNext=nil end end
+    return result
 end
 function BaseGame.restore(saved: any): (State?,string?)
     -- BaseSave.restore validates, copies and snaps every unit's moves to its exact sixth, so both public restore

@@ -271,7 +271,7 @@ for id, rule in buildings do productionCosts[id]=rule.cost; purchaseCosts[id]=ru
 local terrainYields: {[string]: Yields} = {}
 for id, rule in terrains do terrainYields[id]=rule.yields end
 local rules = {
-    minRadius=3,maxRadius=40,maxTiles=4921,radius=4,maxTurns=120,maxPopulation=100,maxUnits=169,maxCities=24,
+    minRadius=3,maxRadius=40,maxTiles=4921,radius=4,maxTurns=120,maxPopulation=100,maxUnits=169,maxCities=24,productionQueueLimit=3,
     units=units,unitStats=units,buildings=buildings,buildingEffects=buildings,technologies=technologies,technologyOrder=technologyOrder,
     -- Units in era order (see the roster above); buildings by era, then the wonders.
     unitOrder=unitOrder,buildingOrder=buildingOrder,wonderOrder=wonderOrder,eras=eras,

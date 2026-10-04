@@ -1,6 +1,6 @@
 --!strict
 -- Generated module-only Roblox form. Source: src/simulation/BaseSave.luau
--- Source SHA-256: 3c6e3dd0ee506e351805e083260e4d8e76c2d3e6769280c5e787258152341e18
+-- Source SHA-256: 08ff07ff0bc35b8208e780aea3964ae8bcb423208a59965a009211503635685a
 -- Reproduce with tools/roblox-export.mjs; preserve MPL notices below.
 -- Covered source: https://github.com/RoryODonovan/unciv-luau
 -- This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
@@ -242,8 +242,14 @@ function BaseSave.valid(saved: any): boolean
     local cities,cityTiles,capitalOwners,wonders={},{},{},{}
     local focuses={Balanced=true,Food=true,Production=true,Gold=true,Science=true,Culture=true}
     for _,c in s.cities do
-        if not object(c,"id ownerId originalOwnerId capital tileId name population food production queue hp buildings focus strikeTurn") or not id(c.id) or c.id>=s.nextCity or cities[c.id] or not owner(c.ownerId) or not owner(c.originalOwnerId) or type(c.capital)~="boolean" or not integer(c.tileId,1,#s.tiles) or cityTiles[c.tileId] then return false end
+        if not object(c,"id ownerId originalOwnerId capital tileId name population food production queue queueNext hp buildings focus strikeTurn") or not id(c.id) or c.id>=s.nextCity or cities[c.id] or not owner(c.ownerId) or not owner(c.originalOwnerId) or type(c.capital)~="boolean" or not integer(c.tileId,1,#s.tiles) or cityTiles[c.tileId] then return false end
         if not text(c.name,80) or not integer(c.population,1,100) or not integer(c.food,0,1000000) or not integer(c.production,0,1000000) or not integer(c.hp,0,Rules.cityHp) or type(c.queue)~="string" or (c.queue~="" and not Rules.productionCosts[c.queue]) or type(c.focus)~="string" or not (focuses :: any)[c.focus] or not strings(c.buildings,Rules.buildings,#Rules.buildingOrder) then return false end
+        -- Future items may become unavailable before activation; validate ids/shape, not current choosability.
+        -- Unit duplicates are intentional, and SetProduction may also duplicate a future building.
+        if c.queueNext~=nil then
+            if not array(c.queueNext,Rules.productionQueueLimit-1) then return false end
+            for _,item in c.queueNext do if type(item)~="string" or not Rules.productionCosts[item] then return false end end
+        end
         if not Rules.terrains[tiles[c.tileId].terrain].passable or tiles[c.tileId].ownerId~=c.ownerId or table.find(c.buildings,c.queue) or (occupancy[c.tileId] and occupancy[c.tileId].ownerId~=c.ownerId) then return false end
         -- Optional city-combat field (absent in saves written before it: the city has never used a strike): the round
         -- whose ranged strike the city used, never later than the current round.
@@ -285,7 +291,7 @@ function BaseSave.valid(saved: any): boolean
     end
     if not array(s.log,24) or not array(s.events,64) then return false end
     for _,message in s.log do if not text(message,256) then return false end end
-    local kinds={Move=true,Attack=true,Capture=true,FoundCity=true,Production=true,Research=true,Growth=true,Starvation=true,Victory=true,Purchase=true,Upgrade=true,Improvement=true,Policy=true,War=true,Peace=true,Trade=true,Defeat=true,RangedAttack=true,Disband=true,UnitLost=true,CityLost=true,Eliminated=true,Promotion=true,CityStrike=true,WonderBuilt=true,WonderLost=true,GoldenAgeStarted=true,GoldenAgeEnded=true,CampCleared=true,Contact=true,WarWarning=true}
+    local kinds={Move=true,Attack=true,Capture=true,FoundCity=true,Production=true,QueueSkipped=true,Research=true,Growth=true,Starvation=true,Victory=true,Purchase=true,Upgrade=true,Improvement=true,Policy=true,War=true,Peace=true,Trade=true,Defeat=true,RangedAttack=true,Disband=true,UnitLost=true,CityLost=true,Eliminated=true,Promotion=true,CityStrike=true,WonderBuilt=true,WonderLost=true,GoldenAgeStarted=true,GoldenAgeEnded=true,CampCleared=true,Contact=true,WarWarning=true}
     local causes={Combat=true,Ranged=true,Upkeep=true,Captured=true,NoCities=true,NeverFounded=true,CapitalsLost=true,CityStrike=true,Happiness=true,Wonder=true}
     local previous=0
     for _,e in s.events do
@@ -306,6 +312,7 @@ function BaseSave.valid(saved: any): boolean
         if e.cityId~=nil and (not id(e.cityId) or e.cityId>=s.nextCity) then return false end
         -- Optional wonder id (WonderBuilt, WonderLost and a wonder's GoldenAgeStarted): a known world wonder.
         if e.wonder~=nil and (type(e.wonder)~="string" or not Rules.buildings[e.wonder] or not Rules.buildings[e.wonder].wonder) then return false end
+        if e.kind=="QueueSkipped" and (not owner(e.ownerId) or e.public==true or e.tileId~=nil or e.unitId~=nil or e.cityId==nil) then return false end
         if e.kind=="Contact" or e.kind=="WarWarning" then
             -- These announcements must never smuggle a location or an entity through fog, including in a save.
             if e.tileId~=nil or e.unitId~=nil or e.cityId~=nil or e.unitKind~=nil or e.wonder~=nil or e.cause~=nil or e.byOwnerId~=nil or e.amount~=nil then return false end
@@ -336,11 +343,14 @@ end
 function BaseSave.serialize(state: any): any
     local saved={format="unciv-luau-base",version=if state.mapShape=="Sphere" then 2 else 1,state=state}
     assert(BaseSave.valid(saved),"cannot serialize invalid base state")
-    return copy(saved)
+    local result=copy(saved)
+    for _,c in result.state.cities do if c.queueNext and #c.queueNext==0 then c.queueNext=nil end end
+    return result
 end
 function BaseSave.restore(saved: any): (any?,string?)
     if not BaseSave.valid(saved) then return nil,"Unsupported or corrupt base-game save." end
     local state=copy(saved.state)
+    for _,c in state.cities do if c.queueNext and #c.queueNext==0 then c.queueNext=nil end end
     if state.diplomacy.met==nil then
         -- Old war saves imply contact. Peace saves use current sight, never the historical explored set.
         state.diplomacy.met=state.diplomacy.status=="War"
