@@ -51,6 +51,7 @@ for id,tile in full.tiles do
     tile.river=bit32.lshift(1,#fullGraph.neighbors[id])-1
 end
 for _,p in full.players do p.explored={}; for id=1,#full.tiles do table.insert(p.explored,id) end end
+full.diplomacy.met=true -- This fabricated omniscient owner sees every rival unit; contact is already reconciled.
 local saved=Game.serialize(full)
 assert(saved.version==1 and #saved.state.tiles==4921 and Save.valid(saved))
 local roundtrip=Game.restore(saved)

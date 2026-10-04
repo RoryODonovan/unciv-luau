@@ -166,6 +166,7 @@ end
 do
     local s,c,map=fixture(); local territory=assert(Map.tileId(map,0,5))
     s.tiles[territory].ownerId=1; s.players[1].explored={}
+    apply(s,1,{kind="SetCityFocus",cityId=c.id,focus="Production"})
     local v=Game.snapshot(s,1); assert(v.tiles[territory].visible,"owned tile visible without a nearby entity")
     for _, id in map.neighbors[territory] do assert(v.tiles[id].visible,"territory adjacent ring") end
     local beyond=assert(Map.tileId(map,0,3)); assert(not v.tiles[beyond].visible,"two rings beyond territory remains hidden")
@@ -178,7 +179,7 @@ do
     for _, restore in restores do
         local loaded=assert(restore(legacy)); assert(loaded.diplomacy.met,"legacy contact uses territory sight")
         local count=0; for _, e in loaded.events do if e.kind=="Contact" then count+=1 end end
-        assert(count==1,"legacy territory contact emits once")
+        assert(count==0 and loaded.nextEvent==legacy.state.nextEvent,"legacy territory contact is silent on restore")
         local again=assert(restore(Game.serialize(loaded)))
         local repeated=0; for _, e in again.events do if e.kind=="Contact" then repeated+=1 end end; assert(repeated==count)
     end

@@ -10,6 +10,8 @@ try {
   fs.cpSync(path.join(root,'src'),path.join(temp,'src'),{recursive:true});
   const module=path.join(temp,'src/simulation/BaseGame.luau');
   const source=fs.readFileSync(module,'utf8');
+  const visionModule=path.join(temp,'src/simulation/BaseVision.luau');
+  const visionSource=fs.readFileSync(visionModule,'utf8');
   const marker='return table.freeze(BaseGame)';
   if(!source.includes(marker))throw new Error('missing BaseGame export');
   // A temporary guard rejects even cache hits: scoring and prices must use their bounded BFS distances.
@@ -50,7 +52,7 @@ end}\n`;
       ['strategic reveal','return if tile.resource and known[tile.id] then','return if tile.resource and tile.resource~="Iron" and known[tile.id] then'],
       ['territory sight','if tile.ownerId==owner then','if false then'],
       ['territory ring','for _, id in neighbors[tile.id] do set[id]=true end',''],
-      ['territory contact','local seen=visible(s,owner); contact(s,owner,seen)','local seen=visible(s,owner)'],
+      ['territory contact','if BaseVision.contact(s,owner,seen) and onContact then onContact() end',''],
       ['defensive sight','if not seen[id] or (claimed and claimed[id])','if (claimed and claimed[id])'],
       ['radius three','if distances[id]>=3 then','if distances[id]>=4 then'],
       ['adjacency','if s.tiles[neighbor].ownerId==c.ownerId or (claimed and claimed[neighbor]) then','if true then'],
@@ -68,8 +70,11 @@ end}\n`;
       ['no-candidate cap','c.borderCulture=math.min(c.borderCulture,cost)','c.borderCulture=c.borderCulture'],
     ];
     for(const [name,from,to] of mutations) {
-      if(!source.includes(from))throw new Error(`mutation marker missing: ${name}`);
-      fs.writeFileSync(module,source.replace(from,to).replace(marker,internals+marker));
+      const inVision=['territory sight','territory ring','territory contact'].includes(name);
+      const targetSource=inVision?visionSource:source;
+      if(!targetSource.includes(from))throw new Error(`mutation marker missing: ${name}`);
+      fs.writeFileSync(visionModule,inVision?visionSource.replace(from,to):visionSource);
+      fs.writeFileSync(module,(inVision?source:source.replace(from,to)).replace(marker,internals+marker));
       const changed=spawnSync(process.env.LUAU_BIN??'luau',['tests/unit/base-borders.luau'],{cwd:temp,encoding:'utf8',windowsHide:true});
       if(changed.error)throw changed.error;
       if(changed.status===0||!changed.stderr.includes('function assert'))throw new Error(`mutation did not fail an assertion: ${name}\n${changed.stdout}\n${changed.stderr}`);

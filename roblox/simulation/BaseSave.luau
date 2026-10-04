@@ -1,6 +1,6 @@
 --!strict
 -- Generated module-only Roblox form. Source: src/simulation/BaseSave.luau
--- Source SHA-256: b8e94976efa63d82b89a64c54bc5b7e58a1316d05d8fa0f771daa41fc7e5793d
+-- Source SHA-256: 9c7b872dd1937846ce7fafc5a4cce6ea09611e6013595ddd3dc200d983f1ed44
 -- Reproduce with tools/roblox-export.mjs; preserve MPL notices below.
 -- Covered source: https://github.com/RoryODonovan/unciv-luau
 -- This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
@@ -13,6 +13,7 @@ local Rules=require(script.Parent.BaseRules)
 local HexMath=require(script.Parent.Parent.map.HexMath)
 local SphereTopology=require(script.Parent.Parent.map.SphereTopology)
 local WorldMap=require(script.Parent.WorldMap)
+local Vision=require(script.Parent.BaseVision)
 local BaseSave={}
 -- Structural work budget: 4,921 tiles with all 10 fields and two fully explored players,
 -- plus independently bounded units/cities/events. This is a hard bound, not an unbounded traversal.
@@ -365,30 +366,11 @@ function BaseSave.restore(saved: any): (any?,string?)
         end
         for _, c in state.cities do if c.borderTiles==nil then c.borderTiles=math.max(0,(counts[c.id] or 0)-7) end end
     end
-    if state.diplomacy.met==nil then
-        -- Old war saves imply contact. Peace saves use current sight, never the historical explored set.
-        state.diplomacy.met=state.diplomacy.status=="War"
-        if not state.diplomacy.met then
-            local map=if state.mapShape=="Sphere" then WorldMap.fromSphereTiles(state.tiles,state.frequency) else WorldMap.fromTiles(state.tiles,state.radius)
-            for actor=1,2 do
-                local centers={}; for _, entities in {state.units,state.cities} do for _, entity in entities do if entity.ownerId==actor then table.insert(centers,entity.tileId) end end end
-                local seen={}; for _, tileId in WorldMap.visibility(map,centers,2) do seen[tileId]=true end
-                -- Contact migration follows the same Civ V territory sight as the live game.
-                for _, tile in state.tiles do if tile.ownerId==actor then
-                    seen[tile.id]=true; for _, tileId in map.neighbors[tile.id] do seen[tileId]=true end
-                end end
-                for _, entities in {state.units,state.cities} do for _, entity in entities do if entity.ownerId==3-actor and seen[entity.tileId] then state.diplomacy.met=true end end end
-            end
-            if state.diplomacy.met then
-                table.insert(state.events,{id=state.nextEvent,kind="Contact",message="Contact established with the rival civilization.",public=true}); state.nextEvent+=1
-                if #state.events>64 then
-                    local retained={UnitLost=true,CityLost=true,Eliminated=true,Victory=true,WonderBuilt=true,WonderLost=true,GoldenAgeStarted=true,GoldenAgeEnded=true,CampCleared=true,Contact=true,WarWarning=true}
-                    local drop=1; for i=1,#state.events-1 do local e=state.events[i]; if not (retained :: any)[e.kind] or e.ownerId==BARBARIAN then drop=i; break end end
-                    table.remove(state.events,drop)
-                end
-            end
-        end
-    end
+    -- Old war saves imply contact. Current sight also repairs a persisted false, never clears a true.
+    if state.diplomacy.met==nil then state.diplomacy.met=state.diplomacy.status=="War" end
+    local map=if state.mapShape=="Sphere" then WorldMap.fromSphereTiles(state.tiles,state.frequency) else WorldMap.fromTiles(state.tiles,state.radius)
+    -- Reconcile both owners with the command helper, silently: event ids/history and resume replays stay intact.
+    Vision.refresh(state,map)
     local plan=state.diplomacy.warPlan
     if plan and (state.diplomacy.peaceUntil~=plan.peaceUntil or state.turn<state.diplomacy.peaceUntil) then state.diplomacy.warPlan=nil end
     -- Migrate legacy research to the derived cost, preserving its completed fraction (rounded down).

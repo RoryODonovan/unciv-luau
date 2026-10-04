@@ -1,6 +1,6 @@
 --!strict
 -- Generated module-only Roblox form. Source: src/simulation/BaseGame.luau
--- Source SHA-256: 535c80744214c98e6fb5eae99056729550ac48f98b34bf60c3fbc1f8a4b7b5f1
+-- Source SHA-256: 265e2452f2b7da5c7b6f8430e27e4f9c8d863d32e971737aad903adced4cb6a9
 -- Reproduce with tools/roblox-export.mjs; preserve MPL notices below.
 -- Covered source: https://github.com/RoryODonovan/unciv-luau
 -- This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
@@ -12,6 +12,7 @@
 local Rules = require(script.Parent.BaseRules)
 local WorldMap = require(script.Parent.WorldMap)
 local Save = require(script.Parent.BaseSave)
+local Vision = require(script.Parent.BaseVision)
 export type CostCategory = "tech" | "production" | "growth" | "policy"
 export type Options = {humanPlayers: number?, radius: number?, mapShape: string?, frequency: number?, difficulty: string?, forest: boolean?, maxTurns: number?, cultureVictoryPolicies: number?, policyCostIncrease: number?, barbarians: boolean?}
 export type Command = {kind: "MoveUnit" | "RangedAttack", unitId: number, tileId: number}
@@ -123,11 +124,7 @@ local function mapFor(s: any): any
 end
 local function distance(s: any, a: number, b: number): number return W.distance(mapFor(s), a, b) end
 local function nearby(s: any, tileId: number, radius: number): {number}
-    local map=mapFor(s); map.nearby=map.nearby or {}; map.nearbyOrder=map.nearbyOrder or {}
-    local key=tostring(tileId)..":"..tostring(radius)
-    if map.nearby[key] then return map.nearby[key] end
-    if #map.nearbyOrder==64 then map.nearby[table.remove(map.nearbyOrder,1)]=nil end
-    local ids=W.range(map,tileId,radius); map.nearby[key]=ids; table.insert(map.nearbyOrder,key); return ids
+    return Vision.nearby(mapFor(s),tileId,radius)
 end
 local function has(list: any, id: string): boolean return table.find(list, id) ~= nil end
 local function unitById(s: any, id: number): any for _, unit in s.units do if unit.id == id then return unit end end; return nil end
@@ -251,37 +248,17 @@ local function policyCost(s: any, p: any, policy: any): number
     return cost
 end
 local function visible(s: any, owner: number): any
-    local centers = {}; for _, u in s.units do if u.ownerId == owner then table.insert(centers, u.tileId) end end
-    for _, c in s.cities do if c.ownerId == owner then table.insert(centers, c.tileId) end end
-    local set = {}; for _, center in centers do for _, id in nearby(s,center,2) do set[id]=true end end
-    -- Civ V territory sight: owned tiles and their adjacent ring, without a distance-row search.
-    local neighbors=mapFor(s).neighbors
-    for _, tile in s.tiles do if tile.ownerId==owner then
-        set[tile.id]=true
-        for _, id in neighbors[tile.id] do set[id]=true end
-    end end
-    return set
+    return Vision.visible(s,mapFor(s),owner)
 end
 local function contact(s: any, owner: number, seen: any)
-    if s.diplomacy.met then return end
-    local other=3-owner
-    for _, entities in {s.units,s.cities} do
-        for _, entity in entities do
-            if entity.ownerId==other and seen[entity.tileId] then
-                s.diplomacy.met=true
-                event(s,"Contact","Contact established with the rival civilization.",nil,nil,nil,nil,true)
-                return
-            end
-        end
+    if Vision.contact(s,owner,seen) then
+        event(s,"Contact","Contact established with the rival civilization.",nil,nil,nil,nil,true)
     end
 end
 local function refreshVision(s: any)
-    for owner=1,2 do
-        local discovered = {}; for _, id in s.players[owner].explored do discovered[id] = true end
-        local seen=visible(s,owner); contact(s,owner,seen)
-        for id in seen do discovered[id] = true end
-        local ids = {}; for id in discovered do table.insert(ids,id) end; table.sort(ids); s.players[owner].explored = ids
-    end
+    Vision.refresh(s,mapFor(s),function()
+        event(s,"Contact","Contact established with the rival civilization.",nil,nil,nil,nil,true)
+    end)
 end
 local function removeUnit(s: any, id: number)
     for i,u in s.units do if u.id == id then table.remove(s.units,i); return end end
@@ -2153,8 +2130,8 @@ function BaseGame.serialize(state: State): any
     assert(Save.valid(saved),"cannot serialize an invalid base-game state"); return copy(saved)
 end
 function BaseGame.restore(saved: any): (State?,string?)
-    -- BaseSave.restore validates, copies and snaps every unit's moves to its exact sixth, so both public restore
-    -- paths produce the same canonical movement.
+    -- BaseSave.restore validates, copies, canonicalizes movement and reconciles exploration/contact through the
+    -- command vision helper. Both public restore paths have the same derived state and preserve event history.
     local s,message=Save.restore(saved)
     if not s then return nil,message end
     mapFor(s); return s :: State,nil
