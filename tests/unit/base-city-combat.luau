@@ -495,7 +495,11 @@ do
     local legacy={format="unciv-luau-base",version=1,state=legacyState}
     assert(Save.valid(legacy),"the legacy fixture is a valid version-1 save")
     local restored: any,err=Game.restore(legacy); assert(restored and err==nil,err)
-    assert(equal(Game.serialize(restored),legacy),"restore keeps every stored field and adds none")
+    local prior=Game.serialize(restored); prior.state.diplomacy.met=nil
+    if prior.state.events[#prior.state.events] and prior.state.events[#prior.state.events].kind=="Contact" then
+        table.remove(prior.state.events); prior.state.nextEvent-=1
+    end
+    assert(equal(prior,legacy),"restore preserves pre-contact fields while migrating contact")
     local cv=viewCity(Game.snapshot(restored,1),1)
     assert(cv.strikeReady and cv.canStrike and equal(cv.strikeTargets,{2}) and cv.strength==14+2+2,"a legacy city strikes at once (garrison Warrior +2)")
     -- No strike: no new field.

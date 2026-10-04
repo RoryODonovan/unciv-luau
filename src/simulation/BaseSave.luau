@@ -5,6 +5,7 @@
 local Rules=require("./BaseRules")
 local HexMath=require("../map/HexMath")
 local SphereTopology=require("../map/SphereTopology")
+local WorldMap=require("./WorldMap")
 local BaseSave={}
 -- Structural work budget: 4,921 tiles with all 10 fields and two fully explored players,
 -- plus independently bounded units/cities/events. This is a hard bound, not an unbounded traversal.
@@ -261,8 +262,14 @@ function BaseSave.valid(saved: any): boolean
         end
     end
     local d=s.diplomacy
-    if not object(d,"status peaceOfferBy peaceUntil") or (d.status~="Peace" and d.status~="War") or not integer(d.peaceUntil,0,s.maxTurns+8) then return false end
+    if not object(d,"status peaceOfferBy peaceUntil met warPlan") or (d.status~="Peace" and d.status~="War") or not integer(d.peaceUntil,0,s.maxTurns+8) then return false end
     if d.peaceOfferBy~=nil and (not owner(d.peaceOfferBy) or d.status~="War") then return false end
+    -- Optional contact and pending AI declaration. The treaty value is captured to detect any later change.
+    if d.met~=nil and type(d.met)~="boolean" then return false end
+    if d.warPlan~=nil then
+        local plan=d.warPlan
+        if not object(plan,"by at peaceUntil") or not owner(plan.by) or s.players[plan.by].human or d.met~=true or d.status~="Peace" or not integer(plan.at,15,s.maxTurns+3) or not integer(plan.peaceUntil,0,s.maxTurns+8) then return false end
+    end
     if not array(s.trades,8) or (d.status=="War" and #s.trades>0) then return false end
     local trades={}
     for _,t in s.trades do
@@ -271,7 +278,7 @@ function BaseSave.valid(saved: any): boolean
     end
     if not array(s.log,24) or not array(s.events,64) then return false end
     for _,message in s.log do if not text(message,256) then return false end end
-    local kinds={Move=true,Attack=true,Capture=true,FoundCity=true,Production=true,Research=true,Growth=true,Starvation=true,Victory=true,Purchase=true,Upgrade=true,Improvement=true,Policy=true,War=true,Peace=true,Trade=true,Defeat=true,RangedAttack=true,Disband=true,UnitLost=true,CityLost=true,Eliminated=true,Promotion=true,CityStrike=true,WonderBuilt=true,WonderLost=true,GoldenAgeStarted=true,GoldenAgeEnded=true,CampCleared=true}
+    local kinds={Move=true,Attack=true,Capture=true,FoundCity=true,Production=true,Research=true,Growth=true,Starvation=true,Victory=true,Purchase=true,Upgrade=true,Improvement=true,Policy=true,War=true,Peace=true,Trade=true,Defeat=true,RangedAttack=true,Disband=true,UnitLost=true,CityLost=true,Eliminated=true,Promotion=true,CityStrike=true,WonderBuilt=true,WonderLost=true,GoldenAgeStarted=true,GoldenAgeEnded=true,CampCleared=true,Contact=true,WarWarning=true}
     local causes={Combat=true,Ranged=true,Upkeep=true,Captured=true,NoCities=true,NeverFounded=true,CapitalsLost=true,CityStrike=true,Happiness=true,Wonder=true}
     local previous=0
     for _,e in s.events do
@@ -292,6 +299,13 @@ function BaseSave.valid(saved: any): boolean
         if e.cityId~=nil and (not id(e.cityId) or e.cityId>=s.nextCity) then return false end
         -- Optional wonder id (WonderBuilt, WonderLost and a wonder's GoldenAgeStarted): a known world wonder.
         if e.wonder~=nil and (type(e.wonder)~="string" or not Rules.buildings[e.wonder] or not Rules.buildings[e.wonder].wonder) then return false end
+        if e.kind=="Contact" or e.kind=="WarWarning" then
+            -- These announcements must never smuggle a location or an entity through fog, including in a save.
+            if e.tileId~=nil or e.unitId~=nil or e.cityId~=nil or e.unitKind~=nil or e.wonder~=nil or e.cause~=nil or e.byOwnerId~=nil or e.amount~=nil then return false end
+            if e.kind=="Contact" then
+                if e.public~=true or e.ownerId~=nil then return false end
+            elseif not owner(e.ownerId) or e.public==true then return false end
+        end
         previous=e.id
     end
     if #s.events==0 then if s.nextEvent~=1 then return false end
@@ -320,6 +334,28 @@ end
 function BaseSave.restore(saved: any): (any?,string?)
     if not BaseSave.valid(saved) then return nil,"Unsupported or corrupt base-game save." end
     local state=copy(saved.state)
+    if state.diplomacy.met==nil then
+        -- Old war saves imply contact. Peace saves use current sight, never the historical explored set.
+        state.diplomacy.met=state.diplomacy.status=="War"
+        if not state.diplomacy.met then
+            local map=if state.mapShape=="Sphere" then WorldMap.fromSphereTiles(state.tiles,state.frequency) else WorldMap.fromTiles(state.tiles,state.radius)
+            for actor=1,2 do
+                local centers={}; for _, entities in {state.units,state.cities} do for _, entity in entities do if entity.ownerId==actor then table.insert(centers,entity.tileId) end end end
+                local seen={}; for _, tileId in WorldMap.visibility(map,centers,2) do seen[tileId]=true end
+                for _, entities in {state.units,state.cities} do for _, entity in entities do if entity.ownerId==3-actor and seen[entity.tileId] then state.diplomacy.met=true end end end
+            end
+            if state.diplomacy.met then
+                table.insert(state.events,{id=state.nextEvent,kind="Contact",message="Contact established with the rival civilization.",public=true}); state.nextEvent+=1
+                if #state.events>64 then
+                    local retained={UnitLost=true,CityLost=true,Eliminated=true,Victory=true,WonderBuilt=true,WonderLost=true,GoldenAgeStarted=true,GoldenAgeEnded=true,CampCleared=true,Contact=true,WarWarning=true}
+                    local drop=1; for i=1,#state.events-1 do local e=state.events[i]; if not (retained :: any)[e.kind] or e.ownerId==BARBARIAN then drop=i; break end end
+                    table.remove(state.events,drop)
+                end
+            end
+        end
+    end
+    local plan=state.diplomacy.warPlan
+    if plan and (state.diplomacy.peaceUntil~=plan.peaceUntil or state.turn<state.diplomacy.peaceUntil) then state.diplomacy.warPlan=nil end
     -- Migrate legacy research to the derived cost, preserving its completed fraction (rounded down).
     -- Full and already-paced research are byte-identical; accumulated food/production stay absolute.
     for _, p in state.players do
@@ -334,6 +370,5 @@ function BaseSave.restore(saved: any): (any?,string?)
     return state,nil
 end
 return table.freeze(BaseSave)
-
 
 

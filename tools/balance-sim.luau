@@ -26,19 +26,21 @@ local function median(list: {number}): number
     local sorted=table.clone(list); table.sort(sorted); return sorted[math.max(1,math.ceil(#sorted/2))] or 0
 end
 print(string.format("AI against AI, %d seeds per preset (seed = n x 7919), barbarians on, Normal, culture victory %s",seeds,if culture then "on" else "off"))
-print("| Preset | Policy cost growth | Victories | Draw | End round, median (range) | Technologies at the end, median (max) | Highest era at the end, median | Eras first reached, median round (games) |")
-print("| --- | ---: | --- | ---: | --- | --- | ---: | --- |")
+print("| Preset | Policy cost growth | Victories | Draw | First war round, median (games) | End round, median (range) | Technologies at the end, median (max) | Highest era at the end, median | Eras first reached, median round (games) |")
+print("| --- | ---: | --- | ---: | --- | --- | --- | ---: | --- |")
 for _, preset in presets do
-    local wins: {[string]: number}={}; local ends,techs,eras={},{},{}; local reached: {[number]: {number}}={}; local growth=0
+    local wins: {[string]: number}={}; local ends,techs,eras,wars={},{},{},{}; local reached: {[number]: {number}}={}; local growth=0
     for n=1,seeds do
         local s=BaseGame.new(n*7919,{radius=preset.radius,maxTurns=preset.maxTurns,cultureVictoryPolicies=preset.policies})
         growth=s.policyCostIncrease
         if not culture then s.cultureVictoryPolicies=99 end
         s.players[1].human=false
-        local first: {[number]: number}={}
+        local first: {[number]: number}={}; local firstWar: number?=nil
         while s.phase=="Playing" do
             for owner=1,2 do
-                I.beginTurn(s,owner); I.ai(s,owner); I.economy(s,owner); I.refreshVision(s); I.evaluate(s)
+                I.beginTurn(s,owner); I.ai(s,owner)
+                if not firstWar and s.diplomacy.status=="War" then firstWar=s.turn end
+                I.economy(s,owner); I.refreshVision(s); I.evaluate(s)
                 if s.phase~="Playing" then break end
             end
             if s.phase~="Playing" then break end
@@ -58,11 +60,12 @@ for _, preset in presets do
             s.turn += 1
         end
         wins[s.victoryType]=(wins[s.victoryType] or 0)+1; table.insert(ends,s.turn)
+        if firstWar then table.insert(wars,firstWar) end
         for owner=1,2 do table.insert(techs,#s.players[owner].technologies); table.insert(eras,eraOf(s.players[owner])) end
         for era,round in first do reached[era]=reached[era] or {}; table.insert(reached[era],round) end
     end
     local kinds={}; for kind,count in wins do if kind~="Draw" then table.insert(kinds,kind.." "..count) end end; table.sort(kinds)
     local eraText={}; for era=2,#Rules.eras do if reached[era] then table.insert(eraText,string.format("%s %d (%d)",Rules.eras[era],median(reached[era]),#reached[era])) end end
-    print(string.format("| %s (radius %d, %d rounds, %d policies) | %d | %s | %d | %d (%d-%d) | %d (%d) | %d | %s |",preset.name,preset.radius,preset.maxTurns,preset.policies,growth,
-        table.concat(kinds,", "),wins.Draw or 0,median(ends),math.min(table.unpack(ends)),math.max(table.unpack(ends)),median(techs),math.max(table.unpack(techs)),median(eras),table.concat(eraText,", ")))
+    print(string.format("| %s (radius %d, %d rounds, %d policies) | %d | %s | %d | %s | %d (%d-%d) | %d (%d) | %d | %s |",preset.name,preset.radius,preset.maxTurns,preset.policies,growth,
+        table.concat(kinds,", "),wins.Draw or 0,if #wars>0 then string.format("%d (%d)",median(wars),#wars) else "none (0)",median(ends),math.min(table.unpack(ends)),math.max(table.unpack(ends)),median(techs),math.max(table.unpack(techs)),median(eras),table.concat(eraText,", ")))
 end
