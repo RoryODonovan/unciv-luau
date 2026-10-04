@@ -7,6 +7,7 @@
 -- test gate; it prints a victory table.
 local BaseGame=require("./src/simulation/BaseGame")
 local Rules=require("./src/simulation/BaseRules")
+local WorldMap=require("./src/simulation/WorldMap")
 local I=(BaseGame :: any)._internal
 assert(I,"run this through tools/balance-sim.mjs")
 local args={...}
@@ -30,19 +31,42 @@ print("| Preset | Policy cost growth | Victories | Draw | First war round, media
 print("| --- | ---: | --- | ---: | --- | --- | --- | ---: | --- |")
 for _, preset in presets do
     local wins: {[string]: number}={}; local ends,techs,eras,wars={},{},{},{}; local reached: {[number]: {number}}={}; local growth=0
+    local owned={[25]={},[50]={},[75]={}}; local firstCulture,capitalCulture={},{}
     for n=1,seeds do
         local s=BaseGame.new(n*7919,{radius=preset.radius,maxTurns=preset.maxTurns,cultureVictoryPolicies=preset.policies})
         growth=s.policyCostIncrease
         if not culture then s.cultureVictoryPolicies=99 end
         s.players[1].human=false
+        local map=WorldMap.fromTiles(s.tiles,s.radius); local seenCulture={}
+        local function territoryMetric()
+            local counts={}; for _, c in s.cities do counts[c.id]=0 end
+            for _, tile in s.tiles do
+                local best,dist=nil,4
+                for _, c in s.cities do
+                    if c.ownerId~=tile.ownerId then continue end
+                    local d=WorldMap.distance(map,c.tileId,tile.id)
+                    if d<dist or (d==dist and best and c.id<best.id) then best=c; dist=d end
+                end
+                if best then counts[best.id]+=1 end
+            end
+            for _, count in counts do table.insert(owned[s.turn],count) end
+        end
         local first: {[number]: number}={}; local firstWar: number?=nil
         while s.phase=="Playing" do
             for owner=1,2 do
                 I.beginTurn(s,owner); I.ai(s,owner)
                 if not firstWar and s.diplomacy.status=="War" then firstWar=s.turn end
+                local nextEvent=s.nextEvent
                 I.economy(s,owner); I.refreshVision(s); I.evaluate(s)
+                for _, e in s.events do
+                    if e.id>=nextEvent and e.kind=="BorderGrowth" and e.amount==nil and not seenCulture[e.cityId] then
+                        seenCulture[e.cityId]=true; table.insert(firstCulture,s.turn)
+                        for _, c in s.cities do if c.id==e.cityId and c.capital then table.insert(capitalCulture,s.turn) end end
+                    end
+                end
                 if s.phase~="Playing" then break end
             end
+            if owned[s.turn] then territoryMetric() end
             if s.phase~="Playing" then break end
             if s.turn>=s.maxTurns then
                 local v=I.scores(s); s.phase="Finished"
@@ -68,4 +92,6 @@ for _, preset in presets do
     local eraText={}; for era=2,#Rules.eras do if reached[era] then table.insert(eraText,string.format("%s %d (%d)",Rules.eras[era],median(reached[era]),#reached[era])) end end
     print(string.format("| %s (radius %d, %d rounds, %d policies) | %d | %s | %d | %s | %d (%d-%d) | %d (%d) | %d | %s |",preset.name,preset.radius,preset.maxTurns,preset.policies,growth,
         table.concat(kinds,", "),wins.Draw or 0,if #wars>0 then string.format("%d (%d)",median(wars),#wars) else "none (0)",median(ends),math.min(table.unpack(ends)),math.max(table.unpack(ends)),median(techs),math.max(table.unpack(techs)),median(eras),table.concat(eraText,", ")))
+    local function metric(list) return if #list>0 then tostring(median(list)).." ("..#list..")" else "n/a (0)" end
+    print(string.format("Territory %s: median tiles/city round 25 %s; 50 %s; 75 %s; first culture round %s; capital first culture round %s",preset.name,metric(owned[25]),metric(owned[50]),metric(owned[75]),metric(firstCulture),metric(capitalCulture)))
 end

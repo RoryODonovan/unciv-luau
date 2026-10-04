@@ -1,6 +1,6 @@
 --!strict
 -- Generated module-only Roblox form. Source: src/simulation/BaseGame.luau
--- Source SHA-256: 09c0bd4fc6c3cfdcc066fbfcc130d8184958f46188ee6b0e960076a134abde92
+-- Source SHA-256: 75ed11b1f094769265d298854b683db0bf6ae901c4c7445d0339928e68008633
 -- Reproduce with tools/roblox-export.mjs; preserve MPL notices below.
 -- Covered source: https://github.com/RoryODonovan/unciv-luau
 -- This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
@@ -18,6 +18,7 @@ export type Command = {kind: "MoveUnit" | "RangedAttack", unitId: number, tileId
     | {kind: "FoundCity" | "FortifyUnit" | "UpgradeUnit", unitId: number}
     | {kind: "BuildImprovement", unitId: number, improvement: string}
     | {kind: "SetProduction" | "Purchase", cityId: number, item: string}
+    | {kind: "BuyTile", cityId: number, tileId: number}
     | {kind: "SetCityFocus", cityId: number, focus: string}
     | {kind: "Research", technology: string} | {kind: "AdoptPolicy", policy: string}
     | {kind: "DeclareWar" | "OfferPeace" | "AcceptPeace", targetId: number}
@@ -39,7 +40,9 @@ export type Unit = {id: number, ownerId: number, kind: string, tileId: number, h
 export type UnitView = {id: number, ownerId: number, kind: string, tileId: number, hp: number, moves: number, fortified: boolean, level: number, promotions: {string}, xp: number?, nextLevelXp: number?, promotionsAvailable: {string}?, work: {improvement: string, remaining: number}?, upgradeKind: string?, upgradeCost: number?, canUpgrade: boolean?}
 -- `strikeTurn` is optional: the round whose ranged strike the city has used (it struck, or it was captured, that
 -- round). Absent means the city has never used one.
-export type City = {id: number, ownerId: number, originalOwnerId: number, capital: boolean, tileId: number, name: string, population: number, food: number, production: number, queue: string, hp: number, buildings: {string}, focus: string, strikeTurn: number?}
+-- Optional border fields: accumulated culture and post-founding culture/purchase acquisitions. Restore migrates
+-- missing values; capture preserves both. New cities explicitly start at zero.
+export type City = {id: number, ownerId: number, originalOwnerId: number, capital: boolean, tileId: number, name: string, population: number, food: number, production: number, queue: string, hp: number, buildings: {string}, focus: string, strikeTurn: number?, borderCulture: number?, borderTiles: number?}
 export type Research = {id: string, progress: number, cost: number}
 -- A civilization's golden-age record (optional; absent means an empty meter, no golden age and none so far): the meter's
 -- `progress`, the owner economy steps the current golden age still lasts (`turnsLeft`, 0 outside one) and the number of
@@ -60,7 +63,7 @@ export type TileView = {id: number, x: number?, y: number?, visible: boolean, ex
 -- (combat strength), `rangedStrength` (what its strike uses), `strikeReady` (its strike for this round is unused),
 -- `canStrike` (ready, the actor can act now and at least one target is legal) and `strikeTargets` (the unit ids
 -- CityRangedStrike accepts now, ascending; empty while the actor cannot act).
-export type CityView = {id: number, ownerId: number, originalOwnerId: number, capital: boolean, tileId: number, name: string, population: number, hp: number, food: number?, production: number?, queue: string?, buildings: {string}?, focus: string?, strength: number?, rangedStrength: number?, strikeReady: boolean?, canStrike: boolean?, strikeTargets: {number}?}
+export type CityView = {id: number, ownerId: number, originalOwnerId: number, capital: boolean, tileId: number, name: string, population: number, hp: number, food: number?, production: number?, queue: string?, buildings: {string}?, focus: string?, strength: number?, rangedStrength: number?, strikeReady: boolean?, canStrike: boolean?, strikeTargets: {number}?, borderCulture: number?, nextTileCost: number?, borderTurns: number?, buyableTiles: {{tileId: number, cost: number}}?, nextBorderTile: number?}
 export type Statistics = {cities: number, units: number, population: number, technologies: number, policies: number}
 export type Progress = {cities: number, policies: number, era: number}
 -- `acrossRiver` is true when a melee attack crosses a river edge (its attack loses riverAttackPercent).
@@ -283,13 +286,12 @@ local function addUnit(s: any, owner: number, kind: string, tileId: number): any
     s.nextUnit += 1
     return u
 end
--- Claims unowned tiles around a city for its owner. With `overlay`, the state is untouched and each tile the
--- claim would take is marked in the overlay instead (the forecast's virtual claims for the city's own owner).
-local function claim(s: any, city: any, overlay: {[number]: boolean}?)
-    local ids = nearby(s,city.tileId,if city.population>=3 then R.cityWorkRadius else 1)
+-- Founding alone claims the first ring. Population never changes territory.
+local function claim(s: any, city: any)
+    local ids = nearby(s,city.tileId,1)
     for _, id in ids do
         local t=s.tiles[id]
-        if not t.ownerId or id==city.tileId then if overlay then overlay[id]=true else t.ownerId=city.ownerId end end
+        if not t.ownerId or id==city.tileId then t.ownerId=city.ownerId end
     end
 end
 -- Original city names, one list per civilization in founding order; "City <id>" once a list runs out.
@@ -302,7 +304,7 @@ local function addCity(s: any, owner: number, tileId: number): any
     local capital=true; local founded=0
     for _, c in s.cities do if c.originalOwnerId == owner then founded += 1; if c.capital then capital=false end end end
     local names=CITY_NAMES[owner]; local name=names and names[founded+1] or "City "..s.nextCity
-    local c = {id=s.nextCity, ownerId=owner, originalOwnerId=owner, capital=capital, tileId=tileId, name=name, population=1, food=0, production=0, queue="Warrior", hp=R.cityHp, buildings={}, focus="Balanced"}
+    local c = {id=s.nextCity, ownerId=owner, originalOwnerId=owner, capital=capital, tileId=tileId, name=name, population=1, food=0, production=0, queue="Warrior", hp=R.cityHp, buildings={}, focus="Balanced",borderCulture=0,borderTiles=0}
     -- The tile keeps its feature (unlike Civ V, which clears it): features never change after generation, so an explored
     -- tile's projected feature and natural yields cannot reveal an unseen city.
     s.nextCity += 1; table.insert(s.cities,c); claim(s,c); return c
@@ -958,6 +960,65 @@ local function yieldFor(tile: any): any
     for _, key in yieldKeys do result[key]=math.max(0,result[key]) end
     return result
 end
+local function nextTileCost(s: any, c: any): number
+    return scaledCost(s,math.floor(R.borderCultureBase+(R.borderCultureMultiplier*(c.borderTiles or 0))^R.borderCultureExponent),"policy")
+end
+local function buyTileCost(s: any, c: any, tileId: number): number
+    local d=distance(s,c.tileId,tileId)
+    local factor=if d==3 then 1.5 elseif d==2 then 1 else 0.75
+    return scaledCost(s,math.floor((R.borderBuyBase+R.borderBuyPerTile*(c.borderTiles or 0))*factor),"production")
+end
+-- Strategic reveal for border decisions. The existing tile/economy projection predates reveal rules; keep this
+-- local to borders. Hidden resources contribute neither natural resource yields nor a resource bonus.
+local BORDER_REVEAL={Horses="AnimalHusbandry",Iron="BronzeWorking",Saltpeter="Gunpowder",Oil="Combustion"}
+local function borderResource(s: any, owner: number, tile: any, seen: any): any
+    if not tile.resource or not seen[tile.id] then return nil end
+    local tech=BORDER_REVEAL[tile.resource]
+    if tech and not has(s.players[owner].technologies,tech) then return nil end
+    return R.resources[tile.resource]
+end
+local function borderScore(s: any, c: any, tileId: number, seen: any): number
+    local tile=s.tiles[tileId]; local resource=borderResource(s,c.ownerId,tile,seen)
+    local y=yieldFor({terrain=tile.terrain,feature=tile.feature,river=tile.river,resource=if resource then tile.resource else nil})
+    local extra=if not resource then 0 elseif resource.category=="Luxury" then 6 elseif resource.category=="Strategic" then 4 else 2
+    return 2*y.food+2*y.production+y.gold+y.science+y.culture+extra-3*(distance(s,c.tileId,tileId)-1)
+end
+-- Shared physical legality for growth, purchase and projection. Water and mountains are legal. `claimed` is the
+-- forecast's virtual culture acquisitions, applied after the yielding city's production, never a population claim.
+local function borderCandidates(s: any, c: any, claimed: {[number]: boolean}?): {number}
+    local units,cities=occupants(s); local camps=campTiles(s); local result={}
+    for _, id in nearby(s,c.tileId,3) do
+        local tile=s.tiles[id]
+        if tile.ownerId or (claimed and claimed[id]) or (units[id] and units[id].ownerId~=c.ownerId)
+            or (cities[id] and cities[id].ownerId~=c.ownerId) or camps[id] then continue end
+        for _, neighbor in mapFor(s).neighbors[id] do
+            if s.tiles[neighbor].ownerId==c.ownerId or (claimed and claimed[neighbor]) then table.insert(result,id); break end
+        end
+    end
+    table.sort(result); return result
+end
+local function bestBorderTile(s: any, c: any, candidates: {number}, seen: any): number?
+    local best: number?=nil; local score=-math.huge
+    for _, id in candidates do
+        local value=borderScore(s,c,id,seen)
+        if value>score or (value==score and (not best or id<best)) then best=id; score=value end
+    end
+    return best
+end
+local function acquireBorderTile(s: any, c: any, tileId: number, gold: number?)
+    s.tiles[tileId].ownerId=c.ownerId; c.borderTiles=(c.borderTiles or 0)+1
+    event(s,"BorderGrowth",c.name.."'s borders expanded.",tileId,nil,c.ownerId,gold,nil,nil,nil,nil,c.id)
+end
+local function borderStep(s: any, c: any, culture: number)
+    local cost=nextTileCost(s,c)
+    c.borderCulture=math.min(1000000000,(c.borderCulture or 0)+math.max(0,culture)+R.borderBaseRate)
+    local candidates=borderCandidates(s,c)
+    if #candidates==0 then c.borderCulture=math.min(c.borderCulture,cost)
+    elseif c.borderCulture>=cost then
+        local tileId=bestBorderTile(s,c,candidates,visible(s,c.ownerId)) :: number
+        c.borderCulture-=cost; acquireBorderTile(s,c,tileId)
+    end
+end
 -- One city's yields this turn: the free center, each citizen on the best distinct nearby owned tile for its
 -- focus (marking `worked`), buildings, policies and the Science/Culture production conversion. Pure apart
 -- from `worked`; returns the yields and the buildings' maintenance. Shared by the economy and the forecast.
@@ -1051,7 +1112,6 @@ local function economy(s: any, owner: number)
     for _, c in cityOrder do
         if c.ownerId~=owner then continue end
         -- The city center is free; each citizen works one distinct nearby owned tile.
-        claim(s,c)
         local yields,maintenance=cityYields(s,p,owner,c,worked,cityTiles,bonus); income.maintenance += maintenance
         local food,production=cityNet(s,p,c,yields,p.happiness,bonus)
         c.food += food
@@ -1073,6 +1133,7 @@ local function economy(s: any, owner: number)
                 if R.buildings[item] and R.buildings[item].startsGoldenAge then granted += goldenAgeTurns(s); grantedBy=item end
             end
         end
+        borderStep(s,c,yields.culture)
     end
     for _, u in s.units do if u.ownerId==owner then income.maintenance += R.units[u.kind].maintenance end end
     local rawMaintenance=income.maintenance
@@ -1535,6 +1596,26 @@ local function aiUpgrades(s: any, owner: number)
         if p.income.gold>=0 and p.gold-upgradeCost(s,u.kind,upgradeKind(s,u) :: string)>=AI_UPGRADE_RESERVE then upgrade(s,u) end
     end
 end
+-- One empire purchase after production, using the existing 60-gold reserve. Resource visibility and ranking are
+-- shared with culture growth. City id only resolves the same tile offered by two cities, so neither seat is favoured.
+local function aiBuyTile(s: any, owner: number)
+    local seen=visible(s,owner); local p=s.players[owner]
+    local bestCity: any=nil; local bestTile: number?=nil; local bestScore=-math.huge
+    for _, c in s.cities do
+        if c.ownerId~=owner then continue end
+        for _, id in borderCandidates(s,c) do
+            local resource=borderResource(s,owner,s.tiles[id],seen)
+            if not resource or (resource.category~="Luxury" and resource.category~="Strategic") or p.gold<buyTileCost(s,c,id)+AI_GOLD_RESERVE then continue end
+            local score=borderScore(s,c,id,seen)
+            if score>bestScore or (score==bestScore and (not bestTile or id<bestTile or (id==bestTile and c.id<bestCity.id))) then
+                bestCity=c; bestTile=id; bestScore=score
+            end
+        end
+    end
+    if bestTile then
+        local cost=buyTileCost(s,bestCity,bestTile); p.gold-=cost; acquireBorderTile(s,bestCity,bestTile,cost)
+    end
+end
 local function ai(s: any, owner: number)
     local p=s.players[owner]
     if not p.research then for _, id in R.technologyOrder do local tech=R.technologies[id]; if eligible(p,tech,p.technologies) then p.research={id=id,progress=0,cost=scaledCost(s,tech.cost)}; break end end end
@@ -1629,6 +1710,7 @@ local function ai(s: any, owner: number)
         while choice do promote(s,u,choice); choice=aiPromotion(s,u) end
     end
     aiProduction(s,owner)
+    aiBuyTile(s,owner)
     refreshVision(s)
 end
 local function endTurn(s: any, owner: number)
@@ -1709,7 +1791,7 @@ function BaseGame.new(seed: number?, options: Options?): State
     refreshVision(s); refreshEconomyState(s); return s :: State
 end
 local function finiteId(value: any): boolean return type(value)=="number" and value==value and value%1==0 and value>=1 and value<=1000000 end
-local schemas: any={MoveUnit={unitId=true,tileId=true},RangedAttack={unitId=true,tileId=true},FoundCity={unitId=true},FortifyUnit={unitId=true},UpgradeUnit={unitId=true},BuildImprovement={unitId=true,improvement=true},SetProduction={cityId=true,item=true},Purchase={cityId=true,item=true},SetCityFocus={cityId=true,focus=true},Research={technology=true},AdoptPolicy={policy=true},DeclareWar={targetId=true},OfferPeace={targetId=true},AcceptPeace={targetId=true},ProposeTrade={targetId=true,giveGold=true,receiveGold=true},AcceptTrade={tradeId=true},CancelTrade={tradeId=true},EndTurn={},PromoteUnit={unitId=true,promotion=true},CityRangedStrike={cityId=true,targetUnitId=true}}
+local schemas: any={MoveUnit={unitId=true,tileId=true},RangedAttack={unitId=true,tileId=true},FoundCity={unitId=true},FortifyUnit={unitId=true},UpgradeUnit={unitId=true},BuildImprovement={unitId=true,improvement=true},SetProduction={cityId=true,item=true},Purchase={cityId=true,item=true},BuyTile={cityId=true,tileId=true},SetCityFocus={cityId=true,focus=true},Research={technology=true},AdoptPolicy={policy=true},DeclareWar={targetId=true},OfferPeace={targetId=true},AcceptPeace={targetId=true},ProposeTrade={targetId=true,giveGold=true,receiveGold=true},AcceptTrade={tradeId=true},CancelTrade={tradeId=true},EndTurn={},PromoteUnit={unitId=true,promotion=true},CityRangedStrike={cityId=true,targetUnitId=true}}
 function BaseGame.apply(state: State, actorId: number, command: Command): {ok: boolean, message: string}
     local s: any=state; local cmd: any=command
     local function reject(message: string): {ok: boolean,message: string} return {ok=false,message=message} end
@@ -1751,6 +1833,11 @@ function BaseGame.apply(state: State, actorId: number, command: Command): {ok: b
         if cmd.kind=="SetCityFocus" then
             if not has({"Balanced","Food","Production","Gold","Science","Culture"},cmd.focus) or c.focus==cmd.focus then return reject("Choose a different valid city focus.") end
             c.focus=cmd.focus
+        elseif cmd.kind=="BuyTile" then
+            if not finiteId(cmd.tileId) or not table.find(borderCandidates(s,c),cmd.tileId) then return reject("Choose an unowned adjacent tile within three tiles of your city, without foreign occupants or a camp.") end
+            local cost=buyTileCost(s,c,cmd.tileId)
+            if p.gold<cost then return reject("Buying this tile needs "..cost.." gold.") end
+            p.gold-=cost; acquireBorderTile(s,c,cmd.tileId,cost)
         elseif cmd.kind=="CityRangedStrike" then
             if not finiteId(cmd.targetUnitId) then return reject("Invalid unit identifier.") end
             if not strikeReady(s,c) then return reject("This city has used its strike this round.") end
@@ -1868,7 +1955,7 @@ function BaseGame.snapshot(state: State, actorId: number): View
     for _, c in s.cities do
         if c.ownerId==actorId then
             -- City combat for the actor's own cities: strength, readiness and the strikes it can make now.
-            local view=copy(c); view.strikeTurn=nil
+            local view=copy(c); view.strikeTurn=nil; view.borderTiles=nil
             local ready=strikeReady(s,c); local targets: {number}={}; local list={}
             if canAct and ready then
                 targets=cityStrikeTargets(s,c,seen,occupancyUnits,occupancyCities)
@@ -1876,11 +1963,16 @@ function BaseGame.snapshot(state: State, actorId: number): View
             end
             view.strength=cityStrength(s,c,occupancyUnits); view.rangedStrength=cityRangedStrength(s,c,occupancyUnits)
             view.strikeReady=ready; view.canStrike=#targets>0; view.strikeTargets=targets
+            local candidates=borderCandidates(s,c)
+            view.borderCulture=c.borderCulture or 0; view.nextTileCost=nextTileCost(s,c)
+            view.nextBorderTile=bestBorderTile(s,c,candidates,seen)
+            view.buyableTiles={}; for _, id in candidates do table.insert(view.buyableTiles,{tileId=id,cost=buyTileCost(s,c,id)}) end
             strikePreviews[tostring(c.id)]=list
             table.insert(cities,view)
         elseif seen[c.tileId] then table.insert(cities,{id=c.id,ownerId=c.ownerId,tileId=c.tileId,name=c.name,population=c.population,hp=c.hp,capital=c.capital,originalOwnerId=c.originalOwnerId}) end
     end
     for _, e in s.events do
+        if e.kind=="BorderGrowth" and e.ownerId~=actorId then continue end
         if e.public or e.ownerId==actorId or (e.tileId and seen[e.tileId]) then
             local view=copy(e)
             -- Every civilization learns that a wonder was completed and by whom, but the city only while it can see the
@@ -1924,9 +2016,9 @@ function BaseGame.snapshot(state: State, actorId: number): View
     end
     local threshold=cultureThreshold(s)
     -- Per-city forecast for the actor's own cities: what the next economy step adds, and turns to grow and to finish
-    -- the queue at that rate. It replays the step without mutating the state: cities in id order, each first making
-    -- its territory claim (into a virtual overlay), then the shared yield and net functions with the step's
-    -- happiness (taken before any claim, as the step does). Production availability counts claimed improved
+    -- the queue at that rate. It replays the step without mutating the state: cities in id order, each using
+    -- the shared yield and net functions with the step's happiness. After each city's production the overlay
+    -- records its culture tile for later cities, just as the economy does. Production availability counts claimed improved
     -- resources and earlier own completions' strategic resources and deployment space. The global unit cap is fog-safe:
     -- the current total (already exposed by availableProductionByCity) plus earlier own completions against the
     -- units the actor can see; unseen rival units are never counted, so they cannot change any forecast.
@@ -1934,6 +2026,7 @@ function BaseGame.snapshot(state: State, actorId: number): View
     local forecasts={}
     do
         local actor=s.players[actorId]; local worked,claimed,added={},{},{}; local _,cityTiles=occupants(s)
+        local forecastSeen=table.clone(seen)
         local stepMood=stepHappiness(s,actorId,resourceInventory(s,actorId))
         local bonus=empireBonus(s,actorId); bonus.golden=goldenActive(actor)
         -- Wonders earlier own cities complete in this step: a later city queuing one loses the race and completes nothing.
@@ -1941,7 +2034,6 @@ function BaseGame.snapshot(state: State, actorId: number): View
         local own: {any}={}; for _, c in s.cities do if c.ownerId==actorId then table.insert(own,c) end end
         table.sort(own,function(a: any,b: any) return a.id<b.id end)
         for _, c in own do
-            claim(s,c,claimed)
             local yields=cityYields(s,actor,actorId,c,worked,cityTiles,bonus,claimed); local food,made=cityNet(s,actor,c,yields,stepMood,bonus)
             local growAt=growthCost(s,c.population); local cost=if R.productionCosts[c.queue] then productionCost(s,c.queue) else nil
             local canGrow=stepMood>=0 and c.population<R.maxPopulation
@@ -1953,12 +2045,23 @@ function BaseGame.snapshot(state: State, actorId: number): View
             local turns: number?=nil
             if not blocked and cost then
                 if c.production+made>=cost then turns=1 elseif made>0 then turns=math.ceil((cost-c.production)/made) end
-                if turns==1 and spawn then table.insert(added,{ownerId=actorId,kind=c.queue,tileId=spawn}) end
+                if turns==1 and spawn then
+                    table.insert(added,{ownerId=actorId,kind=c.queue,tileId=spawn})
+                    for _, id in nearby(s,spawn,2) do forecastSeen[id]=true end
+                end
                 if turns==1 and isWonder(c.queue) then wondersNow[c.queue]=true end
             end
             forecasts[tostring(c.id)]={food=food,production=made,gold=yields.gold,science=yields.science,culture=yields.culture,
                 growthTurns=if not canGrow then nil elseif c.food+food>=growAt then 1 elseif food>0 then math.ceil((growAt-c.food)/food) else nil,
                 productionTurns=turns,productionBlocked=blocked}
+            local candidates=borderCandidates(s,c,claimed)
+            local rate=math.max(0,yields.culture)+R.borderBaseRate
+            for _, view in cities do
+                if view.id==c.id then view.borderTurns=if #(view :: any).buyableTiles>0 then math.ceil((nextTileCost(s,c)-(c.borderCulture or 0))/rate) else nil end
+            end
+            if (c.borderCulture or 0)+rate>=nextTileCost(s,c) then
+                local tileId=bestBorderTile(s,c,candidates,forecastSeen); if tileId then claimed[tileId]=true end
+            end
         end
     end
     -- Completed world wonders in rule order. Completion and the holder are public (both civilizations always learn of a

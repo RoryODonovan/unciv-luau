@@ -711,6 +711,10 @@ do
     local before=deep(legacy)
     local restored: any,err=Game.restore(legacy); assert(restored and err==nil,err)
     local prior=Game.serialize(restored); prior.state.diplomacy.met=nil
+    for _, c in prior.state.cities do
+        assert(c.borderCulture==0 and c.borderTiles==0,"legacy fixture has no post-founding borders")
+        c.borderCulture=nil; c.borderTiles=nil
+    end
     if prior.state.events[#prior.state.events] and prior.state.events[#prior.state.events].kind=="Contact" then
         table.remove(prior.state.events); prior.state.nextEvent-=1
     end

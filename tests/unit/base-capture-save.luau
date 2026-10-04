@@ -47,11 +47,13 @@ for _,shape in {"Hex","Sphere"} do
         assert(adjacent,"need a free attacking tile")
         attacker.tileId=adjacent; attacker.moves=2
         state.tiles[adjacent].terrain="Plains"; state.tiles[adjacent].resource=nil
+        target.borderCulture=9; target.borderTiles=4
         target.hp=1
         assert(Save.valid(Game.serialize(state)),"capture fixture must start as a valid save")
         apply(state,1,{kind="DeclareWar",targetId=2})
         apply(state,1,{kind="MoveUnit",unitId=attacker.id,tileId=target.tileId})
         assert(target.ownerId==1 and attacker.tileId==target.tileId)
+        assert(target.borderCulture==9 and target.borderTiles==4,"capture preserves city borders")
         assert(target.queue=="" and target.production==0,"capture clears the queue to idle")
         local forecast=Game.snapshot(state,1).cityForecasts[tostring(target.id)]
         assert(forecast.productionBlocked=="Idle" and forecast.productionTurns==nil)

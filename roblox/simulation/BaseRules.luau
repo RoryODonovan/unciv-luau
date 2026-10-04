@@ -1,6 +1,6 @@
 --!strict
 -- Generated module-only Roblox form. Source: src/simulation/BaseRules.luau
--- Source SHA-256: 9ea35504b6b493ffe367f1ce0f7340416e4c7a8e100ef9a864d25bc4d66a7a17
+-- Source SHA-256: cf051e0b56c04eccb538de9848791ec43f4abb2ecd60b8f95fa35205e92cd9be
 -- Reproduce with tools/roblox-export.mjs; preserve MPL notices below.
 -- Covered source: https://github.com/RoryODonovan/unciv-luau
 -- This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
@@ -290,6 +290,9 @@ local rules = {
     productionCosts=productionCosts,purchaseCosts=purchaseCosts,upgradeCost=40,upgradeMinimumGold=20,upgradeCostMultiplier=2,workerTurns=2,
     cityHp=150,cityBaseYields=yields(2,2,2,2,1),cityWorkRadius=2,foodPerPopulation=2,baseHappiness=9,unhappinessPerCity=2,unhappinessPerPopulation=1,
     growthBase=20,growthPerPopulation=8,starvationLoss=1,unitVision=2,cityVision=2,
+    -- Culture borders and tile purchases (G11a); work radius stays two.
+    borderCultureBase=20,borderCultureMultiplier=2,borderCultureExponent=1.1,borderBaseRate=1,
+    borderBuyBase=50,borderBuyPerTile=5,
     -- Cost pace: clamp(round(100 x (maxTurns / turns)^exponent), minPercent, maxPercent).
     -- Category costs use max(1, round(base x percent / 100)); policy bases scale before adoption growth.
     -- Production and growth share a gentler curve; policy inflation delays short-game culture finishes.
