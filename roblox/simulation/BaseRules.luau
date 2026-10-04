@@ -1,6 +1,6 @@
 --!strict
 -- Generated module-only Roblox form. Source: src/simulation/BaseRules.luau
--- Source SHA-256: cf051e0b56c04eccb538de9848791ec43f4abb2ecd60b8f95fa35205e92cd9be
+-- Source SHA-256: 22e160e0e0d5f611be84530af0f3132cddcd6d0cad3520781632c7d59749c1ef
 -- Reproduce with tools/roblox-export.mjs; preserve MPL notices below.
 -- Covered source: https://github.com/RoryODonovan/unciv-luau
 -- This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
@@ -278,7 +278,7 @@ for id, rule in buildings do productionCosts[id]=rule.cost; purchaseCosts[id]=ru
 local terrainYields: {[string]: Yields} = {}
 for id, rule in terrains do terrainYields[id]=rule.yields end
 local rules = {
-    minRadius=3,maxRadius=40,maxTiles=4921,radius=4,maxTurns=120,maxPopulation=100,maxUnits=169,maxCities=24,
+    minRadius=3,maxRadius=40,maxTiles=4921,radius=4,maxTurns=120,maxPopulation=100,maxUnits=169,maxCities=24,productionQueueLimit=3,
     units=units,unitStats=units,buildings=buildings,buildingEffects=buildings,technologies=technologies,technologyOrder=technologyOrder,
     -- Units in era order (see the roster above); buildings by era, then the wonders.
     unitOrder=unitOrder,buildingOrder=buildingOrder,wonderOrder=wonderOrder,eras=eras,
