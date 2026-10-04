@@ -1,6 +1,6 @@
 --!strict
 -- Generated module-only Roblox form. Source: src/simulation/BaseSave.luau
--- Source SHA-256: 3c6e3dd0ee506e351805e083260e4d8e76c2d3e6769280c5e787258152341e18
+-- Source SHA-256: 9c7b872dd1937846ce7fafc5a4cce6ea09611e6013595ddd3dc200d983f1ed44
 -- Reproduce with tools/roblox-export.mjs; preserve MPL notices below.
 -- Covered source: https://github.com/RoryODonovan/unciv-luau
 -- This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
@@ -13,6 +13,7 @@ local Rules=require(script.Parent.BaseRules)
 local HexMath=require(script.Parent.Parent.map.HexMath)
 local SphereTopology=require(script.Parent.Parent.map.SphereTopology)
 local WorldMap=require(script.Parent.WorldMap)
+local Vision=require(script.Parent.BaseVision)
 local BaseSave={}
 -- Structural work budget: 4,921 tiles with all 10 fields and two fully explored players,
 -- plus independently bounded units/cities/events. This is a hard bound, not an unbounded traversal.
@@ -242,12 +243,14 @@ function BaseSave.valid(saved: any): boolean
     local cities,cityTiles,capitalOwners,wonders={},{},{},{}
     local focuses={Balanced=true,Food=true,Production=true,Gold=true,Science=true,Culture=true}
     for _,c in s.cities do
-        if not object(c,"id ownerId originalOwnerId capital tileId name population food production queue hp buildings focus strikeTurn") or not id(c.id) or c.id>=s.nextCity or cities[c.id] or not owner(c.ownerId) or not owner(c.originalOwnerId) or type(c.capital)~="boolean" or not integer(c.tileId,1,#s.tiles) or cityTiles[c.tileId] then return false end
+        if not object(c,"id ownerId originalOwnerId capital tileId name population food production queue hp buildings focus strikeTurn borderCulture borderTiles") or not id(c.id) or c.id>=s.nextCity or cities[c.id] or not owner(c.ownerId) or not owner(c.originalOwnerId) or type(c.capital)~="boolean" or not integer(c.tileId,1,#s.tiles) or cityTiles[c.tileId] then return false end
         if not text(c.name,80) or not integer(c.population,1,100) or not integer(c.food,0,1000000) or not integer(c.production,0,1000000) or not integer(c.hp,0,Rules.cityHp) or type(c.queue)~="string" or (c.queue~="" and not Rules.productionCosts[c.queue]) or type(c.focus)~="string" or not (focuses :: any)[c.focus] or not strings(c.buildings,Rules.buildings,#Rules.buildingOrder) then return false end
         if not Rules.terrains[tiles[c.tileId].terrain].passable or tiles[c.tileId].ownerId~=c.ownerId or table.find(c.buildings,c.queue) or (occupancy[c.tileId] and occupancy[c.tileId].ownerId~=c.ownerId) then return false end
         -- Optional city-combat field (absent in saves written before it: the city has never used a strike): the round
         -- whose ranged strike the city used, never later than the current round.
         if c.strikeTurn~=nil and not integer(c.strikeTurn,1,s.turn) then return false end
+        if c.borderCulture~=nil and not number(c.borderCulture,0,1000000000) then return false end
+        if c.borderTiles~=nil and not integer(c.borderTiles,0,1000000) then return false end
         if c.capital then if capitalOwners[c.originalOwnerId] then return false end; capitalOwners[c.originalOwnerId]=true end
         -- A world wonder stands in at most one city of the world.
         for _,building in c.buildings do
@@ -285,7 +288,7 @@ function BaseSave.valid(saved: any): boolean
     end
     if not array(s.log,24) or not array(s.events,64) then return false end
     for _,message in s.log do if not text(message,256) then return false end end
-    local kinds={Move=true,Attack=true,Capture=true,FoundCity=true,Production=true,Research=true,Growth=true,Starvation=true,Victory=true,Purchase=true,Upgrade=true,Improvement=true,Policy=true,War=true,Peace=true,Trade=true,Defeat=true,RangedAttack=true,Disband=true,UnitLost=true,CityLost=true,Eliminated=true,Promotion=true,CityStrike=true,WonderBuilt=true,WonderLost=true,GoldenAgeStarted=true,GoldenAgeEnded=true,CampCleared=true,Contact=true,WarWarning=true}
+    local kinds={Move=true,Attack=true,Capture=true,FoundCity=true,Production=true,Research=true,Growth=true,Starvation=true,Victory=true,Purchase=true,Upgrade=true,Improvement=true,Policy=true,War=true,Peace=true,Trade=true,Defeat=true,RangedAttack=true,Disband=true,UnitLost=true,CityLost=true,Eliminated=true,Promotion=true,CityStrike=true,WonderBuilt=true,WonderLost=true,GoldenAgeStarted=true,GoldenAgeEnded=true,CampCleared=true,Contact=true,WarWarning=true,BorderGrowth=true}
     local causes={Combat=true,Ranged=true,Upkeep=true,Captured=true,NoCities=true,NeverFounded=true,CapitalsLost=true,CityStrike=true,Happiness=true,Wonder=true}
     local previous=0
     for _,e in s.events do
@@ -306,6 +309,7 @@ function BaseSave.valid(saved: any): boolean
         if e.cityId~=nil and (not id(e.cityId) or e.cityId>=s.nextCity) then return false end
         -- Optional wonder id (WonderBuilt, WonderLost and a wonder's GoldenAgeStarted): a known world wonder.
         if e.wonder~=nil and (type(e.wonder)~="string" or not Rules.buildings[e.wonder] or not Rules.buildings[e.wonder].wonder) then return false end
+        if e.kind=="BorderGrowth" and (not owner(e.ownerId) or e.public==true or e.tileId==nil or e.cityId==nil) then return false end
         if e.kind=="Contact" or e.kind=="WarWarning" then
             -- These announcements must never smuggle a location or an entity through fog, including in a save.
             if e.tileId~=nil or e.unitId~=nil or e.cityId~=nil or e.unitKind~=nil or e.wonder~=nil or e.cause~=nil or e.byOwnerId~=nil or e.amount~=nil then return false end
@@ -341,26 +345,32 @@ end
 function BaseSave.restore(saved: any): (any?,string?)
     if not BaseSave.valid(saved) then return nil,"Unsupported or corrupt base-game save." end
     local state=copy(saved.state)
-    if state.diplomacy.met==nil then
-        -- Old war saves imply contact. Peace saves use current sight, never the historical explored set.
-        state.diplomacy.met=state.diplomacy.status=="War"
-        if not state.diplomacy.met then
-            local map=if state.mapShape=="Sphere" then WorldMap.fromSphereTiles(state.tiles,state.frequency) else WorldMap.fromTiles(state.tiles,state.radius)
-            for actor=1,2 do
-                local centers={}; for _, entities in {state.units,state.cities} do for _, entity in entities do if entity.ownerId==actor then table.insert(centers,entity.tileId) end end end
-                local seen={}; for _, tileId in WorldMap.visibility(map,centers,2) do seen[tileId]=true end
-                for _, entities in {state.units,state.cities} do for _, entity in entities do if entity.ownerId==3-actor and seen[entity.tileId] then state.diplomacy.met=true end end end
-            end
-            if state.diplomacy.met then
-                table.insert(state.events,{id=state.nextEvent,kind="Contact",message="Contact established with the rival civilization.",public=true}); state.nextEvent+=1
-                if #state.events>64 then
-                    local retained={UnitLost=true,CityLost=true,Eliminated=true,Victory=true,WonderBuilt=true,WonderLost=true,GoldenAgeStarted=true,GoldenAgeEnded=true,CampCleared=true,Contact=true,WarWarning=true}
-                    local drop=1; for i=1,#state.events-1 do local e=state.events[i]; if not (retained :: any)[e.kind] or e.ownerId==BARBARIAN then drop=i; break end end
-                    table.remove(state.events,drop)
+    -- Legacy borders: assign each owned tile within three to its nearest own city (lowest city id on a tie),
+    -- then subtract the seven founding tiles. Never change ownership, including old population-radius territory.
+    local needsBorders=false
+    for _, c in state.cities do if c.borderTiles==nil then needsBorders=true end; if c.borderCulture==nil then c.borderCulture=0 end end
+    if needsBorders then
+        local map=if state.mapShape=="Sphere" then WorldMap.fromSphereTiles(state.tiles,state.frequency) else WorldMap.fromTiles(state.tiles,state.radius)
+        local counts: {[number]: number}={}
+        for _, c in state.cities do
+            for _, tileId in WorldMap.range(map,c.tileId,3) do
+                if state.tiles[tileId].ownerId~=c.ownerId then continue end
+                local d=WorldMap.distance(map,c.tileId,tileId); local nearest=true
+                for _, other in state.cities do
+                    if other.ownerId~=c.ownerId or other.id==c.id then continue end
+                    local od=WorldMap.cappedDistance(map,other.tileId,tileId,d+1)
+                    if od<d or (od==d and other.id<c.id) then nearest=false; break end
                 end
+                if nearest then counts[c.id]=(counts[c.id] or 0)+1 end
             end
         end
+        for _, c in state.cities do if c.borderTiles==nil then c.borderTiles=math.max(0,(counts[c.id] or 0)-7) end end
     end
+    -- Old war saves imply contact. Current sight also repairs a persisted false, never clears a true.
+    if state.diplomacy.met==nil then state.diplomacy.met=state.diplomacy.status=="War" end
+    local map=if state.mapShape=="Sphere" then WorldMap.fromSphereTiles(state.tiles,state.frequency) else WorldMap.fromTiles(state.tiles,state.radius)
+    -- Reconcile both owners with the command helper, silently: event ids/history and resume replays stay intact.
+    Vision.refresh(state,map)
     local plan=state.diplomacy.warPlan
     if plan and (state.diplomacy.peaceUntil~=plan.peaceUntil or state.turn<state.diplomacy.peaceUntil) then state.diplomacy.warPlan=nil end
     -- Migrate legacy research to the derived cost, preserving its completed fraction (rounded down).

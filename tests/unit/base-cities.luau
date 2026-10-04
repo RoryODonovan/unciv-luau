@@ -65,7 +65,7 @@ do
 end
 -- Ends the actor's turn and asserts every own city changed exactly as the snapshot forecast said:
 -- growth iff growthTurns==1, completion iff productionTurns==1, never while productionBlocked.
--- Returns whether a city of population 3+ still had unowned tiles to claim (the claim the step makes first).
+-- Returns whether a city of population 3+ still has unowned tiles in its work radius.
 local function endTurnMatchesForecast(s: any,actor: number): boolean
     local graph=WorldMap.fromTiles(s.tiles,s.radius)
     local view=Game.snapshot(s,actor); local before={}; local pending=false
@@ -88,8 +88,7 @@ local function endTurnMatchesForecast(s: any,actor: number): boolean
     return pending
 end
 
--- 3. Seed 2, two humans, radius 6 (the reported case): once a city reaches population 3 the economy claims its
--- wider work radius before choosing tiles; the forecast replays that claim without touching the state.
+-- 3. Seed 2, two humans, radius 6: forecasts stay exact as population and culture borders grow.
 do
     local s: any=Game.new(2,{humanPlayers=2,radius=6})
     for actor=1,2 do
@@ -118,11 +117,11 @@ local function fixture(seed: number): (any, any, any)
 end
 local function rival(s: any): any for _, c in s.cities do if c.ownerId==2 then return c end end; error("missing rival") end
 local function plain(tile: any, terrain: string, ownerId: number?)
-    tile.terrain=terrain; tile.resource=nil; tile.improvement=nil; tile.road=nil; tile.ownerId=ownerId
+    tile.terrain=terrain; tile.resource=nil; tile.improvement=nil; tile.road=nil; tile.feature=nil; tile.river=nil; tile.ownerId=ownerId
 end
 
 -- 4. Constructed expansion: a population-3 city whose only owned tiles are Tundra and whose unclaimed outer ring
--- is Grassland. The forecast already counts three Grassland citizens (2 + 3*3 - 6 food) and leaves the ring unowned.
+-- is Grassland. Population cannot work or claim that unowned ring; culture is still below its threshold.
 do
     local s,city,graph=fixture(42)
     assert(WorldMap.distance(graph,city.tileId,rival(s).tileId)>=5,"fixture capital is far from the rival")
@@ -132,14 +131,13 @@ do
         plain(s.tiles[id],if WorldMap.distance(graph,city.tileId,id)==1 then "Tundra" else "Grassland",if WorldMap.distance(graph,city.tileId,id)==1 then 1 else nil)
     end
     local forecast=Game.snapshot(s,1).cityForecasts[tostring(city.id)]
-    assert(forecast.food==5 and forecast.production==2,"forecast counts the claimable ring: "..forecast.food.."/"..forecast.production)
+    assert(forecast.food==-1 and forecast.production==2,"forecast excludes the unowned ring: "..forecast.food.."/"..forecast.production)
     for _, id in WorldMap.range(graph,city.tileId,2) do if WorldMap.distance(graph,city.tileId,id)==2 then assert(s.tiles[id].ownerId==nil,"snapshot leaves the ring unclaimed") end end
     endTurnMatchesForecast(s,1)
-    for _, id in WorldMap.range(graph,city.tileId,2) do assert(s.tiles[id].ownerId==1,"the economy claimed the ring") end
+    for _, id in WorldMap.range(graph,city.tileId,2) do if WorldMap.distance(graph,city.tileId,id)==2 then assert(s.tiles[id].ownerId==nil,"population did not claim the ring") end end
 end
 
--- 5. Two own cities compete for tiles: the economy visits cities in id order, so the older city claims and works the
--- shared Farm tile first and the newer city cannot. The forecast follows the same order.
+-- 5. Two own cities compete for owned tiles in id order. An unowned tile stays unavailable without culture.
 do
     local s,first,graph=fixture(43)
     local far=rival(s).tileId
@@ -169,12 +167,12 @@ do
     local view=Game.snapshot(s,1)
     local older,newer=view.cityForecasts[tostring(first.id)],view.cityForecasts[tostring(second.id)]
     -- Older city (population 3, happiness 0): centre 2 + Farm 5 + claimed Grassland 3 + Tundra 1 - 6 food.
-    assert(older.food==5,"older city works the shared Farm and its claim: "..older.food)
+    assert(older.food==3,"older city works the shared Farm but no claim: "..older.food)
     -- Newer city (population 2): centre 2 + two Tundra - 4 food; the Farm and the claimed tile are taken.
     assert(newer.food==0,"newer city loses the contested tiles: "..newer.food)
     assert(s.tiles[unclaimed].ownerId==nil)
     endTurnMatchesForecast(s,1)
-    assert(s.tiles[unclaimed].ownerId==1)
+    assert(s.tiles[unclaimed].ownerId==nil,"population never claims territory")
 end
 
 -- 6. A saved game whose deployment tiles are all occupied: the queue is complete in cost but cannot finish, so
@@ -311,9 +309,7 @@ do
     endTurnMatchesForecast(s,1)
 end
 
--- 9. Strategic resources the step's claim brings in count for availability: a population-3 city with Iron Working
--- and a full Swordsman queue has its only Iron Mine two tiles out, still unowned. The step claims it first and
--- completes the Swordsman, and the forecast says so without claiming the tile itself.
+-- 9. Population three cannot acquire an unowned Iron Mine or make a Swordsman available.
 do
     local s,city,graph=fixture(47)
     city.population=3
@@ -328,10 +324,10 @@ do
     plain(mine,"Hills",nil); mine.resource="Iron"; mine.improvement="Mine"
     city.queue="Swordsman"; city.production=Rules.productionCosts.Swordsman
     local forecast=Game.snapshot(s,1).cityForecasts[tostring(city.id)]
-    assert(forecast.productionTurns==1 and forecast.productionBlocked==nil,"the claimed Iron makes the Swordsman available")
+    assert(forecast.productionTurns==nil and forecast.productionBlocked=="NotAvailable","unowned Iron cannot make the Swordsman available")
     assert(mine.ownerId==nil,"the snapshot does not claim the mine")
     endTurnMatchesForecast(s,1)
     local swordsmen=0; for _, u in s.units do if u.ownerId==1 and u.kind=="Swordsman" then swordsmen += 1 end end
-    assert(swordsmen==1 and mine.ownerId==1,"the step claimed the mine and completed the Swordsman")
+    assert(swordsmen==0 and mine.ownerId==nil,"population never acquires the mine")
 end
 print("base cities: founding-order names per civilization, exact per-city forecasts for own cities only passed")
