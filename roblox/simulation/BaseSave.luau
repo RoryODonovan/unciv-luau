@@ -1,6 +1,6 @@
 --!strict
 -- Generated module-only Roblox form. Source: src/simulation/BaseSave.luau
--- Source SHA-256: a38177be28c3c38e4cef067922edea8c79f3afd02a501e96a3432e8a88c50e24
+-- Source SHA-256: 68633c76939d07fbb793a59e42036b4b256e4444d35035aec4d9547f0e8e8ae9
 -- Reproduce with tools/roblox-export.mjs; preserve MPL notices below.
 -- Covered source: https://github.com/RoryODonovan/unciv-luau
 -- This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
@@ -139,7 +139,10 @@ function BaseSave.valid(saved: any): boolean
     if not id(s.nextUnit) or not id(s.nextCity) or not id(s.nextTrade) or not integer(s.nextEvent,1,1000000000) then return false end
     if s.phase=="Playing" then if s.winner~=nil or s.reason~=nil or s.victoryType~=nil then return false end
     elseif s.phase=="Finished" then
-        if not owner(s.winner) or not text(s.reason,256) or (s.victoryType~="Science" and s.victoryType~="Culture" and s.victoryType~="Domination" and s.victoryType~="Score") then return false end
+        if not text(s.reason,256) then return false end
+        if s.victoryType=="Draw" then
+            if s.winner~=nil then return false end
+        elseif not owner(s.winner) or (s.victoryType~="Science" and s.victoryType~="Culture" and s.victoryType~="Domination" and s.victoryType~="Score") then return false end
     else return false end
     if not array(s.tiles,Rules.maxTiles) or #s.tiles~=(if sphere then 10*s.frequency*s.frequency+2 else 1+3*s.radius*(s.radius+1)) or not array(s.units,Rules.maxUnits) or not array(s.cities,Rules.maxCities) or not array(s.players,2) or #s.players~=2 then return false end
     local coordinates,tiles={},{}
