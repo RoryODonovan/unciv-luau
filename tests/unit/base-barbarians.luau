@@ -249,6 +249,9 @@ do
         local most,mostUnits=0,0; local started=os.clock()
         for _=1,59 do
             if s.phase~="Playing" then break end
+            -- This fixture measures camp caps, not the faster culture race from paced city development.
+            -- Keep the AI from adopting policies and ending the match before all scheduled camps can appear.
+            s.players[2].culture=0
             humanTurn(s)
             most=math.max(most,#s.barbarians.camps)
             local count=#barbarians(s); mostUnits=math.max(mostUnits,count)

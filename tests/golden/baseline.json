@@ -57,8 +57,8 @@
           "checkpoint": "initial",
           "completedRound": 0,
           "hashes": {
-            "actor1": "36b1938745a43cf2",
-            "actor2": "457e43440d165cb6",
+            "actor1": "bcff231d17466d6d",
+            "actor2": "156de448cbd1594a",
             "state": "248f06c5a6741be8"
           },
           "stateRound": 1
@@ -67,9 +67,9 @@
           "checkpoint": "round-10",
           "completedRound": 10,
           "hashes": {
-            "actor1": "7debe9ad860db432",
-            "actor2": "8804d26243742822",
-            "state": "76d0eec66355aca6"
+            "actor1": "a230b7f434203f96",
+            "actor2": "4479e8b733adbc3e",
+            "state": "e83187e7034cdaf6"
           },
           "stateRound": 11
         },
@@ -77,9 +77,9 @@
           "checkpoint": "round-20",
           "completedRound": 20,
           "hashes": {
-            "actor1": "a33d582612972610",
-            "actor2": "c3e2ba90ef00a11f",
-            "state": "ea99ec2435311eb7"
+            "actor1": "81d964a432d07e30",
+            "actor2": "dc0fa7d1d662b22b",
+            "state": "8155dc110a176575"
           },
           "stateRound": 21
         },
@@ -87,9 +87,9 @@
           "checkpoint": "round-30",
           "completedRound": 30,
           "hashes": {
-            "actor1": "3f9a4b44b10e92ec",
-            "actor2": "5ea1c462d8da25d9",
-            "state": "b2d6b09e2ba70eed"
+            "actor1": "618f93868c032fab",
+            "actor2": "2e440d23584c2940",
+            "state": "2bf90951fcfcc381"
           },
           "stateRound": 31
         },
@@ -97,27 +97,27 @@
           "checkpoint": "round-40",
           "completedRound": 40,
           "hashes": {
-            "actor1": "c5636b07987bab87",
-            "actor2": "23d745145863a237",
-            "state": "6dbc64afb51de1f7"
+            "actor1": "9365536ff6ceaf3b",
+            "actor2": "9bb947aafe5a5d56",
+            "state": "9bf4fc847fb96e52"
           },
           "stateRound": 41
         },
         {
           "checkpoint": "final",
-          "completedRound": 41,
+          "completedRound": 45,
           "hashes": {
-            "actor1": "f7ad700ca8fa6585",
-            "actor2": "cdd1a94f4c054b1d",
-            "state": "52c54d4439b5637b"
+            "actor1": "ad11ab2b2a233a48",
+            "actor2": "22ad6cd6cb73f809",
+            "state": "46cfed1c0cb96420"
           },
-          "stateRound": 41
+          "stateRound": 45
         }
       ],
-      "finalRound": 41,
+      "finalRound": 45,
       "id": "Quick/Hex/seed-7919/barbarians-on",
       "phase": "Finished",
-      "victoryType": "Culture",
+      "victoryType": "Score",
       "winner": 2
     },
     {
@@ -126,8 +126,8 @@
           "checkpoint": "initial",
           "completedRound": 0,
           "hashes": {
-            "actor1": "0e77cd89247c72b3",
-            "actor2": "5b9d97d97a8abdd8",
+            "actor1": "9f9d2bda577248a1",
+            "actor2": "c7de418ccf02717c",
             "state": "089b56e2d48c826e"
           },
           "stateRound": 1
@@ -136,9 +136,9 @@
           "checkpoint": "round-10",
           "completedRound": 10,
           "hashes": {
-            "actor1": "51322964ceedc9d0",
-            "actor2": "21f471e46f0075a0",
-            "state": "f56df2256e43c21d"
+            "actor1": "936e415c7ccb79a2",
+            "actor2": "5d27dbd77e0535f3",
+            "state": "0b064469b4101f6f"
           },
           "stateRound": 11
         },
@@ -146,9 +146,9 @@
           "checkpoint": "round-20",
           "completedRound": 20,
           "hashes": {
-            "actor1": "893a7450f3d7f7b4",
-            "actor2": "de61986b66ea94f9",
-            "state": "a2f8b006fa135402"
+            "actor1": "1155f59545818f19",
+            "actor2": "dfedf57ff948f620",
+            "state": "2694d9a9c21548e6"
           },
           "stateRound": 21
         },
@@ -156,27 +156,37 @@
           "checkpoint": "round-30",
           "completedRound": 30,
           "hashes": {
-            "actor1": "8b851f5c992e918d",
-            "actor2": "d71840917f484c28",
-            "state": "edd8c982800da52b"
+            "actor1": "c512591396ed084c",
+            "actor2": "859a3c7c41aee49a",
+            "state": "86838cfb651f51b6"
           },
           "stateRound": 31
         },
         {
-          "checkpoint": "final",
-          "completedRound": 39,
+          "checkpoint": "round-40",
+          "completedRound": 40,
           "hashes": {
-            "actor1": "229161bb9933d395",
-            "actor2": "dc46e49168b7b04f",
-            "state": "b69885f9daa9c801"
+            "actor1": "fd2abd1dc62ba2fa",
+            "actor2": "7ed1309da8699333",
+            "state": "1cb02552a4cbd773"
           },
-          "stateRound": 39
+          "stateRound": 41
+        },
+        {
+          "checkpoint": "final",
+          "completedRound": 45,
+          "hashes": {
+            "actor1": "f5ced16e085f8113",
+            "actor2": "7b857906b3c6010b",
+            "state": "f097522d7d7ea2b7"
+          },
+          "stateRound": 45
         }
       ],
-      "finalRound": 39,
+      "finalRound": 45,
       "id": "Quick/Hex/seed-15838/barbarians-off",
       "phase": "Finished",
-      "victoryType": "Culture",
+      "victoryType": "Score",
       "winner": 2
     },
     {
@@ -185,8 +195,8 @@
           "checkpoint": "initial",
           "completedRound": 0,
           "hashes": {
-            "actor1": "c4e1ad3f805fe13a",
-            "actor2": "47c37b6d40e2d7c7",
+            "actor1": "5a2189fa5ca51960",
+            "actor2": "c1bd469d22ad1e03",
             "state": "faf3584399aaf31f"
           },
           "stateRound": 1
@@ -195,9 +205,9 @@
           "checkpoint": "round-10",
           "completedRound": 10,
           "hashes": {
-            "actor1": "10bc04ec82568d02",
-            "actor2": "30e1d4aff9142c9a",
-            "state": "7b8850d1ad504ef9"
+            "actor1": "593efc1f04b97aff",
+            "actor2": "d6de678bd3c84d0b",
+            "state": "48366db9ddb4d5f9"
           },
           "stateRound": 11
         },
@@ -205,9 +215,9 @@
           "checkpoint": "round-20",
           "completedRound": 20,
           "hashes": {
-            "actor1": "097cc915d42420c5",
-            "actor2": "857f1cc1e620cc3f",
-            "state": "cccb398f4cd26eb3"
+            "actor1": "d45325219b90ccf2",
+            "actor2": "790ff9552148367f",
+            "state": "2b9892c958c162db"
           },
           "stateRound": 21
         },
@@ -215,37 +225,27 @@
           "checkpoint": "round-30",
           "completedRound": 30,
           "hashes": {
-            "actor1": "399d134fa1efff34",
-            "actor2": "077b37c340077de7",
-            "state": "0edcbdc5136be91f"
+            "actor1": "1ec4cb707239532d",
+            "actor2": "01c1acf6760fde87",
+            "state": "ebe3cec2177351f6"
           },
           "stateRound": 31
         },
         {
-          "checkpoint": "round-40",
-          "completedRound": 40,
-          "hashes": {
-            "actor1": "822d961820823784",
-            "actor2": "7d20acba7dde6c2b",
-            "state": "f9fad6eed5147039"
-          },
-          "stateRound": 41
-        },
-        {
           "checkpoint": "final",
-          "completedRound": 42,
+          "completedRound": 32,
           "hashes": {
-            "actor1": "a1ccac9f63219721",
-            "actor2": "067ef1b3408cd7ed",
-            "state": "7bf335926e37a576"
+            "actor1": "ebea9fb6aeadb06e",
+            "actor2": "1616c1d2bf323766",
+            "state": "9cf4c249d9d05e6a"
           },
-          "stateRound": 42
+          "stateRound": 32
         }
       ],
-      "finalRound": 42,
+      "finalRound": 32,
       "id": "Quick/Hex/seed-23757/barbarians-on",
       "phase": "Finished",
-      "victoryType": "Culture",
+      "victoryType": "Domination",
       "winner": 2
     },
     {
@@ -254,8 +254,8 @@
           "checkpoint": "initial",
           "completedRound": 0,
           "hashes": {
-            "actor1": "8b69615162caab61",
-            "actor2": "0f96053f973f513c",
+            "actor1": "5554f080cc137ce4",
+            "actor2": "bab66c509543d970",
             "state": "5042c9714843da7a"
           },
           "stateRound": 1
@@ -264,9 +264,9 @@
           "checkpoint": "round-10",
           "completedRound": 10,
           "hashes": {
-            "actor1": "f3cdcecd61aaacf7",
-            "actor2": "c138be54bf7aafdb",
-            "state": "b4028a2d23dc03d2"
+            "actor1": "4696c224d22edbd4",
+            "actor2": "680c4896fc6fc0e5",
+            "state": "5c6f6d34a9c50b4c"
           },
           "stateRound": 11
         },
@@ -274,9 +274,9 @@
           "checkpoint": "round-20",
           "completedRound": 20,
           "hashes": {
-            "actor1": "2a34a30d8e71ad74",
-            "actor2": "37d0930c983f1c98",
-            "state": "76f9395181c1c1c6"
+            "actor1": "28264e04aeb98b31",
+            "actor2": "f84c63d3b4559c62",
+            "state": "151377f31da63042"
           },
           "stateRound": 21
         },
@@ -284,24 +284,34 @@
           "checkpoint": "round-30",
           "completedRound": 30,
           "hashes": {
-            "actor1": "c9d3aeb02f98c434",
-            "actor2": "a237becf194e84e9",
-            "state": "ea021de700ffa5a3"
+            "actor1": "6eb6c1e30fde26f1",
+            "actor2": "d640b7eee6513f01",
+            "state": "777ff3e48234c271"
           },
           "stateRound": 31
         },
         {
-          "checkpoint": "final",
-          "completedRound": 38,
+          "checkpoint": "round-40",
+          "completedRound": 40,
           "hashes": {
-            "actor1": "cafcbffbae7c01be",
-            "actor2": "28d473f1504ae885",
-            "state": "c4e4828f46752cfe"
+            "actor1": "82b060d3c1735e4a",
+            "actor2": "8c2f5609eb0cf3a0",
+            "state": "e01162414f67932e"
           },
-          "stateRound": 38
+          "stateRound": 41
+        },
+        {
+          "checkpoint": "final",
+          "completedRound": 45,
+          "hashes": {
+            "actor1": "b3e564d190fb7517",
+            "actor2": "c2b7ac32a614f8b9",
+            "state": "09cac004b69127d9"
+          },
+          "stateRound": 45
         }
       ],
-      "finalRound": 38,
+      "finalRound": 45,
       "id": "Quick/Hex/seed-31676/barbarians-off",
       "phase": "Finished",
       "victoryType": "Culture",
@@ -313,8 +323,8 @@
           "checkpoint": "initial",
           "completedRound": 0,
           "hashes": {
-            "actor1": "be726aecd325fd97",
-            "actor2": "4090004f8f1210c7",
+            "actor1": "ee2fd89e06238f72",
+            "actor2": "2729d75fb0ff73bd",
             "state": "e718813bb28e357b"
           },
           "stateRound": 1
@@ -323,9 +333,9 @@
           "checkpoint": "round-10",
           "completedRound": 10,
           "hashes": {
-            "actor1": "d3c79a226fbaeaeb",
-            "actor2": "a772f7ac264e22fc",
-            "state": "db430f1eaef979c5"
+            "actor1": "c585122d32525d79",
+            "actor2": "3d3666a5ea3c000d",
+            "state": "8a7ccf8138c8d171"
           },
           "stateRound": 11
         },
@@ -333,9 +343,9 @@
           "checkpoint": "round-20",
           "completedRound": 20,
           "hashes": {
-            "actor1": "c526c7ca8f0b6807",
-            "actor2": "7b2b60e97a070dad",
-            "state": "e2e2d5d534ec41ef"
+            "actor1": "9235a1ca87b4f194",
+            "actor2": "4550b73d17846e71",
+            "state": "a8ffb36e64db892e"
           },
           "stateRound": 21
         },
@@ -343,9 +353,9 @@
           "checkpoint": "round-30",
           "completedRound": 30,
           "hashes": {
-            "actor1": "46fff274d857891f",
-            "actor2": "ec7caa73ef9b5d14",
-            "state": "f68083968b0fbd9c"
+            "actor1": "cd1b338f02643bdc",
+            "actor2": "25f177f442177b37",
+            "state": "c0036d35d6a92542"
           },
           "stateRound": 31
         },
@@ -353,27 +363,27 @@
           "checkpoint": "round-40",
           "completedRound": 40,
           "hashes": {
-            "actor1": "138daa8e18701c95",
-            "actor2": "0a19686d8874bc21",
-            "state": "ecfc9be27b1d0b50"
+            "actor1": "47e16b5642b112d5",
+            "actor2": "f50438701f43c01c",
+            "state": "9a07d3fd9ae8b402"
           },
-          "stateRound": 40
+          "stateRound": 41
         },
         {
           "checkpoint": "final",
-          "completedRound": 40,
+          "completedRound": 44,
           "hashes": {
-            "actor1": "138daa8e18701c95",
-            "actor2": "0a19686d8874bc21",
-            "state": "ecfc9be27b1d0b50"
+            "actor1": "9c8e0064876fe61b",
+            "actor2": "f08729a4f1ddf523",
+            "state": "d04f48a1b0908e16"
           },
-          "stateRound": 40
+          "stateRound": 44
         }
       ],
-      "finalRound": 40,
+      "finalRound": 44,
       "id": "Quick/Hex/seed-39595/barbarians-on",
       "phase": "Finished",
-      "victoryType": "Culture",
+      "victoryType": "Domination",
       "winner": 2
     },
     {
@@ -382,8 +392,8 @@
           "checkpoint": "initial",
           "completedRound": 0,
           "hashes": {
-            "actor1": "9e0c4f57e5c26be0",
-            "actor2": "7e630f98af686cc8",
+            "actor1": "8aab449a60a0d3da",
+            "actor2": "b1f524607c64ce3e",
             "state": "fa4824d04ef310b2"
           },
           "stateRound": 1
@@ -392,9 +402,9 @@
           "checkpoint": "round-10",
           "completedRound": 10,
           "hashes": {
-            "actor1": "8f62060c7aeacc88",
-            "actor2": "2d4ffbb1430e3ad6",
-            "state": "b931fcb07330164e"
+            "actor1": "7bef4d8b6df4b030",
+            "actor2": "8888fbfc2d864778",
+            "state": "0de41cf1e13ec8a3"
           },
           "stateRound": 11
         },
@@ -402,9 +412,9 @@
           "checkpoint": "round-20",
           "completedRound": 20,
           "hashes": {
-            "actor1": "1f356d1d54f3e299",
-            "actor2": "a5e16a829868066e",
-            "state": "6fb7630034a83d6a"
+            "actor1": "2ebf4386c597e9b1",
+            "actor2": "e731775433aaa961",
+            "state": "62e2cca10edc04af"
           },
           "stateRound": 21
         },
@@ -412,24 +422,34 @@
           "checkpoint": "round-30",
           "completedRound": 30,
           "hashes": {
-            "actor1": "8c6826529429b31f",
-            "actor2": "acabf301f8369d7c",
-            "state": "987affc744204558"
+            "actor1": "d2d862d572d8348a",
+            "actor2": "bfdf8a714b309dbb",
+            "state": "5a3910c1a743092a"
           },
           "stateRound": 31
         },
         {
-          "checkpoint": "final",
-          "completedRound": 37,
+          "checkpoint": "round-40",
+          "completedRound": 40,
           "hashes": {
-            "actor1": "fe57df013f8d076b",
-            "actor2": "b18160a76fa8e4cf",
-            "state": "f5e9ddb720896567"
+            "actor1": "a2b4654eedb128a8",
+            "actor2": "80c134a26b864397",
+            "state": "eff5fadb426e7340"
           },
-          "stateRound": 37
+          "stateRound": 41
+        },
+        {
+          "checkpoint": "final",
+          "completedRound": 41,
+          "hashes": {
+            "actor1": "66d351b15a70c76e",
+            "actor2": "e500fad92cab90a4",
+            "state": "96eef54c0c9bab39"
+          },
+          "stateRound": 41
         }
       ],
-      "finalRound": 37,
+      "finalRound": 41,
       "id": "Quick/Hex/seed-47514/barbarians-off",
       "phase": "Finished",
       "victoryType": "Culture",
@@ -441,8 +461,8 @@
           "checkpoint": "initial",
           "completedRound": 0,
           "hashes": {
-            "actor1": "2a7838e90ab59caf",
-            "actor2": "24d58d3c7c742d01",
+            "actor1": "d2fcceb29ef4e4de",
+            "actor2": "6c0d358990a1ecfd",
             "state": "e9ed6a69fc768177"
           },
           "stateRound": 1
@@ -451,9 +471,9 @@
           "checkpoint": "round-10",
           "completedRound": 10,
           "hashes": {
-            "actor1": "0f78aa11830bd3a4",
-            "actor2": "e57c2bc500ffd953",
-            "state": "678323da59281954"
+            "actor1": "d0738fe9f052f02d",
+            "actor2": "fe0d1aa310a54767",
+            "state": "ddba4041eb0bc57b"
           },
           "stateRound": 11
         },
@@ -461,9 +481,9 @@
           "checkpoint": "round-20",
           "completedRound": 20,
           "hashes": {
-            "actor1": "4c97ac5f375d5922",
-            "actor2": "bed82a75c561dea5",
-            "state": "163e8309add1c638"
+            "actor1": "a946b052706ec16e",
+            "actor2": "40a3ac83e2a4bab4",
+            "state": "e180ab4e38c2d6fb"
           },
           "stateRound": 21
         },
@@ -471,27 +491,27 @@
           "checkpoint": "round-30",
           "completedRound": 30,
           "hashes": {
-            "actor1": "065157388144e4e5",
-            "actor2": "9540f93d1be4fa82",
-            "state": "3953878cb241deeb"
+            "actor1": "a2dae84191885183",
+            "actor2": "0fb99a6f3e60c182",
+            "state": "c53a417d6fa8c862"
           },
           "stateRound": 31
         },
         {
           "checkpoint": "final",
-          "completedRound": 38,
+          "completedRound": 39,
           "hashes": {
-            "actor1": "74946eab856fdc04",
-            "actor2": "68ee90bbb85b6dba",
-            "state": "e6f62ec835532c0f"
+            "actor1": "0fde5a92b58deafb",
+            "actor2": "069be605f78b714f",
+            "state": "0b9654d82205e983"
           },
-          "stateRound": 38
+          "stateRound": 39
         }
       ],
-      "finalRound": 38,
+      "finalRound": 39,
       "id": "Quick/Hex/seed-55433/barbarians-on",
       "phase": "Finished",
-      "victoryType": "Culture",
+      "victoryType": "Domination",
       "winner": 2
     },
     {
@@ -500,8 +520,8 @@
           "checkpoint": "initial",
           "completedRound": 0,
           "hashes": {
-            "actor1": "89a64f79af065d6d",
-            "actor2": "028070e6e204f657",
+            "actor1": "a58c25da5a3fb66e",
+            "actor2": "9137b2a4ebc2f66f",
             "state": "0b116bfde7d19cee"
           },
           "stateRound": 1
@@ -510,9 +530,9 @@
           "checkpoint": "round-10",
           "completedRound": 10,
           "hashes": {
-            "actor1": "80356e37a7ce450b",
-            "actor2": "3fd93e7cadcc281d",
-            "state": "f3b72c8fb704de2d"
+            "actor1": "3886d0e2579d90da",
+            "actor2": "980c56299a04ba1f",
+            "state": "80243f5369f208c1"
           },
           "stateRound": 11
         },
@@ -520,9 +540,9 @@
           "checkpoint": "round-20",
           "completedRound": 20,
           "hashes": {
-            "actor1": "1d611dab249e0ea5",
-            "actor2": "757690580bcf011e",
-            "state": "eab75b75c94d6eaf"
+            "actor1": "7d14d7029b25114e",
+            "actor2": "8d6539f6dddac07f",
+            "state": "ec5a61bdb000590f"
           },
           "stateRound": 21
         },
@@ -530,27 +550,37 @@
           "checkpoint": "round-30",
           "completedRound": 30,
           "hashes": {
-            "actor1": "ded8d38c88e3a3ae",
-            "actor2": "cef09d6e95eeccf7",
-            "state": "b91eb89ddb5d4af5"
+            "actor1": "ba996f81849f77d5",
+            "actor2": "9823599a899fc323",
+            "state": "e4d498bb3e8f2941"
           },
           "stateRound": 31
         },
         {
-          "checkpoint": "final",
-          "completedRound": 36,
+          "checkpoint": "round-40",
+          "completedRound": 40,
           "hashes": {
-            "actor1": "c723ad6862a11008",
-            "actor2": "e9c8a7e60c1b3a54",
-            "state": "620cdbf4a40aafa1"
+            "actor1": "9a3d1bdb41a1d18a",
+            "actor2": "08b3c8f1bd4048d1",
+            "state": "8c3488a07adb8d2a"
           },
-          "stateRound": 36
+          "stateRound": 41
+        },
+        {
+          "checkpoint": "final",
+          "completedRound": 45,
+          "hashes": {
+            "actor1": "19af40b2c8f27149",
+            "actor2": "4783e127019c7865",
+            "state": "a1d89e5ea023d09f"
+          },
+          "stateRound": 45
         }
       ],
-      "finalRound": 36,
+      "finalRound": 45,
       "id": "Quick/Hex/seed-63352/barbarians-off",
       "phase": "Finished",
-      "victoryType": "Culture",
+      "victoryType": "Score",
       "winner": 2
     },
     {
@@ -559,8 +589,8 @@
           "checkpoint": "initial",
           "completedRound": 0,
           "hashes": {
-            "actor1": "725e4c3cce0d2dfe",
-            "actor2": "98e70c9c916e1906",
+            "actor1": "14bd1a30dac33574",
+            "actor2": "080da1c4c4188447",
             "state": "7bab8108b5bc625b"
           },
           "stateRound": 1
@@ -569,9 +599,9 @@
           "checkpoint": "round-10",
           "completedRound": 10,
           "hashes": {
-            "actor1": "19d0296330af9f27",
-            "actor2": "118aae3946e7a09c",
-            "state": "d7541ca5fcd86c0a"
+            "actor1": "29d6361ad2e5a5d1",
+            "actor2": "7793ce15d2f10408",
+            "state": "95cc8cc9eb80b6b8"
           },
           "stateRound": 11
         },
@@ -579,9 +609,9 @@
           "checkpoint": "round-20",
           "completedRound": 20,
           "hashes": {
-            "actor1": "f1bdd743f6916d7c",
-            "actor2": "97104934748ffc7d",
-            "state": "c32ec1d0e3ba7d5d"
+            "actor1": "f80f46b5d00d51ae",
+            "actor2": "a0d2bbb2ffa6324b",
+            "state": "e416c7a3d060423c"
           },
           "stateRound": 21
         },
@@ -589,9 +619,9 @@
           "checkpoint": "round-30",
           "completedRound": 30,
           "hashes": {
-            "actor1": "2b1ff879ef71270e",
-            "actor2": "c87c2b43627eab9c",
-            "state": "955f1b4715091340"
+            "actor1": "1297b0ca91e054f2",
+            "actor2": "66030cbaded31a36",
+            "state": "860711aff716894e"
           },
           "stateRound": 31
         },
@@ -599,27 +629,27 @@
           "checkpoint": "round-40",
           "completedRound": 40,
           "hashes": {
-            "actor1": "aed70240881883ed",
-            "actor2": "59af2d360f3265b0",
-            "state": "243fb4326d8ecc92"
+            "actor1": "7883ce79933daab4",
+            "actor2": "9d4eb19ad077978b",
+            "state": "37ff9691e76ac453"
           },
           "stateRound": 41
         },
         {
           "checkpoint": "final",
-          "completedRound": 41,
+          "completedRound": 45,
           "hashes": {
-            "actor1": "8efd052eebaa39b8",
-            "actor2": "7fa107922bcdcbf2",
-            "state": "c7def2b05dc988f3"
+            "actor1": "59c71a6735e39255",
+            "actor2": "b1f6280b9155bfb8",
+            "state": "eaf9570c1593e358"
           },
-          "stateRound": 41
+          "stateRound": 45
         }
       ],
-      "finalRound": 41,
+      "finalRound": 45,
       "id": "Quick/Sphere/seed-7919/barbarians-on",
       "phase": "Finished",
-      "victoryType": "Culture",
+      "victoryType": "Score",
       "winner": 2
     },
     {
@@ -628,8 +658,8 @@
           "checkpoint": "initial",
           "completedRound": 0,
           "hashes": {
-            "actor1": "0d4264cdb255ab39",
-            "actor2": "92821130b414a12d",
+            "actor1": "99a12b1aefeb3bf3",
+            "actor2": "b0ad2725e2d6f70d",
             "state": "54f990dec376415c"
           },
           "stateRound": 1
@@ -638,9 +668,9 @@
           "checkpoint": "round-10",
           "completedRound": 10,
           "hashes": {
-            "actor1": "f2b9ffe652e33d84",
-            "actor2": "8fc44ca95b6a9b09",
-            "state": "93bd50a4ad6c0aed"
+            "actor1": "eb2a970771d804d1",
+            "actor2": "f9324f37a2637b24",
+            "state": "fd46e2ae8fd7a3ec"
           },
           "stateRound": 11
         },
@@ -648,9 +678,9 @@
           "checkpoint": "round-20",
           "completedRound": 20,
           "hashes": {
-            "actor1": "381acec30e755d8d",
-            "actor2": "78d6a762bcbd1684",
-            "state": "45b83cab0f907f11"
+            "actor1": "dbf9123a427d9423",
+            "actor2": "ee71109d05622636",
+            "state": "b533fee21b01367f"
           },
           "stateRound": 21
         },
@@ -658,9 +688,9 @@
           "checkpoint": "round-30",
           "completedRound": 30,
           "hashes": {
-            "actor1": "29b01ccb6c3bcce1",
-            "actor2": "5a721e824eda1f80",
-            "state": "ce4a4c378cb6fa04"
+            "actor1": "af38607de59fb92d",
+            "actor2": "376f1fd924f4de0e",
+            "state": "4f2bd4bcd86294f9"
           },
           "stateRound": 31
         },
@@ -668,24 +698,24 @@
           "checkpoint": "round-40",
           "completedRound": 40,
           "hashes": {
-            "actor1": "76d4d8dd2f86086b",
-            "actor2": "9c86c0638a40f825",
-            "state": "6797d2fcaea495dc"
+            "actor1": "1fb5731318f0328d",
+            "actor2": "3ec9c6f2c2a1c29c",
+            "state": "354b7c993a16f7b9"
           },
-          "stateRound": 40
+          "stateRound": 41
         },
         {
           "checkpoint": "final",
-          "completedRound": 40,
+          "completedRound": 45,
           "hashes": {
-            "actor1": "76d4d8dd2f86086b",
-            "actor2": "9c86c0638a40f825",
-            "state": "6797d2fcaea495dc"
+            "actor1": "84b2cba0eb62eec6",
+            "actor2": "25488a7dba465e2d",
+            "state": "11010be1c237a541"
           },
-          "stateRound": 40
+          "stateRound": 45
         }
       ],
-      "finalRound": 40,
+      "finalRound": 45,
       "id": "Quick/Sphere/seed-15838/barbarians-off",
       "phase": "Finished",
       "victoryType": "Culture",
@@ -697,8 +727,8 @@
           "checkpoint": "initial",
           "completedRound": 0,
           "hashes": {
-            "actor1": "24769334819f0bf8",
-            "actor2": "54d0595df802e443",
+            "actor1": "49b1e40b7e6e21e2",
+            "actor2": "70b6edb1f3eea713",
             "state": "e7a78fbf8296708b"
           },
           "stateRound": 1
@@ -707,9 +737,9 @@
           "checkpoint": "round-10",
           "completedRound": 10,
           "hashes": {
-            "actor1": "fc329310b88aae17",
-            "actor2": "4daa298e2e53640b",
-            "state": "9b0956c5b872492b"
+            "actor1": "c917eef8061525d0",
+            "actor2": "eabe25d65166978d",
+            "state": "e636a79a6443a695"
           },
           "stateRound": 11
         },
@@ -717,9 +747,9 @@
           "checkpoint": "round-20",
           "completedRound": 20,
           "hashes": {
-            "actor1": "30dc67afec5c37e6",
-            "actor2": "69301e2d48299572",
-            "state": "2a552cd2c64937a1"
+            "actor1": "9b86423f9a7e1e40",
+            "actor2": "9295aabe6b75af2c",
+            "state": "a15192f6b2194986"
           },
           "stateRound": 21
         },
@@ -727,9 +757,9 @@
           "checkpoint": "round-30",
           "completedRound": 30,
           "hashes": {
-            "actor1": "b65c98bd3bba9985",
-            "actor2": "42cce383f7553b6c",
-            "state": "330a04486b5e1a4e"
+            "actor1": "0bf46a6980f75da0",
+            "actor2": "1ca1d5b863f32f35",
+            "state": "0d57bb5b68565908"
           },
           "stateRound": 31
         },
@@ -737,27 +767,27 @@
           "checkpoint": "round-40",
           "completedRound": 40,
           "hashes": {
-            "actor1": "620bdf9b25bc359d",
-            "actor2": "7552690ab673afaa",
-            "state": "584f381887947e1a"
+            "actor1": "512fc6b641e172a0",
+            "actor2": "888bc4051c0c04a7",
+            "state": "2155981c6bf6abed"
           },
-          "stateRound": 40
+          "stateRound": 41
         },
         {
           "checkpoint": "final",
-          "completedRound": 40,
+          "completedRound": 45,
           "hashes": {
-            "actor1": "620bdf9b25bc359d",
-            "actor2": "7552690ab673afaa",
-            "state": "584f381887947e1a"
+            "actor1": "fda6d0e9c568b7a6",
+            "actor2": "cad1414e7e924432",
+            "state": "e5bbd76a71c1458f"
           },
-          "stateRound": 40
+          "stateRound": 45
         }
       ],
-      "finalRound": 40,
+      "finalRound": 45,
       "id": "Quick/Sphere/seed-23757/barbarians-on",
       "phase": "Finished",
-      "victoryType": "Culture",
+      "victoryType": "Score",
       "winner": 2
     },
     {
@@ -766,8 +796,8 @@
           "checkpoint": "initial",
           "completedRound": 0,
           "hashes": {
-            "actor1": "8615dc05e47b381d",
-            "actor2": "dc85409abdc6ac10",
+            "actor1": "e9c8e9307c44954c",
+            "actor2": "10911959e9fd0d10",
             "state": "bb520d0625095535"
           },
           "stateRound": 1
@@ -776,9 +806,9 @@
           "checkpoint": "round-10",
           "completedRound": 10,
           "hashes": {
-            "actor1": "1a04dd15f1b80c66",
-            "actor2": "ff274cccec34ccdd",
-            "state": "e80b0c32b1477681"
+            "actor1": "a81ad8374534a96c",
+            "actor2": "af37e7ce5b3ba7d0",
+            "state": "19fb1c0e35aa07c7"
           },
           "stateRound": 11
         },
@@ -786,9 +816,9 @@
           "checkpoint": "round-20",
           "completedRound": 20,
           "hashes": {
-            "actor1": "e885e59e99a7b967",
-            "actor2": "3a44427cf67b3dfb",
-            "state": "64a7af58f104d6d8"
+            "actor1": "a5236e6037ef9074",
+            "actor2": "b283143712c42455",
+            "state": "501370597127b9bd"
           },
           "stateRound": 21
         },
@@ -796,677 +826,25 @@
           "checkpoint": "round-30",
           "completedRound": 30,
           "hashes": {
-            "actor1": "a2666cd9010af247",
-            "actor2": "e7f7279b3b1f1ecb",
-            "state": "83aa7c435d2dbe2a"
+            "actor1": "653a89030c2b3377",
+            "actor2": "a81434cf3bca88b7",
+            "state": "85b92d3ca7cb95f2"
           },
           "stateRound": 31
         },
         {
           "checkpoint": "final",
-          "completedRound": 38,
+          "completedRound": 33,
           "hashes": {
-            "actor1": "5dc9fd40156d5a78",
-            "actor2": "0f66e40a961a4f37",
-            "state": "449533b1cbcb0c27"
+            "actor1": "d3ed3be3465b8de5",
+            "actor2": "462b297bd38ec693",
+            "state": "40ebbab433249321"
           },
-          "stateRound": 38
+          "stateRound": 33
         }
       ],
-      "finalRound": 38,
+      "finalRound": 33,
       "id": "Quick/Sphere/seed-31676/barbarians-off",
-      "phase": "Finished",
-      "victoryType": "Culture",
-      "winner": 2
-    },
-    {
-      "checkpoints": [
-        {
-          "checkpoint": "initial",
-          "completedRound": 0,
-          "hashes": {
-            "actor1": "140d36b5ffdcc03e",
-            "actor2": "06255097bf72e198",
-            "state": "becb7c2cedd482b9"
-          },
-          "stateRound": 1
-        },
-        {
-          "checkpoint": "round-10",
-          "completedRound": 10,
-          "hashes": {
-            "actor1": "3319a4ab916f9f68",
-            "actor2": "7f925959ffb3e117",
-            "state": "7d54ab2a55676c1a"
-          },
-          "stateRound": 11
-        },
-        {
-          "checkpoint": "round-20",
-          "completedRound": 20,
-          "hashes": {
-            "actor1": "85a39e07882ca06b",
-            "actor2": "b1256c20605fd5ba",
-            "state": "99d5e5c670b49af4"
-          },
-          "stateRound": 21
-        },
-        {
-          "checkpoint": "round-30",
-          "completedRound": 30,
-          "hashes": {
-            "actor1": "6bfdc09aa82daf96",
-            "actor2": "b3f655d9089420f6",
-            "state": "c5450fea3e9147d0"
-          },
-          "stateRound": 31
-        },
-        {
-          "checkpoint": "round-40",
-          "completedRound": 40,
-          "hashes": {
-            "actor1": "7f4ef328d6778ba0",
-            "actor2": "661245cdfabaeadc",
-            "state": "c9cfab9f3929fdf6"
-          },
-          "stateRound": 41
-        },
-        {
-          "checkpoint": "final",
-          "completedRound": 42,
-          "hashes": {
-            "actor1": "f5dfacc410429d79",
-            "actor2": "a7b11db7ed484e44",
-            "state": "509d1c183b584eb7"
-          },
-          "stateRound": 42
-        }
-      ],
-      "finalRound": 42,
-      "id": "Quick/Sphere/seed-39595/barbarians-on",
-      "phase": "Finished",
-      "victoryType": "Culture",
-      "winner": 2
-    },
-    {
-      "checkpoints": [
-        {
-          "checkpoint": "initial",
-          "completedRound": 0,
-          "hashes": {
-            "actor1": "5051dafe50d6b724",
-            "actor2": "0a047813668b17f5",
-            "state": "c3981397545df47a"
-          },
-          "stateRound": 1
-        },
-        {
-          "checkpoint": "round-10",
-          "completedRound": 10,
-          "hashes": {
-            "actor1": "43fc91bdbecd8282",
-            "actor2": "81c054fdc811dc5b",
-            "state": "4a6f1fda7416bda8"
-          },
-          "stateRound": 11
-        },
-        {
-          "checkpoint": "round-20",
-          "completedRound": 20,
-          "hashes": {
-            "actor1": "5d175c534cc82906",
-            "actor2": "49f0cf935b09edb2",
-            "state": "677ce89188c5c8b3"
-          },
-          "stateRound": 21
-        },
-        {
-          "checkpoint": "round-30",
-          "completedRound": 30,
-          "hashes": {
-            "actor1": "43579adb7f676779",
-            "actor2": "7d3ac6fa28a0bbb4",
-            "state": "fb247e8b259368c6"
-          },
-          "stateRound": 31
-        },
-        {
-          "checkpoint": "round-40",
-          "completedRound": 40,
-          "hashes": {
-            "actor1": "4d6a9931698b4c46",
-            "actor2": "120ef556c36deff6",
-            "state": "f47f9cb009f82fb0"
-          },
-          "stateRound": 41
-        },
-        {
-          "checkpoint": "final",
-          "completedRound": 42,
-          "hashes": {
-            "actor1": "8578f61eef8ebb29",
-            "actor2": "473592ef824af1ac",
-            "state": "3277e0d22e491289"
-          },
-          "stateRound": 42
-        }
-      ],
-      "finalRound": 42,
-      "id": "Quick/Sphere/seed-47514/barbarians-off",
-      "phase": "Finished",
-      "victoryType": "Culture",
-      "winner": 2
-    },
-    {
-      "checkpoints": [
-        {
-          "checkpoint": "initial",
-          "completedRound": 0,
-          "hashes": {
-            "actor1": "49798d2e3bf10661",
-            "actor2": "184ac4f7eea76297",
-            "state": "6daa6abec2e5c31f"
-          },
-          "stateRound": 1
-        },
-        {
-          "checkpoint": "round-10",
-          "completedRound": 10,
-          "hashes": {
-            "actor1": "cafb13864eb97d6f",
-            "actor2": "7d47778840ce0ea7",
-            "state": "c8a132892b974c25"
-          },
-          "stateRound": 11
-        },
-        {
-          "checkpoint": "round-20",
-          "completedRound": 20,
-          "hashes": {
-            "actor1": "a906f9e2670ffd92",
-            "actor2": "613d33971e6477d1",
-            "state": "d2f3bf654c3a6a78"
-          },
-          "stateRound": 21
-        },
-        {
-          "checkpoint": "round-30",
-          "completedRound": 30,
-          "hashes": {
-            "actor1": "791164175ce76753",
-            "actor2": "aa4079243b8dedea",
-            "state": "1da905c8a6979987"
-          },
-          "stateRound": 31
-        },
-        {
-          "checkpoint": "round-40",
-          "completedRound": 40,
-          "hashes": {
-            "actor1": "2e7c88288e217b25",
-            "actor2": "0222ce4a03b55246",
-            "state": "f0b8f2c945dbb2b1"
-          },
-          "stateRound": 41
-        },
-        {
-          "checkpoint": "final",
-          "completedRound": 41,
-          "hashes": {
-            "actor1": "409778a0f908a5cc",
-            "actor2": "397b3f199bbb0831",
-            "state": "5a937275dddb005e"
-          },
-          "stateRound": 41
-        }
-      ],
-      "finalRound": 41,
-      "id": "Quick/Sphere/seed-55433/barbarians-on",
-      "phase": "Finished",
-      "victoryType": "Culture",
-      "winner": 2
-    },
-    {
-      "checkpoints": [
-        {
-          "checkpoint": "initial",
-          "completedRound": 0,
-          "hashes": {
-            "actor1": "3371c9c8c2da744c",
-            "actor2": "315925ffdbf1012b",
-            "state": "b88211ed1a3087d9"
-          },
-          "stateRound": 1
-        },
-        {
-          "checkpoint": "round-10",
-          "completedRound": 10,
-          "hashes": {
-            "actor1": "f88b3bbe5b6704c3",
-            "actor2": "1c8152727229d752",
-            "state": "90771018de69c87b"
-          },
-          "stateRound": 11
-        },
-        {
-          "checkpoint": "round-20",
-          "completedRound": 20,
-          "hashes": {
-            "actor1": "0f967a6ec92df3e3",
-            "actor2": "18e01006e5c45bab",
-            "state": "571583372b00bc1a"
-          },
-          "stateRound": 21
-        },
-        {
-          "checkpoint": "round-30",
-          "completedRound": 30,
-          "hashes": {
-            "actor1": "b30dcc4da2dd899f",
-            "actor2": "aa0491dfae43e58e",
-            "state": "0a422e4bbe7e0c2f"
-          },
-          "stateRound": 31
-        },
-        {
-          "checkpoint": "final",
-          "completedRound": 38,
-          "hashes": {
-            "actor1": "87283de0939be26f",
-            "actor2": "451d4a9c507db930",
-            "state": "e279a9096ca6cb57"
-          },
-          "stateRound": 38
-        }
-      ],
-      "finalRound": 38,
-      "id": "Quick/Sphere/seed-63352/barbarians-off",
-      "phase": "Finished",
-      "victoryType": "Culture",
-      "winner": 2
-    },
-    {
-      "checkpoints": [
-        {
-          "checkpoint": "initial",
-          "completedRound": 0,
-          "hashes": {
-            "actor1": "8fc90522c31e0c5e",
-            "actor2": "ba6609ba48becb50",
-            "state": "c7d8a1084e0d0952"
-          },
-          "stateRound": 1
-        },
-        {
-          "checkpoint": "round-10",
-          "completedRound": 10,
-          "hashes": {
-            "actor1": "f28e7f51643fd3e7",
-            "actor2": "27bb47a200a4ba60",
-            "state": "e6c01eac55b57d9f"
-          },
-          "stateRound": 11
-        },
-        {
-          "checkpoint": "round-20",
-          "completedRound": 20,
-          "hashes": {
-            "actor1": "aea176b51b552b67",
-            "actor2": "edb1689db7b9144b",
-            "state": "d4de5d7235b9439f"
-          },
-          "stateRound": 21
-        },
-        {
-          "checkpoint": "round-30",
-          "completedRound": 30,
-          "hashes": {
-            "actor1": "85ba0e9285484437",
-            "actor2": "ec456c61d93a7004",
-            "state": "12257da04419c5ae"
-          },
-          "stateRound": 31
-        },
-        {
-          "checkpoint": "round-40",
-          "completedRound": 40,
-          "hashes": {
-            "actor1": "7bb43bc6cac3ccd5",
-            "actor2": "2c331c3a03885285",
-            "state": "0b070be5c4c90283"
-          },
-          "stateRound": 41
-        },
-        {
-          "checkpoint": "round-50",
-          "completedRound": 50,
-          "hashes": {
-            "actor1": "f2a72e7086a94c6e",
-            "actor2": "4c99bc88ed186b30",
-            "state": "b42e3683c2811798"
-          },
-          "stateRound": 51
-        },
-        {
-          "checkpoint": "round-60",
-          "completedRound": 60,
-          "hashes": {
-            "actor1": "522ba676bc8431be",
-            "actor2": "da0e51f2a895b43d",
-            "state": "54fa87e8712a63ca"
-          },
-          "stateRound": 61
-        },
-        {
-          "checkpoint": "round-70",
-          "completedRound": 70,
-          "hashes": {
-            "actor1": "03d0ddf3bbc7f048",
-            "actor2": "a4e11f85e090fef6",
-            "state": "e49643aa318f85af"
-          },
-          "stateRound": 71
-        },
-        {
-          "checkpoint": "final",
-          "completedRound": 76,
-          "hashes": {
-            "actor1": "7f63af0adf639e06",
-            "actor2": "d72a0f6af556d814",
-            "state": "28be183c050eae79"
-          },
-          "stateRound": 76
-        }
-      ],
-      "finalRound": 76,
-      "id": "Standard/Hex/seed-7919/barbarians-on",
-      "phase": "Finished",
-      "victoryType": "Culture",
-      "winner": 2
-    },
-    {
-      "checkpoints": [
-        {
-          "checkpoint": "initial",
-          "completedRound": 0,
-          "hashes": {
-            "actor1": "457f87c98606d96f",
-            "actor2": "cd1879b7ee06d711",
-            "state": "304ff60e1f939c51"
-          },
-          "stateRound": 1
-        },
-        {
-          "checkpoint": "round-10",
-          "completedRound": 10,
-          "hashes": {
-            "actor1": "cadd66995b0d11bd",
-            "actor2": "761367b564b0b64d",
-            "state": "5e191e21766eb6d2"
-          },
-          "stateRound": 11
-        },
-        {
-          "checkpoint": "round-20",
-          "completedRound": 20,
-          "hashes": {
-            "actor1": "2f49953fbb4fea12",
-            "actor2": "f48f36f86fabef0b",
-            "state": "6fbb826fbbd54ef2"
-          },
-          "stateRound": 21
-        },
-        {
-          "checkpoint": "round-30",
-          "completedRound": 30,
-          "hashes": {
-            "actor1": "852629b98af43abc",
-            "actor2": "b48e2c2d429e3477",
-            "state": "660d1597aeea44af"
-          },
-          "stateRound": 31
-        },
-        {
-          "checkpoint": "round-40",
-          "completedRound": 40,
-          "hashes": {
-            "actor1": "413d35372e54d803",
-            "actor2": "a151362a01cc0181",
-            "state": "27cca47439acd228"
-          },
-          "stateRound": 41
-        },
-        {
-          "checkpoint": "round-50",
-          "completedRound": 50,
-          "hashes": {
-            "actor1": "30773cfb3475493e",
-            "actor2": "0fd8cefc273c80b3",
-            "state": "003723b980552088"
-          },
-          "stateRound": 51
-        },
-        {
-          "checkpoint": "round-60",
-          "completedRound": 60,
-          "hashes": {
-            "actor1": "154c3b7dfb3f19be",
-            "actor2": "e3ffae32e5a1404d",
-            "state": "2c695f717e850641"
-          },
-          "stateRound": 61
-        },
-        {
-          "checkpoint": "round-70",
-          "completedRound": 70,
-          "hashes": {
-            "actor1": "1e3fefd818e34bbd",
-            "actor2": "6a403c6e59f41123",
-            "state": "50824e9d04b156ce"
-          },
-          "stateRound": 71
-        },
-        {
-          "checkpoint": "final",
-          "completedRound": 72,
-          "hashes": {
-            "actor1": "77c087abf1de3d3c",
-            "actor2": "0815e1bdc2253a72",
-            "state": "61f7b97a427ac7aa"
-          },
-          "stateRound": 72
-        }
-      ],
-      "finalRound": 72,
-      "id": "Standard/Hex/seed-15838/barbarians-off",
-      "phase": "Finished",
-      "victoryType": "Culture",
-      "winner": 2
-    },
-    {
-      "checkpoints": [
-        {
-          "checkpoint": "initial",
-          "completedRound": 0,
-          "hashes": {
-            "actor1": "14775ef2d25e7af1",
-            "actor2": "ef0305e1d1efec6a",
-            "state": "5e4f01c32a861f14"
-          },
-          "stateRound": 1
-        },
-        {
-          "checkpoint": "round-10",
-          "completedRound": 10,
-          "hashes": {
-            "actor1": "0e560bc500f6ab83",
-            "actor2": "212098b888db89b5",
-            "state": "84e37c712a166b09"
-          },
-          "stateRound": 11
-        },
-        {
-          "checkpoint": "round-20",
-          "completedRound": 20,
-          "hashes": {
-            "actor1": "fb447e00e0496d0c",
-            "actor2": "a031148777ec21af",
-            "state": "99d75b534ff79b19"
-          },
-          "stateRound": 21
-        },
-        {
-          "checkpoint": "round-30",
-          "completedRound": 30,
-          "hashes": {
-            "actor1": "c802d35de63b9b83",
-            "actor2": "48ed53a2eb4a4423",
-            "state": "168677d58abbb672"
-          },
-          "stateRound": 31
-        },
-        {
-          "checkpoint": "round-40",
-          "completedRound": 40,
-          "hashes": {
-            "actor1": "f740e41befebd759",
-            "actor2": "7e9132ea61ee9ac9",
-            "state": "3ca21207c330e71b"
-          },
-          "stateRound": 41
-        },
-        {
-          "checkpoint": "round-50",
-          "completedRound": 50,
-          "hashes": {
-            "actor1": "6bbb5ef832b1b694",
-            "actor2": "887b75170bdaee38",
-            "state": "f36492e3767bffa1"
-          },
-          "stateRound": 51
-        },
-        {
-          "checkpoint": "round-60",
-          "completedRound": 60,
-          "hashes": {
-            "actor1": "36161e34391f5a1a",
-            "actor2": "495c1cc2862eff10",
-            "state": "680c64472c91fc81"
-          },
-          "stateRound": 61
-        },
-        {
-          "checkpoint": "round-70",
-          "completedRound": 70,
-          "hashes": {
-            "actor1": "69bc402ae3f1e962",
-            "actor2": "865f3309a9d9ede5",
-            "state": "a2a55c6d4f0f6abf"
-          },
-          "stateRound": 71
-        },
-        {
-          "checkpoint": "final",
-          "completedRound": 73,
-          "hashes": {
-            "actor1": "9482301a6135ab40",
-            "actor2": "2833bc79614b7b24",
-            "state": "aeb847ce83782587"
-          },
-          "stateRound": 73
-        }
-      ],
-      "finalRound": 73,
-      "id": "Standard/Hex/seed-23757/barbarians-on",
-      "phase": "Finished",
-      "victoryType": "Culture",
-      "winner": 2
-    },
-    {
-      "checkpoints": [
-        {
-          "checkpoint": "initial",
-          "completedRound": 0,
-          "hashes": {
-            "actor1": "92a4ca9a6159ba77",
-            "actor2": "1b440f24f0ec7026",
-            "state": "899fc5775be11aa5"
-          },
-          "stateRound": 1
-        },
-        {
-          "checkpoint": "round-10",
-          "completedRound": 10,
-          "hashes": {
-            "actor1": "4a9ea3cd60ae37f0",
-            "actor2": "3346c2a814bbb178",
-            "state": "cb96e9ae5fb559a9"
-          },
-          "stateRound": 11
-        },
-        {
-          "checkpoint": "round-20",
-          "completedRound": 20,
-          "hashes": {
-            "actor1": "926cf306b12531f5",
-            "actor2": "87634cf1f9dd99d6",
-            "state": "00e1e3bfec9cc35c"
-          },
-          "stateRound": 21
-        },
-        {
-          "checkpoint": "round-30",
-          "completedRound": 30,
-          "hashes": {
-            "actor1": "004888ffa6db7f46",
-            "actor2": "80bbd18645951427",
-            "state": "efd70e0473ccc252"
-          },
-          "stateRound": 31
-        },
-        {
-          "checkpoint": "round-40",
-          "completedRound": 40,
-          "hashes": {
-            "actor1": "3ef748f58a302649",
-            "actor2": "c18ce66247f4b0aa",
-            "state": "6c9c453953255113"
-          },
-          "stateRound": 41
-        },
-        {
-          "checkpoint": "round-50",
-          "completedRound": 50,
-          "hashes": {
-            "actor1": "3cfdf05a7ac4082c",
-            "actor2": "8f3ebec00eb9044b",
-            "state": "1eb4b0573248cc70"
-          },
-          "stateRound": 51
-        },
-        {
-          "checkpoint": "round-60",
-          "completedRound": 60,
-          "hashes": {
-            "actor1": "82455c55b9eddbc0",
-            "actor2": "e98de856a2bd7162",
-            "state": "e9c5478e4b3839a5"
-          },
-          "stateRound": 61
-        },
-        {
-          "checkpoint": "final",
-          "completedRound": 63,
-          "hashes": {
-            "actor1": "32b1dd2234f4baca",
-            "actor2": "6baf5795f1a75779",
-            "state": "0bc2611d56ef7b01"
-          },
-          "stateRound": 63
-        }
-      ],
-      "finalRound": 63,
-      "id": "Standard/Hex/seed-31676/barbarians-off",
       "phase": "Finished",
       "victoryType": "Domination",
       "winner": 2
@@ -1477,9 +855,9 @@
           "checkpoint": "initial",
           "completedRound": 0,
           "hashes": {
-            "actor1": "e6d674c2d448550f",
-            "actor2": "fecc4ce8f9504a66",
-            "state": "e9763c902a6d73ad"
+            "actor1": "27f1cc50739e6fd5",
+            "actor2": "d4ad48835c78f18b",
+            "state": "becb7c2cedd482b9"
           },
           "stateRound": 1
         },
@@ -1487,9 +865,9 @@
           "checkpoint": "round-10",
           "completedRound": 10,
           "hashes": {
-            "actor1": "f231fb3ad23a91d7",
-            "actor2": "5fa932a77298ea33",
-            "state": "89353e7f8a2fbae6"
+            "actor1": "5dadf8cd5348115c",
+            "actor2": "3bbaa92cbc900720",
+            "state": "c023f5b87b038c02"
           },
           "stateRound": 11
         },
@@ -1497,9 +875,9 @@
           "checkpoint": "round-20",
           "completedRound": 20,
           "hashes": {
-            "actor1": "aae7ad5521764a51",
-            "actor2": "d1e97584ddda98a2",
-            "state": "f69c3aa3e6d6545c"
+            "actor1": "3d42aa1bfdcab6ff",
+            "actor2": "9366e59a5b0570c8",
+            "state": "c38ca1162f579f45"
           },
           "stateRound": 21
         },
@@ -1507,9 +885,9 @@
           "checkpoint": "round-30",
           "completedRound": 30,
           "hashes": {
-            "actor1": "557e5b5c552dfd11",
-            "actor2": "33cf7110df8b7b23",
-            "state": "e431b619a5498d21"
+            "actor1": "82f39e7e19406423",
+            "actor2": "f699d1a1218565e1",
+            "state": "3534ce71c739db56"
           },
           "stateRound": 31
         },
@@ -1517,57 +895,27 @@
           "checkpoint": "round-40",
           "completedRound": 40,
           "hashes": {
-            "actor1": "458112b88a85360a",
-            "actor2": "8814df610979a71f",
-            "state": "bd003a9017917872"
+            "actor1": "be59139360326a7d",
+            "actor2": "14b5eeb39073beb5",
+            "state": "fadbb92197737bf4"
           },
           "stateRound": 41
         },
         {
-          "checkpoint": "round-50",
-          "completedRound": 50,
-          "hashes": {
-            "actor1": "7a46a26f46a59d3b",
-            "actor2": "ec1a27458d5f8844",
-            "state": "90980976018c3738"
-          },
-          "stateRound": 51
-        },
-        {
-          "checkpoint": "round-60",
-          "completedRound": 60,
-          "hashes": {
-            "actor1": "1ad4d3cca32d05ba",
-            "actor2": "705a11b7f0babe52",
-            "state": "8f7813e769d5ad1f"
-          },
-          "stateRound": 61
-        },
-        {
-          "checkpoint": "round-70",
-          "completedRound": 70,
-          "hashes": {
-            "actor1": "32f766a99f9193a9",
-            "actor2": "949a64d69dbea4e6",
-            "state": "fa605b8463342572"
-          },
-          "stateRound": 71
-        },
-        {
           "checkpoint": "final",
-          "completedRound": 74,
+          "completedRound": 45,
           "hashes": {
-            "actor1": "0ad9be825836b7ff",
-            "actor2": "e7846817142f330a",
-            "state": "ba6d0841fd27fb68"
+            "actor1": "d7ef96c786a80f42",
+            "actor2": "377d49b2e0f9a1a7",
+            "state": "c48e81f616362a44"
           },
-          "stateRound": 74
+          "stateRound": 45
         }
       ],
-      "finalRound": 74,
-      "id": "Standard/Hex/seed-39595/barbarians-on",
+      "finalRound": 45,
+      "id": "Quick/Sphere/seed-39595/barbarians-on",
       "phase": "Finished",
-      "victoryType": "Culture",
+      "victoryType": "Score",
       "winner": 2
     },
     {
@@ -1576,8 +924,650 @@
           "checkpoint": "initial",
           "completedRound": 0,
           "hashes": {
-            "actor1": "cc5e80720e0bf80c",
-            "actor2": "53c3edcece6b2d26",
+            "actor1": "5ae914719f1868e3",
+            "actor2": "809291dcba77ad9e",
+            "state": "c3981397545df47a"
+          },
+          "stateRound": 1
+        },
+        {
+          "checkpoint": "round-10",
+          "completedRound": 10,
+          "hashes": {
+            "actor1": "ebe19be09299b487",
+            "actor2": "d2f9e466d92a72f7",
+            "state": "0f0fcc490532354c"
+          },
+          "stateRound": 11
+        },
+        {
+          "checkpoint": "round-20",
+          "completedRound": 20,
+          "hashes": {
+            "actor1": "58a54b3fa452073d",
+            "actor2": "8eb1f3c59e97577c",
+            "state": "38ddaaf5e14493a2"
+          },
+          "stateRound": 21
+        },
+        {
+          "checkpoint": "round-30",
+          "completedRound": 30,
+          "hashes": {
+            "actor1": "859872fbe6b763b5",
+            "actor2": "a9f13654853925b9",
+            "state": "fa19ad51db656897"
+          },
+          "stateRound": 31
+        },
+        {
+          "checkpoint": "round-40",
+          "completedRound": 40,
+          "hashes": {
+            "actor1": "cd6f129726469a05",
+            "actor2": "656ba19459f01d08",
+            "state": "ff6502d5cfd4643c"
+          },
+          "stateRound": 41
+        },
+        {
+          "checkpoint": "final",
+          "completedRound": 45,
+          "hashes": {
+            "actor1": "ba1d3beccf4f9842",
+            "actor2": "b34ce808a1052356",
+            "state": "b6dec038795f77e7"
+          },
+          "stateRound": 45
+        }
+      ],
+      "finalRound": 45,
+      "id": "Quick/Sphere/seed-47514/barbarians-off",
+      "phase": "Finished",
+      "victoryType": "Score",
+      "winner": 2
+    },
+    {
+      "checkpoints": [
+        {
+          "checkpoint": "initial",
+          "completedRound": 0,
+          "hashes": {
+            "actor1": "aa5c962eb643e41c",
+            "actor2": "27993da00bacbe7e",
+            "state": "6daa6abec2e5c31f"
+          },
+          "stateRound": 1
+        },
+        {
+          "checkpoint": "round-10",
+          "completedRound": 10,
+          "hashes": {
+            "actor1": "2ccf753266e33a4a",
+            "actor2": "4ba97107fb633b2d",
+            "state": "9718611e82154753"
+          },
+          "stateRound": 11
+        },
+        {
+          "checkpoint": "round-20",
+          "completedRound": 20,
+          "hashes": {
+            "actor1": "2944e92b3eeac3f6",
+            "actor2": "d44eb69532e14bb3",
+            "state": "6d93d13be1e41e47"
+          },
+          "stateRound": 21
+        },
+        {
+          "checkpoint": "round-30",
+          "completedRound": 30,
+          "hashes": {
+            "actor1": "382d12e1a0a59785",
+            "actor2": "6239a7864a37b492",
+            "state": "628e80a679014e28"
+          },
+          "stateRound": 31
+        },
+        {
+          "checkpoint": "round-40",
+          "completedRound": 40,
+          "hashes": {
+            "actor1": "b2d39ba6cf5e8473",
+            "actor2": "1d682b5db902225f",
+            "state": "303c08dd3fc89d63"
+          },
+          "stateRound": 41
+        },
+        {
+          "checkpoint": "final",
+          "completedRound": 45,
+          "hashes": {
+            "actor1": "af7d950228b93a85",
+            "actor2": "8c3f40efcc378c87",
+            "state": "bee2e4578f6741a3"
+          },
+          "stateRound": 45
+        }
+      ],
+      "finalRound": 45,
+      "id": "Quick/Sphere/seed-55433/barbarians-on",
+      "phase": "Finished",
+      "victoryType": "Score",
+      "winner": 2
+    },
+    {
+      "checkpoints": [
+        {
+          "checkpoint": "initial",
+          "completedRound": 0,
+          "hashes": {
+            "actor1": "0ed8e95d879f5ded",
+            "actor2": "cd4b06e81f209f5d",
+            "state": "b88211ed1a3087d9"
+          },
+          "stateRound": 1
+        },
+        {
+          "checkpoint": "round-10",
+          "completedRound": 10,
+          "hashes": {
+            "actor1": "6fc7c94c236ef2da",
+            "actor2": "df71021f66cac5bd",
+            "state": "3b7a492405dafb99"
+          },
+          "stateRound": 11
+        },
+        {
+          "checkpoint": "round-20",
+          "completedRound": 20,
+          "hashes": {
+            "actor1": "0bb040144c98e7cd",
+            "actor2": "93b68c0cd3e09166",
+            "state": "acf3e1bfadbf8690"
+          },
+          "stateRound": 21
+        },
+        {
+          "checkpoint": "round-30",
+          "completedRound": 30,
+          "hashes": {
+            "actor1": "9aad6714ef66a298",
+            "actor2": "7d662d559bbdc208",
+            "state": "277295db8d4eeb88"
+          },
+          "stateRound": 31
+        },
+        {
+          "checkpoint": "round-40",
+          "completedRound": 40,
+          "hashes": {
+            "actor1": "452b3607f7347caa",
+            "actor2": "0be5114d4652194f",
+            "state": "553fe83ad605f444"
+          },
+          "stateRound": 41
+        },
+        {
+          "checkpoint": "final",
+          "completedRound": 45,
+          "hashes": {
+            "actor1": "8c9dcbabb99801ef",
+            "actor2": "b3e10f53b174dee9",
+            "state": "be58fde3908b0982"
+          },
+          "stateRound": 45
+        }
+      ],
+      "finalRound": 45,
+      "id": "Quick/Sphere/seed-63352/barbarians-off",
+      "phase": "Finished",
+      "victoryType": "Score",
+      "winner": 2
+    },
+    {
+      "checkpoints": [
+        {
+          "checkpoint": "initial",
+          "completedRound": 0,
+          "hashes": {
+            "actor1": "358037fc275a0f39",
+            "actor2": "044381686400facf",
+            "state": "c7d8a1084e0d0952"
+          },
+          "stateRound": 1
+        },
+        {
+          "checkpoint": "round-10",
+          "completedRound": 10,
+          "hashes": {
+            "actor1": "397cb512a7021be0",
+            "actor2": "3a3456f2861df3a1",
+            "state": "9fde60c6b8bc5607"
+          },
+          "stateRound": 11
+        },
+        {
+          "checkpoint": "round-20",
+          "completedRound": 20,
+          "hashes": {
+            "actor1": "a931a03c158c9040",
+            "actor2": "ebe75e72659500c0",
+            "state": "12792e6f87da15f3"
+          },
+          "stateRound": 21
+        },
+        {
+          "checkpoint": "round-30",
+          "completedRound": 30,
+          "hashes": {
+            "actor1": "2c5d794ebaf121c2",
+            "actor2": "f096d59b881330ca",
+            "state": "227eb7f7534f7e79"
+          },
+          "stateRound": 31
+        },
+        {
+          "checkpoint": "round-40",
+          "completedRound": 40,
+          "hashes": {
+            "actor1": "59575e01e5a846ba",
+            "actor2": "338508b927b451db",
+            "state": "bfc17b9ef3a85b28"
+          },
+          "stateRound": 41
+        },
+        {
+          "checkpoint": "round-50",
+          "completedRound": 50,
+          "hashes": {
+            "actor1": "869a9644e99bc189",
+            "actor2": "ac97da4d2019d5f0",
+            "state": "38399e66365a551f"
+          },
+          "stateRound": 51
+        },
+        {
+          "checkpoint": "round-60",
+          "completedRound": 60,
+          "hashes": {
+            "actor1": "8b68735f82fde2ac",
+            "actor2": "238a7a0edfd8aeab",
+            "state": "9fa52e36208016a1"
+          },
+          "stateRound": 61
+        },
+        {
+          "checkpoint": "round-70",
+          "completedRound": 70,
+          "hashes": {
+            "actor1": "d3b43e0fc1ebf6f9",
+            "actor2": "f50ea4ad8d36dd83",
+            "state": "b8a01d79d53124ae"
+          },
+          "stateRound": 70
+        },
+        {
+          "checkpoint": "final",
+          "completedRound": 70,
+          "hashes": {
+            "actor1": "d3b43e0fc1ebf6f9",
+            "actor2": "f50ea4ad8d36dd83",
+            "state": "b8a01d79d53124ae"
+          },
+          "stateRound": 70
+        }
+      ],
+      "finalRound": 70,
+      "id": "Standard/Hex/seed-7919/barbarians-on",
+      "phase": "Finished",
+      "victoryType": "Science",
+      "winner": 2
+    },
+    {
+      "checkpoints": [
+        {
+          "checkpoint": "initial",
+          "completedRound": 0,
+          "hashes": {
+            "actor1": "20329b69fb4693e4",
+            "actor2": "231f32daf3d48200",
+            "state": "304ff60e1f939c51"
+          },
+          "stateRound": 1
+        },
+        {
+          "checkpoint": "round-10",
+          "completedRound": 10,
+          "hashes": {
+            "actor1": "2ca9a4c0affa33c5",
+            "actor2": "cdfa29d881cea46b",
+            "state": "3e02f2d300b7e152"
+          },
+          "stateRound": 11
+        },
+        {
+          "checkpoint": "round-20",
+          "completedRound": 20,
+          "hashes": {
+            "actor1": "2e609f3d2effa5ac",
+            "actor2": "f1bac89b3dca2d0d",
+            "state": "80a8d3accca53449"
+          },
+          "stateRound": 21
+        },
+        {
+          "checkpoint": "round-30",
+          "completedRound": 30,
+          "hashes": {
+            "actor1": "fca4734126f26cb3",
+            "actor2": "69790eaaca2e6a17",
+            "state": "47817c48032ae772"
+          },
+          "stateRound": 31
+        },
+        {
+          "checkpoint": "round-40",
+          "completedRound": 40,
+          "hashes": {
+            "actor1": "aaa1aeb56e28bb07",
+            "actor2": "c7a03e681677c21b",
+            "state": "28ea9f8ef1482756"
+          },
+          "stateRound": 41
+        },
+        {
+          "checkpoint": "round-50",
+          "completedRound": 50,
+          "hashes": {
+            "actor1": "3a5bd305595071c1",
+            "actor2": "9f67a71fca70b264",
+            "state": "65fc54a59e07d854"
+          },
+          "stateRound": 51
+        },
+        {
+          "checkpoint": "round-60",
+          "completedRound": 60,
+          "hashes": {
+            "actor1": "d01c21534065b79b",
+            "actor2": "d8e03a360395b35c",
+            "state": "ed164a31e83f2380"
+          },
+          "stateRound": 61
+        },
+        {
+          "checkpoint": "final",
+          "completedRound": 65,
+          "hashes": {
+            "actor1": "0ae774825d92cbd4",
+            "actor2": "a7aba54c35fddad8",
+            "state": "62608ecde7e83884"
+          },
+          "stateRound": 65
+        }
+      ],
+      "finalRound": 65,
+      "id": "Standard/Hex/seed-15838/barbarians-off",
+      "phase": "Finished",
+      "victoryType": "Science",
+      "winner": 2
+    },
+    {
+      "checkpoints": [
+        {
+          "checkpoint": "initial",
+          "completedRound": 0,
+          "hashes": {
+            "actor1": "359dfaa6856e9386",
+            "actor2": "566fc402ff1c2210",
+            "state": "5e4f01c32a861f14"
+          },
+          "stateRound": 1
+        },
+        {
+          "checkpoint": "round-10",
+          "completedRound": 10,
+          "hashes": {
+            "actor1": "7875ffe1dac0f8ee",
+            "actor2": "a67d6192cf1db9db",
+            "state": "7773f76bd92a0bc9"
+          },
+          "stateRound": 11
+        },
+        {
+          "checkpoint": "round-20",
+          "completedRound": 20,
+          "hashes": {
+            "actor1": "8d564bd4bc54ebdf",
+            "actor2": "2a573163d256d672",
+            "state": "d1ef578390594562"
+          },
+          "stateRound": 21
+        },
+        {
+          "checkpoint": "round-30",
+          "completedRound": 30,
+          "hashes": {
+            "actor1": "fbc4e939859a678c",
+            "actor2": "282ff0e333727383",
+            "state": "9a97aed65b879500"
+          },
+          "stateRound": 31
+        },
+        {
+          "checkpoint": "round-40",
+          "completedRound": 40,
+          "hashes": {
+            "actor1": "1aef4eba5ddae804",
+            "actor2": "9102f3352b5fb33d",
+            "state": "bf7944318fcff371"
+          },
+          "stateRound": 41
+        },
+        {
+          "checkpoint": "round-50",
+          "completedRound": 50,
+          "hashes": {
+            "actor1": "259cb5eff7cad17c",
+            "actor2": "f4a62b8317ff530a",
+            "state": "43fc3104b94d6db6"
+          },
+          "stateRound": 51
+        },
+        {
+          "checkpoint": "final",
+          "completedRound": 59,
+          "hashes": {
+            "actor1": "af0021f9890a9c52",
+            "actor2": "63e2dfa51aa19678",
+            "state": "1d3b677429e0db0a"
+          },
+          "stateRound": 59
+        }
+      ],
+      "finalRound": 59,
+      "id": "Standard/Hex/seed-23757/barbarians-on",
+      "phase": "Finished",
+      "victoryType": "Domination",
+      "winner": 2
+    },
+    {
+      "checkpoints": [
+        {
+          "checkpoint": "initial",
+          "completedRound": 0,
+          "hashes": {
+            "actor1": "da425541dc5db497",
+            "actor2": "952b6380218cd6d9",
+            "state": "899fc5775be11aa5"
+          },
+          "stateRound": 1
+        },
+        {
+          "checkpoint": "round-10",
+          "completedRound": 10,
+          "hashes": {
+            "actor1": "53dbe30993608967",
+            "actor2": "77fd3dce071e3e9e",
+            "state": "8feacc7207be6d86"
+          },
+          "stateRound": 11
+        },
+        {
+          "checkpoint": "round-20",
+          "completedRound": 20,
+          "hashes": {
+            "actor1": "49f942365adc1652",
+            "actor2": "246658f455d44fce",
+            "state": "b8cf96ac58f0d6cc"
+          },
+          "stateRound": 21
+        },
+        {
+          "checkpoint": "round-30",
+          "completedRound": 30,
+          "hashes": {
+            "actor1": "79273e31ae2006f8",
+            "actor2": "2d191e0cc4ea2366",
+            "state": "5cd46275a3f4d594"
+          },
+          "stateRound": 31
+        },
+        {
+          "checkpoint": "round-40",
+          "completedRound": 40,
+          "hashes": {
+            "actor1": "dc682459a0c943ad",
+            "actor2": "598306b4e2abfea7",
+            "state": "856cdc3196358768"
+          },
+          "stateRound": 41
+        },
+        {
+          "checkpoint": "round-50",
+          "completedRound": 50,
+          "hashes": {
+            "actor1": "797e1eafb4ac4474",
+            "actor2": "4a9e0a64bd0b56a5",
+            "state": "d39fb980660a299f"
+          },
+          "stateRound": 51
+        },
+        {
+          "checkpoint": "round-60",
+          "completedRound": 60,
+          "hashes": {
+            "actor1": "121b5553af136f05",
+            "actor2": "5f2c853f1ba78322",
+            "state": "7b63582efc62e31b"
+          },
+          "stateRound": 61
+        },
+        {
+          "checkpoint": "final",
+          "completedRound": 69,
+          "hashes": {
+            "actor1": "10ce8be319c45dbf",
+            "actor2": "59d8bf25a6f0db70",
+            "state": "7c578fcb4b2a1023"
+          },
+          "stateRound": 69
+        }
+      ],
+      "finalRound": 69,
+      "id": "Standard/Hex/seed-31676/barbarians-off",
+      "phase": "Finished",
+      "victoryType": "Science",
+      "winner": 2
+    },
+    {
+      "checkpoints": [
+        {
+          "checkpoint": "initial",
+          "completedRound": 0,
+          "hashes": {
+            "actor1": "8d20131e631e97d2",
+            "actor2": "f0d9dd10ecefe9c2",
+            "state": "e9763c902a6d73ad"
+          },
+          "stateRound": 1
+        },
+        {
+          "checkpoint": "round-10",
+          "completedRound": 10,
+          "hashes": {
+            "actor1": "6246ff4ac6007879",
+            "actor2": "72e1012714ee81e1",
+            "state": "b72e49c1fe007a00"
+          },
+          "stateRound": 11
+        },
+        {
+          "checkpoint": "round-20",
+          "completedRound": 20,
+          "hashes": {
+            "actor1": "ca100b1bb90de375",
+            "actor2": "7e6c554c21c64613",
+            "state": "364841b23ed1d1e2"
+          },
+          "stateRound": 21
+        },
+        {
+          "checkpoint": "round-30",
+          "completedRound": 30,
+          "hashes": {
+            "actor1": "d4f7ce84dc23dca1",
+            "actor2": "b0ac0fa6f4ea9170",
+            "state": "45c89c8507c98c7d"
+          },
+          "stateRound": 31
+        },
+        {
+          "checkpoint": "round-40",
+          "completedRound": 40,
+          "hashes": {
+            "actor1": "4447349539592d33",
+            "actor2": "4fc3094cc80ebacb",
+            "state": "b79c5f1177f49ad0"
+          },
+          "stateRound": 41
+        },
+        {
+          "checkpoint": "round-50",
+          "completedRound": 50,
+          "hashes": {
+            "actor1": "a0392246ddc2af34",
+            "actor2": "943f5b5545463168",
+            "state": "d105e69101ed7ef6"
+          },
+          "stateRound": 51
+        },
+        {
+          "checkpoint": "final",
+          "completedRound": 53,
+          "hashes": {
+            "actor1": "d87eb50b24080e8a",
+            "actor2": "154fe4a3b6fd0e25",
+            "state": "9a0cea8bfb56df75"
+          },
+          "stateRound": 53
+        }
+      ],
+      "finalRound": 53,
+      "id": "Standard/Hex/seed-39595/barbarians-on",
+      "phase": "Finished",
+      "victoryType": "Domination",
+      "winner": 2
+    },
+    {
+      "checkpoints": [
+        {
+          "checkpoint": "initial",
+          "completedRound": 0,
+          "hashes": {
+            "actor1": "74e5a5a52ae67a6f",
+            "actor2": "8748fd5d2580294d",
             "state": "cabe2adfd4a44ead"
           },
           "stateRound": 1
@@ -1586,9 +1576,9 @@
           "checkpoint": "round-10",
           "completedRound": 10,
           "hashes": {
-            "actor1": "84e32137c7ff3fbf",
-            "actor2": "16e1a97a080f405e",
-            "state": "465c6b4f81cf38f4"
+            "actor1": "5f390cd445c4b942",
+            "actor2": "63e0e8939730f17a",
+            "state": "da48dee77a7a7715"
           },
           "stateRound": 11
         },
@@ -1596,9 +1586,9 @@
           "checkpoint": "round-20",
           "completedRound": 20,
           "hashes": {
-            "actor1": "6b5514179345a0d8",
-            "actor2": "9b38ec7b88e7274b",
-            "state": "cb4137d2032a5b24"
+            "actor1": "634c6657d87a3727",
+            "actor2": "91ff1009f85ebbbf",
+            "state": "4a6d385b9a73e9e8"
           },
           "stateRound": 21
         },
@@ -1606,9 +1596,9 @@
           "checkpoint": "round-30",
           "completedRound": 30,
           "hashes": {
-            "actor1": "6fa30ccaceaed06f",
-            "actor2": "15f0b7a860eb934b",
-            "state": "2c11303866835750"
+            "actor1": "56882b0e738bfac0",
+            "actor2": "187e1e408d458f01",
+            "state": "b40dbdf731dc53fb"
           },
           "stateRound": 31
         },
@@ -1616,9 +1606,9 @@
           "checkpoint": "round-40",
           "completedRound": 40,
           "hashes": {
-            "actor1": "4f84a5b2942367ec",
-            "actor2": "45d8cf6606f31090",
-            "state": "9f561eb88aadbed4"
+            "actor1": "3dd5a65d5bdecf0b",
+            "actor2": "86e8a08931b41e13",
+            "state": "b41635fd53ad7712"
           },
           "stateRound": 41
         },
@@ -1626,9 +1616,9 @@
           "checkpoint": "round-50",
           "completedRound": 50,
           "hashes": {
-            "actor1": "77876ce0fa3c0254",
-            "actor2": "abfffa13246f86cf",
-            "state": "1c5d61d312ed93c8"
+            "actor1": "ff07ae4fdc129b94",
+            "actor2": "70e0fcfa6c93b7c0",
+            "state": "b7e51cae2d5d536c"
           },
           "stateRound": 51
         },
@@ -1636,9 +1626,9 @@
           "checkpoint": "round-60",
           "completedRound": 60,
           "hashes": {
-            "actor1": "f4e9d0437e2969a9",
-            "actor2": "f0a6d93790f8a29d",
-            "state": "29e46b9cc753a3e7"
+            "actor1": "a01b9b04ad6a0353",
+            "actor2": "b2d10660d4565455",
+            "state": "a67b0858a1413af1"
           },
           "stateRound": 61
         },
@@ -1646,24 +1636,24 @@
           "checkpoint": "round-70",
           "completedRound": 70,
           "hashes": {
-            "actor1": "fd148d076f600175",
-            "actor2": "036aa2eee960a736",
-            "state": "18f2a8cc9b5035f7"
+            "actor1": "a485cec675926e69",
+            "actor2": "768c854eec70f12c",
+            "state": "fa35efb0926280e4"
           },
           "stateRound": 71
         },
         {
           "checkpoint": "final",
-          "completedRound": 77,
+          "completedRound": 76,
           "hashes": {
-            "actor1": "98c4c817c4f6c9d0",
-            "actor2": "14c6dd1a560617e4",
-            "state": "288aea58411e5f34"
+            "actor1": "c0d68e9a2d0d155d",
+            "actor2": "2f9c41f4de1bd91c",
+            "state": "44b1dc0bf898cb20"
           },
-          "stateRound": 77
+          "stateRound": 76
         }
       ],
-      "finalRound": 77,
+      "finalRound": 76,
       "id": "Standard/Hex/seed-47514/barbarians-off",
       "phase": "Finished",
       "victoryType": "Culture",
@@ -1675,8 +1665,8 @@
           "checkpoint": "initial",
           "completedRound": 0,
           "hashes": {
-            "actor1": "268312ebf8939ff9",
-            "actor2": "5742b3e5f179102f",
+            "actor1": "b130089d1e2993b6",
+            "actor2": "2f6e7bcdbb1e7c6a",
             "state": "002839cd3114c8a4"
           },
           "stateRound": 1
@@ -1685,9 +1675,9 @@
           "checkpoint": "round-10",
           "completedRound": 10,
           "hashes": {
-            "actor1": "7a2376163ae0e7d7",
-            "actor2": "1e841cbe95b13c2d",
-            "state": "bca31cba1fb1122f"
+            "actor1": "a4e79cce51f7d257",
+            "actor2": "52342d6e5a074ec8",
+            "state": "fb8725291c8ba46c"
           },
           "stateRound": 11
         },
@@ -1695,9 +1685,9 @@
           "checkpoint": "round-20",
           "completedRound": 20,
           "hashes": {
-            "actor1": "c693017e8fc03f75",
-            "actor2": "d84e5f1b7b401884",
-            "state": "c91da07274916936"
+            "actor1": "4dd53e365a19a7ec",
+            "actor2": "68b411b40bdb82e5",
+            "state": "f64666f28542bf2e"
           },
           "stateRound": 21
         },
@@ -1705,9 +1695,9 @@
           "checkpoint": "round-30",
           "completedRound": 30,
           "hashes": {
-            "actor1": "615794e8dccfe136",
-            "actor2": "06608954b822099f",
-            "state": "e8f887eb76c3afbd"
+            "actor1": "09a13389ae1c8762",
+            "actor2": "76b7d29638a67554",
+            "state": "579a3f1a2a402c22"
           },
           "stateRound": 31
         },
@@ -1715,9 +1705,9 @@
           "checkpoint": "round-40",
           "completedRound": 40,
           "hashes": {
-            "actor1": "745dc765be04482e",
-            "actor2": "fac1ee097679b7d0",
-            "state": "1ff6cd05cb3fb212"
+            "actor1": "a316d7ed09239072",
+            "actor2": "d608592d31c008bd",
+            "state": "f57ea411fd68cd51"
           },
           "stateRound": 41
         },
@@ -1725,9 +1715,9 @@
           "checkpoint": "round-50",
           "completedRound": 50,
           "hashes": {
-            "actor1": "798eaf0f2909bcfe",
-            "actor2": "48947aa64702e3f8",
-            "state": "ef4d3f175ee4d861"
+            "actor1": "f2db8e736a4c6cd8",
+            "actor2": "3ecbe2022bf4c101",
+            "state": "e13ad2ae102d2e28"
           },
           "stateRound": 51
         },
@@ -1735,9 +1725,9 @@
           "checkpoint": "round-60",
           "completedRound": 60,
           "hashes": {
-            "actor1": "24aa7be76bb12f49",
-            "actor2": "748ea03460633103",
-            "state": "4610847c68575bcc"
+            "actor1": "3814971bc5d2fc41",
+            "actor2": "756269f17cbc6262",
+            "state": "eea205f262fd937a"
           },
           "stateRound": 61
         },
@@ -1745,37 +1735,27 @@
           "checkpoint": "round-70",
           "completedRound": 70,
           "hashes": {
-            "actor1": "4002081dff9dbedf",
-            "actor2": "57e2299b725365b3",
-            "state": "63237591c20e2e31"
+            "actor1": "cceb8eb8b590afdc",
+            "actor2": "01893e76a46eeaa8",
+            "state": "8d25f12ebfb08650"
           },
           "stateRound": 71
         },
         {
-          "checkpoint": "round-80",
-          "completedRound": 80,
-          "hashes": {
-            "actor1": "497466140537326a",
-            "actor2": "2aa2d37632d8b35a",
-            "state": "615323035b3ed7d7"
-          },
-          "stateRound": 80
-        },
-        {
           "checkpoint": "final",
-          "completedRound": 80,
+          "completedRound": 75,
           "hashes": {
-            "actor1": "497466140537326a",
-            "actor2": "2aa2d37632d8b35a",
-            "state": "615323035b3ed7d7"
+            "actor1": "5ac624746d8c36b1",
+            "actor2": "9ba2d5d5181c29e9",
+            "state": "94ebf6382aadd8b0"
           },
-          "stateRound": 80
+          "stateRound": 75
         }
       ],
-      "finalRound": 80,
+      "finalRound": 75,
       "id": "Standard/Hex/seed-55433/barbarians-on",
       "phase": "Finished",
-      "victoryType": "Culture",
+      "victoryType": "Science",
       "winner": 2
     },
     {
@@ -1784,8 +1764,8 @@
           "checkpoint": "initial",
           "completedRound": 0,
           "hashes": {
-            "actor1": "bf56c8000025dd1b",
-            "actor2": "ee4d65a6d8b717dc",
+            "actor1": "7827652590b0c91b",
+            "actor2": "ea03cb57d8bc20ad",
             "state": "670eb732eba2adf3"
           },
           "stateRound": 1
@@ -1794,9 +1774,9 @@
           "checkpoint": "round-10",
           "completedRound": 10,
           "hashes": {
-            "actor1": "571f9d4c54dc55a4",
-            "actor2": "319d9fa0ce9db1e2",
-            "state": "8f4bade9d80d398e"
+            "actor1": "1cbd17b8a8e82802",
+            "actor2": "a05996fcd84d937b",
+            "state": "f9b19d1b6478b74d"
           },
           "stateRound": 11
         },
@@ -1804,9 +1784,9 @@
           "checkpoint": "round-20",
           "completedRound": 20,
           "hashes": {
-            "actor1": "de6bf624d01e8498",
-            "actor2": "91d7d664295024cf",
-            "state": "9bc58d12c7de8287"
+            "actor1": "34cdf9e784af4f0d",
+            "actor2": "78e4b962fe242a7e",
+            "state": "afcd2588e05336a8"
           },
           "stateRound": 21
         },
@@ -1814,9 +1794,9 @@
           "checkpoint": "round-30",
           "completedRound": 30,
           "hashes": {
-            "actor1": "7cc5c6c7fc82a439",
-            "actor2": "93ebd1510f20869a",
-            "state": "14399e356a942dbd"
+            "actor1": "f5dc3f551298ac93",
+            "actor2": "d072f42a3bec8a42",
+            "state": "91e7cbb697cfa158"
           },
           "stateRound": 31
         },
@@ -1824,9 +1804,9 @@
           "checkpoint": "round-40",
           "completedRound": 40,
           "hashes": {
-            "actor1": "a9dbf75756c585a1",
-            "actor2": "9e558d348abee724",
-            "state": "4dd1ee44ade6bcaa"
+            "actor1": "d876660d43d2b98c",
+            "actor2": "1f51047ce3b2b742",
+            "state": "c06de04e5e78f635"
           },
           "stateRound": 41
         },
@@ -1834,9 +1814,9 @@
           "checkpoint": "round-50",
           "completedRound": 50,
           "hashes": {
-            "actor1": "cce9510d7cfec568",
-            "actor2": "ab8fbd82936f9a1d",
-            "state": "bddc098b4c941f86"
+            "actor1": "d22a3179bef6fab1",
+            "actor2": "e8a619ae04c45fba",
+            "state": "47b6e44b7199978f"
           },
           "stateRound": 51
         },
@@ -1844,9 +1824,9 @@
           "checkpoint": "round-60",
           "completedRound": 60,
           "hashes": {
-            "actor1": "359d8d313acf0ccb",
-            "actor2": "f851338f89fd803b",
-            "state": "a7b3d55d658b6cea"
+            "actor1": "645423f707601901",
+            "actor2": "a5e14caf55b26c08",
+            "state": "c62f667538b15da8"
           },
           "stateRound": 61
         },
@@ -1854,27 +1834,27 @@
           "checkpoint": "round-70",
           "completedRound": 70,
           "hashes": {
-            "actor1": "d7b00f1da0a0a83f",
-            "actor2": "e43aa5b4ab44b0d2",
-            "state": "cc1525fc22739d90"
+            "actor1": "6acd1985bc8d293f",
+            "actor2": "d7dd2e4e2728bd2f",
+            "state": "2eb52b6f1e4d8bef"
           },
-          "stateRound": 71
+          "stateRound": 70
         },
         {
           "checkpoint": "final",
-          "completedRound": 74,
+          "completedRound": 70,
           "hashes": {
-            "actor1": "9e3042c2014b82e3",
-            "actor2": "1bdcb06551b34f66",
-            "state": "0b65255cb54c6c88"
+            "actor1": "6acd1985bc8d293f",
+            "actor2": "d7dd2e4e2728bd2f",
+            "state": "2eb52b6f1e4d8bef"
           },
-          "stateRound": 74
+          "stateRound": 70
         }
       ],
-      "finalRound": 74,
+      "finalRound": 70,
       "id": "Standard/Hex/seed-63352/barbarians-off",
       "phase": "Finished",
-      "victoryType": "Culture",
+      "victoryType": "Science",
       "winner": 2
     },
     {
@@ -1883,8 +1863,8 @@
           "checkpoint": "initial",
           "completedRound": 0,
           "hashes": {
-            "actor1": "c18fc52c381cd3e6",
-            "actor2": "fdf90d538c12ebc8",
+            "actor1": "7679e124b71dc16a",
+            "actor2": "8d5c205c3ce8b7fe",
             "state": "01416804de473930"
           },
           "stateRound": 1
@@ -1893,9 +1873,9 @@
           "checkpoint": "round-10",
           "completedRound": 10,
           "hashes": {
-            "actor1": "f8a94e297aac6176",
-            "actor2": "69856ef8d87519db",
-            "state": "b530ebce47568f12"
+            "actor1": "449890630358e44d",
+            "actor2": "6fdff475cf659996",
+            "state": "2cc766c36fd17c77"
           },
           "stateRound": 11
         },
@@ -1903,9 +1883,9 @@
           "checkpoint": "round-20",
           "completedRound": 20,
           "hashes": {
-            "actor1": "5f62f4c98f584be7",
-            "actor2": "ec5b00ac07e16052",
-            "state": "2d56cc72de599fec"
+            "actor1": "e8015a04063f04ad",
+            "actor2": "420c82f0e205a371",
+            "state": "612cc9a17ec0c896"
           },
           "stateRound": 21
         },
@@ -1913,9 +1893,9 @@
           "checkpoint": "round-30",
           "completedRound": 30,
           "hashes": {
-            "actor1": "34dbf728044ae8f8",
-            "actor2": "b92fef0c5146ab65",
-            "state": "d25949e4e73084c3"
+            "actor1": "22fed2f37ce4b44a",
+            "actor2": "021b9f50f2c6d2c2",
+            "state": "999cc467fe534810"
           },
           "stateRound": 31
         },
@@ -1923,9 +1903,9 @@
           "checkpoint": "round-40",
           "completedRound": 40,
           "hashes": {
-            "actor1": "d676efcef51badb5",
-            "actor2": "26ed3f6feffe3885",
-            "state": "30d49ee9e30da67b"
+            "actor1": "7f63ac2f1744f050",
+            "actor2": "1735dceda0b52e9b",
+            "state": "e997b62eea992101"
           },
           "stateRound": 41
         },
@@ -1933,9 +1913,9 @@
           "checkpoint": "round-50",
           "completedRound": 50,
           "hashes": {
-            "actor1": "cd13a6ea7c972e85",
-            "actor2": "bfcdd1d0d0548dca",
-            "state": "c4e81e29d467214b"
+            "actor1": "b34bd9409a09271d",
+            "actor2": "8bd255fb2199ca33",
+            "state": "016c9da40f8c4e6e"
           },
           "stateRound": 51
         },
@@ -1943,9 +1923,9 @@
           "checkpoint": "round-60",
           "completedRound": 60,
           "hashes": {
-            "actor1": "af2b46e5092999b4",
-            "actor2": "dc943d5f2a67ffec",
-            "state": "5ace13fd5c041d56"
+            "actor1": "03dfb36967b345d0",
+            "actor2": "cf3835d0ab41b6d6",
+            "state": "9d8dcc8c726ea359"
           },
           "stateRound": 61
         },
@@ -1953,27 +1933,27 @@
           "checkpoint": "round-70",
           "completedRound": 70,
           "hashes": {
-            "actor1": "0c6e0595ee94beb8",
-            "actor2": "17e00074e2ffc782",
-            "state": "832906f7dee5fb10"
+            "actor1": "a916ce7ad5baa5b3",
+            "actor2": "23c829505111ee3a",
+            "state": "16bacc587ff7ee28"
           },
-          "stateRound": 71
+          "stateRound": 70
         },
         {
           "checkpoint": "final",
-          "completedRound": 73,
+          "completedRound": 70,
           "hashes": {
-            "actor1": "e103bcd7e6382ef9",
-            "actor2": "12fc1e69fcd65c9c",
-            "state": "c6151d02c998f803"
+            "actor1": "a916ce7ad5baa5b3",
+            "actor2": "23c829505111ee3a",
+            "state": "16bacc587ff7ee28"
           },
-          "stateRound": 73
+          "stateRound": 70
         }
       ],
-      "finalRound": 73,
+      "finalRound": 70,
       "id": "Standard/Sphere/seed-7919/barbarians-on",
       "phase": "Finished",
-      "victoryType": "Culture",
+      "victoryType": "Science",
       "winner": 2
     },
     {
@@ -1982,8 +1962,8 @@
           "checkpoint": "initial",
           "completedRound": 0,
           "hashes": {
-            "actor1": "88686f33cc55ca66",
-            "actor2": "6609842ecaab7f2a",
+            "actor1": "4dafc3e7cbad787c",
+            "actor2": "9d1950486cdb3f5b",
             "state": "7e43baa38838a8ee"
           },
           "stateRound": 1
@@ -1992,9 +1972,9 @@
           "checkpoint": "round-10",
           "completedRound": 10,
           "hashes": {
-            "actor1": "045f771d6bd5900b",
-            "actor2": "e4937aba01b9b225",
-            "state": "3faab0e3dfa8e27e"
+            "actor1": "9ea4a44cf011e3a4",
+            "actor2": "410d34c1bb336f41",
+            "state": "722756ccfd3e93fd"
           },
           "stateRound": 11
         },
@@ -2002,9 +1982,9 @@
           "checkpoint": "round-20",
           "completedRound": 20,
           "hashes": {
-            "actor1": "9a3f5fd2148f5ef8",
-            "actor2": "6c545dcc0537d885",
-            "state": "eaaa76ae49762176"
+            "actor1": "7c52ff72ea8f0b2a",
+            "actor2": "11fcfa8486a65ff6",
+            "state": "cd882c51c20989be"
           },
           "stateRound": 21
         },
@@ -2012,9 +1992,9 @@
           "checkpoint": "round-30",
           "completedRound": 30,
           "hashes": {
-            "actor1": "0ad6e21868f0a651",
-            "actor2": "cb8bbebde10415ef",
-            "state": "6143df99dd1ce301"
+            "actor1": "2088c4bf28f2f421",
+            "actor2": "12c44e6d989b230e",
+            "state": "ea1a5bfb00e5c1dd"
           },
           "stateRound": 31
         },
@@ -2022,9 +2002,9 @@
           "checkpoint": "round-40",
           "completedRound": 40,
           "hashes": {
-            "actor1": "06527ae5852e83ba",
-            "actor2": "2f6618190aea9c25",
-            "state": "9b72f1f821a91b58"
+            "actor1": "20a811695f1874e1",
+            "actor2": "d1483f3a1fb381f0",
+            "state": "dcfd37b40a2e8dcd"
           },
           "stateRound": 41
         },
@@ -2032,9 +2012,9 @@
           "checkpoint": "round-50",
           "completedRound": 50,
           "hashes": {
-            "actor1": "55a8ca4335114452",
-            "actor2": "8b5897ec1d91e13b",
-            "state": "c5fe58731e9c5961"
+            "actor1": "59240c7d8340d589",
+            "actor2": "2e9835cbb2cf2b56",
+            "state": "deae17aaa97bad83"
           },
           "stateRound": 51
         },
@@ -2042,9 +2022,9 @@
           "checkpoint": "round-60",
           "completedRound": 60,
           "hashes": {
-            "actor1": "b228a2bac075b114",
-            "actor2": "2df41dc7d166e94d",
-            "state": "a5ffdd745c74851f"
+            "actor1": "cd1a06859efd607d",
+            "actor2": "7dcb7e19fd118586",
+            "state": "876bb1b45e75f90d"
           },
           "stateRound": 61
         },
@@ -2052,27 +2032,27 @@
           "checkpoint": "round-70",
           "completedRound": 70,
           "hashes": {
-            "actor1": "71ee69ebfbb5cdab",
-            "actor2": "7c61efa4e5000a19",
-            "state": "c218bac515210502"
+            "actor1": "44b5d2012b2c8ab9",
+            "actor2": "63f544e57f8c5532",
+            "state": "dd0f710646dc97b5"
           },
           "stateRound": 71
         },
         {
           "checkpoint": "final",
-          "completedRound": 73,
+          "completedRound": 71,
           "hashes": {
-            "actor1": "1ecf82a9aec3bc58",
-            "actor2": "e6742a0c530a9692",
-            "state": "2b4b5dee4c36a520"
+            "actor1": "ed7d17a1327b8e4d",
+            "actor2": "bc87c6cfc0fbc941",
+            "state": "1fa9d6e5b927f11b"
           },
-          "stateRound": 73
+          "stateRound": 71
         }
       ],
-      "finalRound": 73,
+      "finalRound": 71,
       "id": "Standard/Sphere/seed-15838/barbarians-off",
       "phase": "Finished",
-      "victoryType": "Culture",
+      "victoryType": "Science",
       "winner": 2
     },
     {
@@ -2081,8 +2061,8 @@
           "checkpoint": "initial",
           "completedRound": 0,
           "hashes": {
-            "actor1": "16aafdb77c223a62",
-            "actor2": "657a06fd72a44e15",
+            "actor1": "351de730829299cf",
+            "actor2": "89c78a32fa38d1aa",
             "state": "2f1eb82d5a5221cd"
           },
           "stateRound": 1
@@ -2091,9 +2071,9 @@
           "checkpoint": "round-10",
           "completedRound": 10,
           "hashes": {
-            "actor1": "5733f29af227d069",
-            "actor2": "7c7cc0a81a4737fe",
-            "state": "6a59bd1ec6651cdc"
+            "actor1": "aae6bbb7dc2d8780",
+            "actor2": "e9fd118df2a2264d",
+            "state": "75095fa965898454"
           },
           "stateRound": 11
         },
@@ -2101,9 +2081,9 @@
           "checkpoint": "round-20",
           "completedRound": 20,
           "hashes": {
-            "actor1": "41c8efd2a6018a47",
-            "actor2": "55ca25b160478f62",
-            "state": "8cba81e0718fcf5b"
+            "actor1": "5330af4970ab8cce",
+            "actor2": "f4bf24f7af5b30b0",
+            "state": "db0718673d5f0cb7"
           },
           "stateRound": 21
         },
@@ -2111,9 +2091,9 @@
           "checkpoint": "round-30",
           "completedRound": 30,
           "hashes": {
-            "actor1": "8b9d5b6dc53c9e8c",
-            "actor2": "c6facfb96c66e06d",
-            "state": "f7a251b6771ab562"
+            "actor1": "f5cb50867a89b0b5",
+            "actor2": "218e973bcf595f30",
+            "state": "122c13bf2d51c2de"
           },
           "stateRound": 31
         },
@@ -2121,9 +2101,9 @@
           "checkpoint": "round-40",
           "completedRound": 40,
           "hashes": {
-            "actor1": "49cd04cb3c265494",
-            "actor2": "57fcbe4502944147",
-            "state": "f444ea7f9ae6c319"
+            "actor1": "5484e45bb560f296",
+            "actor2": "2900338c427eace6",
+            "state": "5b1e9163b38a1acd"
           },
           "stateRound": 41
         },
@@ -2131,9 +2111,9 @@
           "checkpoint": "round-50",
           "completedRound": 50,
           "hashes": {
-            "actor1": "8a62fde4caf8ff16",
-            "actor2": "d5cb4de6820cd400",
-            "state": "0b1d93dd7cf09df0"
+            "actor1": "a163430984eccc8e",
+            "actor2": "89c9cd786d758860",
+            "state": "ae99ca80a6ef1f6a"
           },
           "stateRound": 51
         },
@@ -2141,9 +2121,9 @@
           "checkpoint": "round-60",
           "completedRound": 60,
           "hashes": {
-            "actor1": "69f88a18f4c1da7c",
-            "actor2": "926daffd6e82b2f7",
-            "state": "c2e3165258250785"
+            "actor1": "ad0c92062dc92908",
+            "actor2": "f6d8e29a1a6dbb75",
+            "state": "0b09d68de6c020be"
           },
           "stateRound": 61
         },
@@ -2151,9 +2131,9 @@
           "checkpoint": "round-70",
           "completedRound": 70,
           "hashes": {
-            "actor1": "35a80018123e8d5a",
-            "actor2": "9ef1757dc66b9c7c",
-            "state": "8146e7a854074d42"
+            "actor1": "82e0a7a0967ff782",
+            "actor2": "18419da2d99a60c9",
+            "state": "877987a6fb837bac"
           },
           "stateRound": 71
         },
@@ -2161,9 +2141,9 @@
           "checkpoint": "final",
           "completedRound": 73,
           "hashes": {
-            "actor1": "d035d03af2505a21",
-            "actor2": "58eedcd5a16d2333",
-            "state": "2f1a7f805f8f77bf"
+            "actor1": "d8f211a94d004511",
+            "actor2": "01c96491ab92c1d8",
+            "state": "d1659c43c1b79b50"
           },
           "stateRound": 73
         }
@@ -2180,8 +2160,8 @@
           "checkpoint": "initial",
           "completedRound": 0,
           "hashes": {
-            "actor1": "dc5c4993d077b5f3",
-            "actor2": "ce1b4734ee5f94c4",
+            "actor1": "9ba8953b788e8ae6",
+            "actor2": "0570484aac0db221",
             "state": "fe7e334c8095edb1"
           },
           "stateRound": 1
@@ -2190,9 +2170,9 @@
           "checkpoint": "round-10",
           "completedRound": 10,
           "hashes": {
-            "actor1": "9df9f5c271a57926",
-            "actor2": "832065b3e18d41e8",
-            "state": "d9c4624bcc2c1c57"
+            "actor1": "bb59566aa688fcf2",
+            "actor2": "a5a0c70df637046f",
+            "state": "21debe048bb31da2"
           },
           "stateRound": 11
         },
@@ -2200,9 +2180,9 @@
           "checkpoint": "round-20",
           "completedRound": 20,
           "hashes": {
-            "actor1": "b13032afeaac9379",
-            "actor2": "85ddc6baa069a6f7",
-            "state": "52ded7f815c3dcfa"
+            "actor1": "781971f96978a418",
+            "actor2": "0667f0762c66cff7",
+            "state": "ad1bfc172dd050bf"
           },
           "stateRound": 21
         },
@@ -2210,9 +2190,9 @@
           "checkpoint": "round-30",
           "completedRound": 30,
           "hashes": {
-            "actor1": "14f2d8229a4392f3",
-            "actor2": "aa4228ee8478de8b",
-            "state": "5e81e9a791d3fe33"
+            "actor1": "4d2cf6dcb774c5d1",
+            "actor2": "225cdb0972465254",
+            "state": "01ae095bdd38189e"
           },
           "stateRound": 31
         },
@@ -2220,9 +2200,9 @@
           "checkpoint": "round-40",
           "completedRound": 40,
           "hashes": {
-            "actor1": "0abcac74d94e0b0e",
-            "actor2": "dcb6cd866fe23797",
-            "state": "cd6a49312309e16b"
+            "actor1": "b53e1d619695661c",
+            "actor2": "e3edb347ebd21cab",
+            "state": "efdeacba906fc742"
           },
           "stateRound": 41
         },
@@ -2230,9 +2210,9 @@
           "checkpoint": "round-50",
           "completedRound": 50,
           "hashes": {
-            "actor1": "3d999b909140f1fd",
-            "actor2": "e7dca93b76e596c8",
-            "state": "153f24d9d7515220"
+            "actor1": "0e671c331b8a29c0",
+            "actor2": "e02ed58ceeef76ff",
+            "state": "94bd2fa77f3319fe"
           },
           "stateRound": 51
         },
@@ -2240,34 +2220,24 @@
           "checkpoint": "round-60",
           "completedRound": 60,
           "hashes": {
-            "actor1": "fb70cfb945f8402c",
-            "actor2": "4f49a93d970c6e07",
-            "state": "31256fdce041762d"
+            "actor1": "2a8733ce76790d00",
+            "actor2": "06c5c7a166486a08",
+            "state": "27b9dcbda9c71e1d"
           },
           "stateRound": 61
         },
         {
-          "checkpoint": "round-70",
-          "completedRound": 70,
-          "hashes": {
-            "actor1": "c94f6248a6e477f2",
-            "actor2": "26797f7a0e3583b3",
-            "state": "0bb01175a8bcc049"
-          },
-          "stateRound": 71
-        },
-        {
           "checkpoint": "final",
-          "completedRound": 72,
+          "completedRound": 68,
           "hashes": {
-            "actor1": "b3c351add95b1940",
-            "actor2": "7ac176602c836104",
-            "state": "e70601613ebb7059"
+            "actor1": "829d921bb41ae86e",
+            "actor2": "c087bfc08eac50c7",
+            "state": "5950831ad96248bb"
           },
-          "stateRound": 72
+          "stateRound": 68
         }
       ],
-      "finalRound": 72,
+      "finalRound": 68,
       "id": "Standard/Sphere/seed-31676/barbarians-off",
       "phase": "Finished",
       "victoryType": "Domination",
@@ -2279,8 +2249,8 @@
           "checkpoint": "initial",
           "completedRound": 0,
           "hashes": {
-            "actor1": "c937e454b71e8f64",
-            "actor2": "4d622a5fadfdebad",
+            "actor1": "36d7f5d1cf747566",
+            "actor2": "41c3863512e00374",
             "state": "06e2d80dbad9736e"
           },
           "stateRound": 1
@@ -2289,9 +2259,9 @@
           "checkpoint": "round-10",
           "completedRound": 10,
           "hashes": {
-            "actor1": "9e4f8668bd9ae96f",
-            "actor2": "169037e978ff1628",
-            "state": "4394b6415388f840"
+            "actor1": "7dde7f1946bb51c8",
+            "actor2": "19b83ebc508e035f",
+            "state": "345dd5f06d1e3bf4"
           },
           "stateRound": 11
         },
@@ -2299,9 +2269,9 @@
           "checkpoint": "round-20",
           "completedRound": 20,
           "hashes": {
-            "actor1": "f1c9156bb356c551",
-            "actor2": "0facb6cd1d509a88",
-            "state": "6f2bc93f34776067"
+            "actor1": "a72ea31ea6ba7130",
+            "actor2": "71993bab69b8ec58",
+            "state": "94aea47c6fc70480"
           },
           "stateRound": 21
         },
@@ -2309,9 +2279,9 @@
           "checkpoint": "round-30",
           "completedRound": 30,
           "hashes": {
-            "actor1": "f8764e7f0133d263",
-            "actor2": "889f6dabe19464a5",
-            "state": "dad2f668e47d15fd"
+            "actor1": "01f62f184ebc399e",
+            "actor2": "a765dcf05c41f50c",
+            "state": "7580a1d5de4f8f7e"
           },
           "stateRound": 31
         },
@@ -2319,9 +2289,9 @@
           "checkpoint": "round-40",
           "completedRound": 40,
           "hashes": {
-            "actor1": "c70ff8fdd7c63dec",
-            "actor2": "c2043c4289d02e35",
-            "state": "05a0f8cc10f1510b"
+            "actor1": "5afe95975fc0e663",
+            "actor2": "7737f9a12a08e8d5",
+            "state": "7413e80b8d95a38c"
           },
           "stateRound": 41
         },
@@ -2329,9 +2299,9 @@
           "checkpoint": "round-50",
           "completedRound": 50,
           "hashes": {
-            "actor1": "b6a31d1424b72870",
-            "actor2": "1ebb5597ffb68afa",
-            "state": "83f0fe64bf5841d4"
+            "actor1": "be422f182f53a11e",
+            "actor2": "a6a0e16984d3b070",
+            "state": "6a5e865dcc99ee5c"
           },
           "stateRound": 51
         },
@@ -2339,9 +2309,9 @@
           "checkpoint": "round-60",
           "completedRound": 60,
           "hashes": {
-            "actor1": "677ceb6dcad21cb6",
-            "actor2": "658ea9908a895ab3",
-            "state": "e82bc8dd42666348"
+            "actor1": "f04bb099924fb9b4",
+            "actor2": "975377f196a1ab6f",
+            "state": "0f9209228d8db690"
           },
           "stateRound": 61
         },
@@ -2349,27 +2319,27 @@
           "checkpoint": "round-70",
           "completedRound": 70,
           "hashes": {
-            "actor1": "7fa3430fdbe08318",
-            "actor2": "78636feecc265c7b",
-            "state": "8338994a4af98484"
+            "actor1": "c369455fffad6e35",
+            "actor2": "5530f54c9600a17b",
+            "state": "5b891e14840d9348"
           },
           "stateRound": 71
         },
         {
           "checkpoint": "final",
-          "completedRound": 78,
+          "completedRound": 72,
           "hashes": {
-            "actor1": "d6d817e7424ccf44",
-            "actor2": "7089350e9ca06476",
-            "state": "f220255f6b4e2b9c"
+            "actor1": "6d9fd7b7c90e21eb",
+            "actor2": "1de4df2a6bf2cace",
+            "state": "26c6d4c41c9057d6"
           },
-          "stateRound": 78
+          "stateRound": 72
         }
       ],
-      "finalRound": 78,
+      "finalRound": 72,
       "id": "Standard/Sphere/seed-39595/barbarians-on",
       "phase": "Finished",
-      "victoryType": "Culture",
+      "victoryType": "Science",
       "winner": 2
     },
     {
@@ -2378,8 +2348,8 @@
           "checkpoint": "initial",
           "completedRound": 0,
           "hashes": {
-            "actor1": "0ec75798acb1d8fe",
-            "actor2": "0afae4bac4b48241",
+            "actor1": "eb5736ffbd2b435c",
+            "actor2": "f988508071bd5270",
             "state": "923bc3bc9f1d75f1"
           },
           "stateRound": 1
@@ -2388,9 +2358,9 @@
           "checkpoint": "round-10",
           "completedRound": 10,
           "hashes": {
-            "actor1": "884b362350e1da9a",
-            "actor2": "553a3f01439a792a",
-            "state": "1ab3f461fbcac587"
+            "actor1": "ccebce915711847b",
+            "actor2": "74e09c3d6685bc69",
+            "state": "df07fd6d099fba17"
           },
           "stateRound": 11
         },
@@ -2398,9 +2368,9 @@
           "checkpoint": "round-20",
           "completedRound": 20,
           "hashes": {
-            "actor1": "9b02e2099d648e81",
-            "actor2": "54c3897a8ba527af",
-            "state": "e1bf57887e555894"
+            "actor1": "7e48a4391a55a4f2",
+            "actor2": "84c190887458f795",
+            "state": "efd453a69567f87a"
           },
           "stateRound": 21
         },
@@ -2408,9 +2378,9 @@
           "checkpoint": "round-30",
           "completedRound": 30,
           "hashes": {
-            "actor1": "3397f068ca0662a0",
-            "actor2": "29fbc561dd3d6850",
-            "state": "29f8f27b7420b606"
+            "actor1": "e500c9d4b95ae57d",
+            "actor2": "94ee3f9a9eb19546",
+            "state": "1ee7224b9089ac1e"
           },
           "stateRound": 31
         },
@@ -2418,9 +2388,9 @@
           "checkpoint": "round-40",
           "completedRound": 40,
           "hashes": {
-            "actor1": "58009677a9853907",
-            "actor2": "973b44a4b7ebeb7d",
-            "state": "68ea6ba1ec9f6e72"
+            "actor1": "32753e2f379b928e",
+            "actor2": "1bbda638af57d725",
+            "state": "e56b5760612d19fe"
           },
           "stateRound": 41
         },
@@ -2428,9 +2398,9 @@
           "checkpoint": "round-50",
           "completedRound": 50,
           "hashes": {
-            "actor1": "3e9790ad576558ba",
-            "actor2": "e3689b66589cafc0",
-            "state": "4a59205292bfbc80"
+            "actor1": "af7551aa9547db13",
+            "actor2": "270b29451ca55122",
+            "state": "666bfc204a92c570"
           },
           "stateRound": 51
         },
@@ -2438,37 +2408,27 @@
           "checkpoint": "round-60",
           "completedRound": 60,
           "hashes": {
-            "actor1": "b60157205740779c",
-            "actor2": "8e58481e81570d19",
-            "state": "a0dc95560c4d1304"
+            "actor1": "2c473175d98e4e74",
+            "actor2": "52bf7ab3e2fe5e51",
+            "state": "c7ee49f18ac85b8a"
           },
           "stateRound": 61
         },
         {
-          "checkpoint": "round-70",
-          "completedRound": 70,
-          "hashes": {
-            "actor1": "170217c9f7b24f3b",
-            "actor2": "d4af29408348fbb7",
-            "state": "d12364bba535aa50"
-          },
-          "stateRound": 70
-        },
-        {
           "checkpoint": "final",
-          "completedRound": 70,
+          "completedRound": 69,
           "hashes": {
-            "actor1": "170217c9f7b24f3b",
-            "actor2": "d4af29408348fbb7",
-            "state": "d12364bba535aa50"
+            "actor1": "425e27d5b42cbf18",
+            "actor2": "3076597570331bd6",
+            "state": "67e2f215e36a5f05"
           },
-          "stateRound": 70
+          "stateRound": 69
         }
       ],
-      "finalRound": 70,
+      "finalRound": 69,
       "id": "Standard/Sphere/seed-47514/barbarians-off",
       "phase": "Finished",
-      "victoryType": "Culture",
+      "victoryType": "Science",
       "winner": 2
     },
     {
@@ -2477,8 +2437,8 @@
           "checkpoint": "initial",
           "completedRound": 0,
           "hashes": {
-            "actor1": "5c6a2bddef20092e",
-            "actor2": "b13d6976179dccef",
+            "actor1": "0b37b1e6c2a79cd0",
+            "actor2": "bbda472308b91a9b",
             "state": "d754d443d410dff2"
           },
           "stateRound": 1
@@ -2487,9 +2447,9 @@
           "checkpoint": "round-10",
           "completedRound": 10,
           "hashes": {
-            "actor1": "70f8b5c2700b6830",
-            "actor2": "3f76518cb439377b",
-            "state": "e26dc070025600aa"
+            "actor1": "bb401e90690621d0",
+            "actor2": "19a706672504dca9",
+            "state": "2b9d919b1698e70e"
           },
           "stateRound": 11
         },
@@ -2497,9 +2457,9 @@
           "checkpoint": "round-20",
           "completedRound": 20,
           "hashes": {
-            "actor1": "ee7c3675b4eda37d",
-            "actor2": "f8231199cffc0ba3",
-            "state": "47791067355121a8"
+            "actor1": "47733e3e53e33234",
+            "actor2": "f7f5fe299146b14b",
+            "state": "da84368c89b7a685"
           },
           "stateRound": 21
         },
@@ -2507,9 +2467,9 @@
           "checkpoint": "round-30",
           "completedRound": 30,
           "hashes": {
-            "actor1": "0047091a8f1fb7d3",
-            "actor2": "414b64c432859072",
-            "state": "656aea5831da9868"
+            "actor1": "cee4ad4b7e811d4e",
+            "actor2": "f640c7e6050d26ed",
+            "state": "4b8943ffa0c9addf"
           },
           "stateRound": 31
         },
@@ -2517,9 +2477,9 @@
           "checkpoint": "round-40",
           "completedRound": 40,
           "hashes": {
-            "actor1": "ae11e36a6d009daf",
-            "actor2": "c22b1300b250edbe",
-            "state": "bdacb3a0130e4e73"
+            "actor1": "f1d240d3fc99d07e",
+            "actor2": "98736366ff39c250",
+            "state": "4491ece0faf0c008"
           },
           "stateRound": 41
         },
@@ -2527,9 +2487,9 @@
           "checkpoint": "round-50",
           "completedRound": 50,
           "hashes": {
-            "actor1": "a7eabbff3422bae0",
-            "actor2": "6aff77e873ce2589",
-            "state": "efd0fedecef7f766"
+            "actor1": "8494b2490a317b2a",
+            "actor2": "46bbd3a2f114d86e",
+            "state": "cb7ac2d8c2aec0d1"
           },
           "stateRound": 51
         },
@@ -2537,37 +2497,27 @@
           "checkpoint": "round-60",
           "completedRound": 60,
           "hashes": {
-            "actor1": "92e2bc89dbeac4c8",
-            "actor2": "63bd8639bf1c2f0e",
-            "state": "b4af6d4ae2a0872f"
+            "actor1": "1062511942d63a05",
+            "actor2": "5886f844351e42ae",
+            "state": "4ba2afe96e75db37"
           },
           "stateRound": 61
         },
         {
-          "checkpoint": "round-70",
-          "completedRound": 70,
-          "hashes": {
-            "actor1": "f39a9cf09836bf2e",
-            "actor2": "fe841383af674674",
-            "state": "d899f9b44bf4e3d7"
-          },
-          "stateRound": 71
-        },
-        {
           "checkpoint": "final",
-          "completedRound": 72,
+          "completedRound": 68,
           "hashes": {
-            "actor1": "c1ab183a8575ce94",
-            "actor2": "05bd7f966dd94c50",
-            "state": "c04ac8ccbc81fba9"
+            "actor1": "14c01da5cf7454a9",
+            "actor2": "fb1eb7c30c7ab26d",
+            "state": "7a3d2c14a55801e1"
           },
-          "stateRound": 72
+          "stateRound": 68
         }
       ],
-      "finalRound": 72,
+      "finalRound": 68,
       "id": "Standard/Sphere/seed-55433/barbarians-on",
       "phase": "Finished",
-      "victoryType": "Culture",
+      "victoryType": "Science",
       "winner": 2
     },
     {
@@ -2576,8 +2526,8 @@
           "checkpoint": "initial",
           "completedRound": 0,
           "hashes": {
-            "actor1": "b45f5bfbf5b263be",
-            "actor2": "7de892f971865ee0",
+            "actor1": "379ae225b4820b3d",
+            "actor2": "b6435a77f5a4f54f",
             "state": "0ad32ef7c270091c"
           },
           "stateRound": 1
@@ -2586,9 +2536,9 @@
           "checkpoint": "round-10",
           "completedRound": 10,
           "hashes": {
-            "actor1": "1bb5811387bc3677",
-            "actor2": "c0202a30103931e7",
-            "state": "2d21115125068088"
+            "actor1": "ebf89abdeb5397b6",
+            "actor2": "5bbb7212048f0d69",
+            "state": "39ab4a8ca73aa6c6"
           },
           "stateRound": 11
         },
@@ -2596,9 +2546,9 @@
           "checkpoint": "round-20",
           "completedRound": 20,
           "hashes": {
-            "actor1": "3e712b3ae26baf0c",
-            "actor2": "5fb1df409fc75102",
-            "state": "b18b7944933aaf63"
+            "actor1": "fb398f8e6d1894d9",
+            "actor2": "4b6967c50e950fd1",
+            "state": "815a7ff5ccce2105"
           },
           "stateRound": 21
         },
@@ -2606,9 +2556,9 @@
           "checkpoint": "round-30",
           "completedRound": 30,
           "hashes": {
-            "actor1": "4e6f3ab2b4423e71",
-            "actor2": "c7e6d0704be640bb",
-            "state": "10dfee1a16670367"
+            "actor1": "d11214e31ee758be",
+            "actor2": "82d48d3c7a577428",
+            "state": "a097bd676c281dcc"
           },
           "stateRound": 31
         },
@@ -2616,9 +2566,9 @@
           "checkpoint": "round-40",
           "completedRound": 40,
           "hashes": {
-            "actor1": "16543779e4289c19",
-            "actor2": "d5e16656718807c9",
-            "state": "940596c11c028a9b"
+            "actor1": "9c79c8e63b52fa96",
+            "actor2": "a5c89da465ccb001",
+            "state": "0a40b755cb1ae49e"
           },
           "stateRound": 41
         },
@@ -2626,9 +2576,9 @@
           "checkpoint": "round-50",
           "completedRound": 50,
           "hashes": {
-            "actor1": "b33d8c6bd0a7c4e2",
-            "actor2": "c97ab8132bb7db03",
-            "state": "ac776d0235558fca"
+            "actor1": "a44c1895755df762",
+            "actor2": "04af28c49a5e3b99",
+            "state": "5bc1195c59c8dd23"
           },
           "stateRound": 51
         },
@@ -2636,24 +2586,24 @@
           "checkpoint": "round-60",
           "completedRound": 60,
           "hashes": {
-            "actor1": "075ff8a72146ae07",
-            "actor2": "c0f6b383dad1c660",
-            "state": "8f3341210aa1a475"
+            "actor1": "e818abf35d939ac4",
+            "actor2": "110723a5980da04d",
+            "state": "f546a53ac69973d1"
           },
           "stateRound": 61
         },
         {
           "checkpoint": "final",
-          "completedRound": 67,
+          "completedRound": 62,
           "hashes": {
-            "actor1": "19293578fd67a3c9",
-            "actor2": "4e4b398e02e68fc1",
-            "state": "686eaf20e2592030"
+            "actor1": "b340a89085ead92e",
+            "actor2": "230e5eb132b52518",
+            "state": "67838712c8528e39"
           },
-          "stateRound": 67
+          "stateRound": 62
         }
       ],
-      "finalRound": 67,
+      "finalRound": 62,
       "id": "Standard/Sphere/seed-63352/barbarians-off",
       "phase": "Finished",
       "victoryType": "Domination",

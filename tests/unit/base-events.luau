@@ -315,7 +315,8 @@ do
         local bad=Game.serialize(founded(65)); bad.state[field[1]]=field[2]; assert(not Save.valid(bad),"culture option "..field[1].." must be validated")
     end
     -- The built-in AI pays the escalating cost too.
-    local solo: any=Game.new(66,{maxTurns=40,policyCostIncrease=50})
+    -- Full isolates adoption escalation; category pacing and short-game AI boundaries are covered in base-cost-pacing.
+    local solo: any=Game.new(66,{maxTurns=120,policyCostIncrease=50})
     apply(solo,1,{kind="FoundCity",unitId=firstUnit(solo,1,"Settler").id})
     solo.players[2].policies={"Tradition"}; solo.players[2].culture=36
     apply(solo,1,{kind="EndTurn"})
