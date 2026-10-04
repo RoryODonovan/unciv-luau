@@ -710,7 +710,11 @@ do
     assert(Save.valid(legacy),"a pre-G4 save stays valid")
     local before=deep(legacy)
     local restored: any,err=Game.restore(legacy); assert(restored and err==nil,err)
-    assert(equal(legacy,before) and equal(Game.serialize(restored),legacy),"restore keeps every stored field and adds none")
+    local prior=Game.serialize(restored); prior.state.diplomacy.met=nil
+    if prior.state.events[#prior.state.events] and prior.state.events[#prior.state.events].kind=="Contact" then
+        table.remove(prior.state.events); prior.state.nextEvent-=1
+    end
+    assert(equal(legacy,before) and equal(prior,legacy),"restore preserves pre-contact fields while migrating contact")
     assert(equal(Game.restore(legacy),Save.restore(legacy)),"both restore paths give the same state")
     -- The legacy Forest terrain still costs two moves and yields 1/2 (+1 Deer, +1 Camp food).
     local w=unitById(restored,1)

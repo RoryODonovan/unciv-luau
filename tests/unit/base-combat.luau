@@ -376,7 +376,11 @@ do
     local legacy={format="unciv-luau-base",version=1,state=legacyState}
     assert(Save.valid(legacy),"the legacy fixture is a valid version-1 save")
     local restored: any,err=Game.restore(legacy); assert(restored and err==nil,err)
-    assert(equal(Game.serialize(restored),legacy),"restore keeps every stored field and adds none")
+    local prior=Game.serialize(restored); prior.state.diplomacy.met=nil
+    if prior.state.events[#prior.state.events] and prior.state.events[#prior.state.events].kind=="Contact" then
+        table.remove(prior.state.events); prior.state.nextEvent-=1
+    end
+    assert(equal(prior,legacy),"restore preserves pre-contact fields while migrating contact")
     -- Combat in the restored game: preview equals result.
     local fightState: any=Game.restore(legacy); assert(fightState)
     local preview=Game.previewAttack(fightState,1,1,foe :: number); assert(preview and preview.exact)

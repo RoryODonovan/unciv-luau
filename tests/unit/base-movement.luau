@@ -446,8 +446,12 @@ do
     assert(Save.valid(legacy),"a pre-G3 save stays valid")
     local before=deep(legacy)
     local restored: any,err=Game.restore(legacy); assert(restored and err==nil,err)
+    local prior=Game.serialize(restored); prior.state.diplomacy.met=nil
+    if prior.state.events[#prior.state.events] and prior.state.events[#prior.state.events].kind=="Contact" then
+        table.remove(prior.state.events); prior.state.nextEvent-=1
+    end
     assert(equal(legacy,before),"restore does not modify the save it reads")
-    assert(equal(Game.serialize(restored),legacy),"restore keeps every stored field and adds none")
+    assert(equal(prior,legacy),"restore preserves pre-contact fields while migrating contact")
     -- Half a move plus thirds: 1.5 - 1/3 - 1/3 = 5/6 along the road (the Hills road tile costs a third).
     local w=unitById(restored,1)
     move(restored,w,path[1]); assert(w.moves==7/6)

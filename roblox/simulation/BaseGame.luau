@@ -1,6 +1,6 @@
 --!strict
 -- Generated module-only Roblox form. Source: src/simulation/BaseGame.luau
--- Source SHA-256: f6d7013be64f497ba5cfb914f08c1215ee99478642b3d8981a58abe9df1d3c45
+-- Source SHA-256: 09c0bd4fc6c3cfdcc066fbfcc130d8184958f46188ee6b0e960076a134abde92
 -- Reproduce with tools/roblox-export.mjs; preserve MPL notices below.
 -- Covered source: https://github.com/RoryODonovan/unciv-luau
 -- This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
@@ -48,7 +48,10 @@ export type GoldenAge = {progress: number, turnsLeft: number, ages: number}
 export type Player = {id: number, human: boolean, gold: number, science: number, culture: number, happiness: number, technologies: {string}, policies: {string}, research: Research?, explored: {number}, resources: {[string]: number}, income: {food: number, production: number, gold: number, science: number, culture: number, maintenance: number}, goldenAge: GoldenAge?}
 -- `wonder` names the world wonder of a WonderBuilt or WonderLost event, or the wonder that started a golden age.
 export type Event = {id: number, kind: string, message: string, tileId: number?, unitId: number?, ownerId: number?, amount: number?, public: boolean?, cause: string?, byOwnerId: number?, unitKind: string?, cityId: number?, wonder: string?}
-export type Diplomacy = {status: string, peaceOfferBy: number?, peaceUntil: number}
+-- met is optional only for legacy/raw fixtures. warPlan's treaty value invalidates a plan when peace is re-made.
+export type WarPlan = {by: number, at: number, peaceUntil: number}
+export type Diplomacy = {status: string, peaceOfferBy: number?, peaceUntil: number, met: boolean?, warPlan: WarPlan?}
+export type DiplomacyView = {status: string, peaceOfferBy: number?, peaceUntil: number, met: boolean, warWarning: {roundsLeft: number}?}
 export type Trade = {id: number, fromId: number, toId: number, giveGold: number, receiveGold: number, expires: number}
 -- An explored tile shows its terrain, resource, `feature` and `river` mask (static knowledge, like terrain); an unexplored
 -- tile shows none of them.
@@ -99,7 +102,7 @@ export type GoldenAgeView = {active: boolean, turnsLeft: number, progress: numbe
 -- units need. `used` can exceed `have` (after losing a tile); existing units are unaffected, but no new unit or upgrade
 -- needing the resource is possible until `have - used` covers it.
 export type StrategicView = {have: number, used: number}
-export type View = {strategic: {[string]: StrategicView}, barbarians: boolean, camps: {CampView}, cityForecasts: {[string]: CityForecast}, seed: number?, radius: number?, mapShape: string?, frequency: number?, difficulty: string, humanPlayers: number, turn: number, revision: number, activePlayerId: number, actorId: number, canAct: boolean, phase: string, winner: number?, reason: string?, victoryType: string?, gold: number, science: number, culture: number, happiness: number, research: Research?, technologies: {string}, policies: {string}, resources: {[string]: number}, income: {food: number, production: number, gold: number, science: number, culture: number, maintenance: number}, tiles: {TileView}, units: {UnitView}, cities: {CityView}, events: {Event}, log: {string}, legalMoves: {[string]: {number}}, riverMoves: {[string]: {number}}, availableProduction: {string}, availableProductionByCity: {[string]: {string}}, availablePurchasesByCity: {[string]: {string}}, availableResearch: {Technology}, availablePolicies: {Policy}, availableImprovements: {[string]: {string}}, productionCosts: {[string]: number}, purchaseCosts: {[string]: number}, scores: {number}, statistics: {Statistics}, progress: {Progress}, cultureVictoryPolicies: number, policyCostIncrease: number, attackPreviews: {[string]: {AttackPreview}}, cityStrikePreviews: {[string]: {CityStrikePreview}}, diplomacy: Diplomacy, trades: {Trade}, objectives: {string}, wonders: {WonderView}, goldenAge: GoldenAgeView}
+export type View = {strategic: {[string]: StrategicView}, barbarians: boolean, camps: {CampView}, cityForecasts: {[string]: CityForecast}, seed: number?, radius: number?, mapShape: string?, frequency: number?, difficulty: string, humanPlayers: number, turn: number, revision: number, activePlayerId: number, actorId: number, canAct: boolean, phase: string, winner: number?, reason: string?, victoryType: string?, gold: number, science: number, culture: number, happiness: number, research: Research?, technologies: {string}, policies: {string}, resources: {[string]: number}, income: {food: number, production: number, gold: number, science: number, culture: number, maintenance: number}, tiles: {TileView}, units: {UnitView}, cities: {CityView}, events: {Event}, log: {string}, legalMoves: {[string]: {number}}, riverMoves: {[string]: {number}}, availableProduction: {string}, availableProductionByCity: {[string]: {string}}, availablePurchasesByCity: {[string]: {string}}, availableResearch: {Technology}, availablePolicies: {Policy}, availableImprovements: {[string]: {string}}, productionCosts: {[string]: number}, purchaseCosts: {[string]: number}, scores: {number}, statistics: {Statistics}, progress: {Progress}, cultureVictoryPolicies: number, policyCostIncrease: number, attackPreviews: {[string]: {AttackPreview}}, cityStrikePreviews: {[string]: {CityStrikePreview}}, diplomacy: DiplomacyView, trades: {Trade}, objectives: {string}, wonders: {WonderView}, goldenAge: GoldenAgeView}
 local BaseGame = {}
 local R: any = Rules
 local W: any = WorldMap
@@ -151,7 +154,7 @@ end
 -- Wonder and golden-age events are rare (a few per match) and are kept too, so a burst cannot evict them either.
 -- A cleared barbarian camp carries its reward and is kept too. A barbarian's own loss (owner 0) is routine: no player
 -- owns it.
-local RETAINED={UnitLost=true, CityLost=true, Eliminated=true, Victory=true, WonderBuilt=true, WonderLost=true, GoldenAgeStarted=true, GoldenAgeEnded=true, CampCleared=true}
+local RETAINED={UnitLost=true, CityLost=true, Eliminated=true, Victory=true, WonderBuilt=true, WonderLost=true, GoldenAgeStarted=true, GoldenAgeEnded=true, CampCleared=true, Contact=true, WarWarning=true}
 local function event(s: any, kind: string, message: string, tileId: number?, unitId: number?, ownerId: number?, amount: number?, public: boolean?, cause: string?, byOwnerId: number?, unitKind: string?, cityId: number?, wonder: string?)
     table.insert(s.events, {id=s.nextEvent, kind=kind, message=message, tileId=tileId, unitId=unitId, ownerId=ownerId, amount=amount, public=public, cause=cause, byOwnerId=byOwnerId, unitKind=unitKind, cityId=cityId, wonder=wonder})
     s.nextEvent += 1
@@ -249,10 +252,24 @@ local function visible(s: any, owner: number): any
     for _, c in s.cities do if c.ownerId == owner then table.insert(centers, c.tileId) end end
     local set = {}; for _, center in centers do for _, id in nearby(s,center,2) do set[id]=true end end; return set
 end
+local function contact(s: any, owner: number, seen: any)
+    if s.diplomacy.met then return end
+    local other=3-owner
+    for _, entities in {s.units,s.cities} do
+        for _, entity in entities do
+            if entity.ownerId==other and seen[entity.tileId] then
+                s.diplomacy.met=true
+                event(s,"Contact","Contact established with the rival civilization.",nil,nil,nil,nil,true)
+                return
+            end
+        end
+    end
+end
 local function refreshVision(s: any)
     for owner=1,2 do
         local discovered = {}; for _, id in s.players[owner].explored do discovered[id] = true end
-        for id in visible(s,owner) do discovered[id] = true end
+        local seen=visible(s,owner); contact(s,owner,seen)
+        for id in seen do discovered[id] = true end
         local ids = {}; for id in discovered do table.insert(ids,id) end; table.sort(ids); s.players[owner].explored = ids
     end
 end
@@ -908,6 +925,8 @@ local function moveUnit(s: any, unit: any, target: number): boolean
     local targets=reachable(s,unit,seen); local cost=targets[target]
     if target==unit.tileId or not cost then return false end
     unit.tileId=target; unit.moves=fromSixths(toSixths(unit.moves)-cost); unit.fortified=false; unit.work=nil
+    -- Catch contact after each AI move, even if another AI unit later moves out of sight in this turn.
+    if not s.diplomacy.met then for owner=1,2 do contact(s,owner,visible(s,owner)) end end
     event(s,"Move","Unit moved.",target,unit.id,unit.ownerId); enterCamp(s,unit); return true
 end
 local function improvementAvailable(s: any, unit: any, improvement: string): boolean
@@ -1523,7 +1542,7 @@ local function ai(s: any, owner: number)
     if s.diplomacy.peaceOfferBy and s.diplomacy.peaceOfferBy~=owner then
         -- The balance of military units with the other civilization (barbarians are no party to the peace).
         local own,enemy=0,0; for _, u in s.units do if R.units[u.kind].strength>0 then if u.ownerId==owner then own += 1 elseif u.ownerId~=BARBARIAN then enemy += 1 end end end
-        if own<=enemy or s.turn%4==0 then s.diplomacy.status="Peace"; s.diplomacy.peaceOfferBy=nil; s.diplomacy.peaceUntil=s.turn+8; event(s,"Peace","Peace agreed.",nil,nil,nil,nil,true) end
+        if own<=enemy or s.turn%4==0 then s.diplomacy.status="Peace"; s.diplomacy.warPlan=nil; s.diplomacy.peaceOfferBy=nil; s.diplomacy.peaceUntil=s.turn+8; event(s,"Peace","Peace agreed.",nil,nil,nil,nil,true) end
     end
     for i=#s.trades,1,-1 do
         local trade=s.trades[i]
@@ -1532,7 +1551,20 @@ local function ai(s: any, owner: number)
             table.remove(s.trades,i); event(s,"Trade","Trade accepted.",nil,nil,nil,nil,true)
         end
     end
-    if s.diplomacy.status=="Peace" and s.turn>=15 and s.turn>=s.diplomacy.peaceUntil and s.turn%5==0 then s.diplomacy.status="War"; s.diplomacy.peaceOfferBy=nil; s.trades={}; event(s,"War","War declared.",nil,nil,nil,nil,true) end
+    local d=s.diplomacy; local plan=d.warPlan
+    if plan and (d.status~="Peace" or not d.met or d.peaceUntil~=plan.peaceUntil or s.turn<d.peaceUntil) then
+        d.warPlan=nil -- No cancellation event, and no replacement plan in this AI step.
+    elseif plan then
+        -- In AI-against-AI play only the planner executes its plan; the other seat neither replaces nor triggers it.
+        if plan.by==owner and s.turn>=plan.at then
+            d.status="War"; d.warPlan=nil; d.peaceOfferBy=nil; s.trades={}
+            event(s,"War","War declared.",nil,nil,nil,nil,true)
+        end
+    elseif d.met and d.status=="Peace" and s.turn>=15 and s.turn>=d.peaceUntil and s.turn%5==0 then
+        local lead=if s.difficulty=="Easy" then 3 elseif s.difficulty=="Hard" then 1 else 2
+        d.warPlan={by=owner,at=s.turn+lead,peaceUntil=d.peaceUntil}
+        event(s,"WarWarning","Rival forces are massing on your border. War may come within "..lead.." rounds.",nil,nil,3-owner)
+    end
     -- Each ready city strikes first, in city id order, so the units that act next can finish weakened targets.
     local strikers: {any}={}; for _, c in s.cities do if c.ownerId==owner and strikeReady(s,c) then table.insert(strikers,c) end end
     table.sort(strikers,function(a: any,b: any) return a.id<b.id end)
@@ -1653,7 +1685,7 @@ function BaseGame.new(seed: number?, options: Options?): State
     local barbarians=if o.barbarians==nil then humans==1 else o.barbarians
     assert(o.mapShape=="Sphere" or o.frequency==nil,"frequency requires Sphere")
     local map=if o.mapShape=="Sphere" then W.generateSphere(supplied,o.frequency or 2) else W.generate(supplied,radius)
-    local s: any={seed=supplied,radius=radius,difficulty=difficulty,humanPlayers=humans,forest=o.forest==true,maxTurns=turns,cultureVictoryPolicies=threshold,policyCostIncrease=increase,turn=1,revision=0,activePlayerId=1,phase="Playing",tiles=map.tiles,units={},cities={},players={},diplomacy={status="Peace",peaceUntil=0},trades={},events={},nextEvent=1,nextUnit=1,nextCity=1,nextTrade=1,log={}}
+    local s: any={seed=supplied,radius=radius,difficulty=difficulty,humanPlayers=humans,forest=o.forest==true,maxTurns=turns,cultureVictoryPolicies=threshold,policyCostIncrease=increase,turn=1,revision=0,activePlayerId=1,phase="Playing",tiles=map.tiles,units={},cities={},players={},diplomacy={status="Peace",peaceUntil=0,met=false},trades={},events={},nextEvent=1,nextUnit=1,nextCity=1,nextTrade=1,log={}}
     if o.mapShape=="Sphere" then s.mapShape="Sphere"; s.frequency=map.frequency; s.radius=nil end
     if barbarians then s.barbarians={camps={},nextCamp=1} end
     topology[s]=map
@@ -1750,13 +1782,13 @@ function BaseGame.apply(state: State, actorId: number, command: Command): {ok: b
         if cmd.targetId~=3-actorId then return reject("Choose the other civilization.") end
         if cmd.kind=="DeclareWar" then
             if s.diplomacy.status=="War" or s.turn<s.diplomacy.peaceUntil then return reject("War is unavailable during this peace treaty.") end
-            s.diplomacy.status="War"; s.diplomacy.peaceOfferBy=nil; s.trades={}; event(s,"War","War declared.",nil,nil,nil,nil,true)
+            s.diplomacy.status="War"; s.diplomacy.warPlan=nil; s.diplomacy.peaceOfferBy=nil; s.trades={}; event(s,"War","War declared.",nil,nil,nil,nil,true)
         elseif cmd.kind=="OfferPeace" then
             if s.diplomacy.status~="War" or s.diplomacy.peaceOfferBy==actorId then return reject("A peace offer is unavailable.") end
             s.diplomacy.peaceOfferBy=actorId
         elseif cmd.kind=="AcceptPeace" then
             if s.diplomacy.status~="War" or s.diplomacy.peaceOfferBy~=cmd.targetId then return reject("No peace offer to accept.") end
-            s.diplomacy.status="Peace"; s.diplomacy.peaceOfferBy=nil; s.diplomacy.peaceUntil=s.turn+8; event(s,"Peace","Peace agreed.",nil,nil,nil,nil,true)
+            s.diplomacy.status="Peace"; s.diplomacy.warPlan=nil; s.diplomacy.peaceOfferBy=nil; s.diplomacy.peaceUntil=s.turn+8; event(s,"Peace","Peace agreed.",nil,nil,nil,nil,true)
         else
             local give,receive=cmd.giveGold,cmd.receiveGold
             if s.diplomacy.status~="Peace" or type(give)~="number" or type(receive)~="number" or give%1~=0 or receive%1~=0 or give<0 or receive<0 or give>100000 or receive>100000 or give+receive==0 or give>p.gold or #s.trades>=8 then return reject("A trade needs valid gold amounts and peaceful relations.") end
@@ -1952,7 +1984,13 @@ function BaseGame.snapshot(state: State, actorId: number): View
         progressPerTurn=if age.turnsLeft>0 then 0 else math.max(0,mood),turns=goldenAgeTurns(s)}
     local productionCosts: {[string]: number},purchaseCosts: {[string]: number}={},{}
     for id in R.productionCosts do productionCosts[id]=productionCost(s,id); purchaseCosts[id]=purchaseCost(s,id) end
-    return {strategic=strategic,barbarians=s.barbarians~=nil,camps=camps,wonders=wonders,goldenAge=goldenAge,cityForecasts=forecasts,seed=if s.humanPlayers==1 or s.phase=="Finished" then s.seed else nil,radius=s.radius,mapShape=s.mapShape,frequency=s.frequency,difficulty=s.difficulty,humanPlayers=s.humanPlayers,turn=s.turn,revision=s.revision,activePlayerId=s.activePlayerId,actorId=actorId,canAct=canAct,phase=s.phase,winner=s.winner,reason=s.reason,victoryType=s.victoryType,gold=p.gold,science=p.science,culture=p.culture,happiness=p.happiness,research=copy(p.research),technologies=copy(p.technologies),policies=copy(p.policies),resources=copy(resourceInventory(s,actorId)),income=copy(p.income),tiles=tiles,units=units,cities=cities,events=events,log={},legalMoves=legal,riverMoves=riverMoves,availableProduction=production,availableProductionByCity=productionByCity,availablePurchasesByCity=purchasesByCity,availableResearch=research,availablePolicies=policies,availableImprovements=improvements,productionCosts=productionCosts,purchaseCosts=purchaseCosts,scores=score,statistics=stats,progress=progress,cultureVictoryPolicies=threshold,policyCostIncrease=s.policyCostIncrease or 0,attackPreviews=previews,cityStrikePreviews=strikePreviews,diplomacy=copy(s.diplomacy),trades=copy(s.trades),objectives={"Found cities, develop resources and maintain happiness.","Control both original capitals for domination.","Build "..R.buildings[R.scienceVictoryBuilding].name.." after "..R.technologies[R.scienceVictoryTechnology].name.." for science victory.","Adopt "..threshold.." "..(if threshold==1 then "policy" else "policies").." for culture victory.","Highest score wins at the round limit; ties break on technologies plus policies, otherwise a Draw."}}
+    local d=s.diplomacy
+    local diplomacy: DiplomacyView={status=d.status,peaceOfferBy=d.peaceOfferBy,peaceUntil=d.peaceUntil,met=d.met==true}
+    local plan=d.warPlan
+    if plan and plan.by~=actorId and d.met and d.status=="Peace" and d.peaceUntil==plan.peaceUntil and s.turn>=d.peaceUntil then
+        diplomacy.warWarning={roundsLeft=math.max(0,plan.at-s.turn)}
+    end
+    return {strategic=strategic,barbarians=s.barbarians~=nil,camps=camps,wonders=wonders,goldenAge=goldenAge,cityForecasts=forecasts,seed=if s.humanPlayers==1 or s.phase=="Finished" then s.seed else nil,radius=s.radius,mapShape=s.mapShape,frequency=s.frequency,difficulty=s.difficulty,humanPlayers=s.humanPlayers,turn=s.turn,revision=s.revision,activePlayerId=s.activePlayerId,actorId=actorId,canAct=canAct,phase=s.phase,winner=s.winner,reason=s.reason,victoryType=s.victoryType,gold=p.gold,science=p.science,culture=p.culture,happiness=p.happiness,research=copy(p.research),technologies=copy(p.technologies),policies=copy(p.policies),resources=copy(resourceInventory(s,actorId)),income=copy(p.income),tiles=tiles,units=units,cities=cities,events=events,log={},legalMoves=legal,riverMoves=riverMoves,availableProduction=production,availableProductionByCity=productionByCity,availablePurchasesByCity=purchasesByCity,availableResearch=research,availablePolicies=policies,availableImprovements=improvements,productionCosts=productionCosts,purchaseCosts=purchaseCosts,scores=score,statistics=stats,progress=progress,cultureVictoryPolicies=threshold,policyCostIncrease=s.policyCostIncrease or 0,attackPreviews=previews,cityStrikePreviews=strikePreviews,diplomacy=diplomacy,trades=copy(s.trades),objectives={"Found cities, develop resources and maintain happiness.","Control both original capitals for domination.","Build "..R.buildings[R.scienceVictoryBuilding].name.." after "..R.technologies[R.scienceVictoryTechnology].name.." for science victory.","Adopt "..threshold.." "..(if threshold==1 then "policy" else "policies").." for culture victory.","Highest score wins at the round limit; ties break on technologies plus policies, otherwise a Draw."}}
 end
 -- Pure, fog-safe query for one attack the actor's unit could make now. It never mutates the
 -- state and answers the same generic message for hidden, empty or out-of-range targets.
