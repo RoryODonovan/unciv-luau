@@ -10,6 +10,9 @@ let errors=[];
 const assert=(ok,msg)=>{if(!ok)errors.push(msg);};
 const modules=files('src').filter(p=>p.endsWith('.luau'));
 const tests=files('tests/unit').filter(p=>p.endsWith('.luau'));
+// Golden tests use a Node adapter for baseline JSON I/O, unavailable in the standalone Luau CLI.
+const golden=files('tests/golden').filter(p=>p.endsWith('.luau'));
+const goldenRunner=path.join('tests','golden','run.mjs');
 const normalize=p=>p.replaceAll('\\','/');
 const provenance=files('provenance').filter(p=>p.endsWith('.json')&&!p.endsWith('inventory.json'));
 function run(binary,args){const result=spawnSync(binary,args,{cwd:root,stdio:'inherit'});if(result.error)throw result.error;if(result.status!==0)throw new Error(`${binary} failed with status ${result.status}`);}
@@ -24,7 +27,7 @@ if(mode==='all'||mode==='verify'){
   assert(inventory.files?.length===inventory.summary?.total,'Inventory count mismatch');
   for(const entry of inventory.files??[]){assert(['convert','defer','exclude'].includes(entry.disposition)&&entry.reason&&entry.risk,`Missing inventory classification: ${entry.path}`);assert(entry.implementationStatus==='not-converted',`Inventory baseline must not imply implementation: ${entry.path}`);}
   assert(modules.length>0,'No converted modules found');assert(tests.length>0,'No unit tests found');
-  for(const p of [...modules,...tests]){
+  for(const p of [...modules,...tests,...golden]){
     const text=fs.readFileSync(p,'utf8');const header=text.slice(0,2000);
     assert(header.includes('SPDX-License-Identifier: MPL-2.0'),`${p}: missing MPL SPDX notice`);
     if(modules.includes(p)){
@@ -51,12 +54,12 @@ if(mode==='all'||mode==='verify'){
 }
 if(mode==='all'||mode==='analyze'){
   assert(modules.length>0,'No modules for analysis');if(errors.length)throw new Error(errors.join('\n'));
-  run(process.env.LUAU_ANALYZE_BIN??'luau-analyze',[...modules,...tests]);
+  run(process.env.LUAU_ANALYZE_BIN??'luau-analyze',[...modules,...tests,...golden]);
 }
 if(mode==='all'||mode==='test'){
   if(!tests.length)throw new Error('No unit tests found');
   for(const p of tests.sort())run(process.env.LUAU_BIN??'luau',[p]);
+  if(fs.existsSync(goldenRunner))run(process.execPath,[goldenRunner]);
   console.log(`Passed ${tests.length} standalone test files.`);
 }
-
 
