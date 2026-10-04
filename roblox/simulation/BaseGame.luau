@@ -1,6 +1,6 @@
 --!strict
 -- Generated module-only Roblox form. Source: src/simulation/BaseGame.luau
--- Source SHA-256: aa1c8d7d25cea3f3d85d8b444bb1a7fd0bf95429db345bd44d2d180234a20460
+-- Source SHA-256: fc4ac2e85e82509ccf66aa643844e2903fcbc8158f8412a103c9af556098f281
 -- Reproduce with tools/roblox-export.mjs; preserve MPL notices below.
 -- Covered source: https://github.com/RoryODonovan/unciv-luau
 -- This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
@@ -2067,7 +2067,8 @@ function BaseGame.snapshot(state: State, actorId: number): View
             forecasts[tostring(c.id)]={food=food,production=made,gold=yields.gold,science=yields.science,culture=yields.culture,
                 growthTurns=if not canGrow then nil elseif c.food+food>=growAt then 1 elseif food>0 then math.ceil((growAt-c.food)/food) else nil,
                 productionTurns=turns,productionBlocked=blocked}
-            if c.queueNext and #c.queueNext>0 and made>0 then
+            -- Successors cannot finish while the current item is blocked, just like productionTurns.
+            if not blocked and c.queueNext and #c.queueNext>0 and made>0 then
                 local queuedTurns={}; local total=cost or 0
                 local previous=if cost then math.max(1,math.ceil((total-c.production)/made)) else 0
                 for _, item in c.queueNext do

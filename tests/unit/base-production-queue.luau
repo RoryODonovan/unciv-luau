@@ -165,6 +165,47 @@ do
     apply(s,1,{kind="Purchase",cityId=c.id,item="Granary"})
     assert(c.queue=="" and c.queueNext==nil and #skips(Game.snapshot(s,1))==1,"SetProduction's retained duplicate is skipped after completing it")
 end
+-- A blocked current item cannot provide completion estimates for its successors.
+for _,shape in {"Hex","Sphere"} do
+    for _,reason in {"NotAvailable","NoSpace","Idle"} do
+        local s,c=fixture(shape)
+        local tile=s.tiles[c.tileId]; tile.terrain="Hills"; tile.feature=nil; tile.resource="Iron"; tile.improvement="Mine"
+        apply(s,1,{kind="SetProduction",cityId=c.id,item="Swordsman"}); queue(s,c,"Monument")
+        assert(viewCity(Game.snapshot(s,1),c.id).queueTurns~=nil,"available current item estimates successors")
+        if reason=="NotAvailable" then tile.resource=nil; tile.improvement=nil
+        elseif reason=="NoSpace" then
+            local graph=if shape=="Sphere" then Map.fromSphereTiles(s.tiles,s.frequency) else Map.fromTiles(s.tiles,s.radius)
+            local ids={c.tileId}; for _,id in graph.neighbors[c.tileId] do table.insert(ids,id) end
+            for _,id in ids do
+                local occupied=false; for _,u in s.units do if u.tileId==id then occupied=true end end
+                if not occupied and Rules.terrains[s.tiles[id].terrain].passable then
+                    table.insert(s.units,{id=s.nextUnit,ownerId=1,kind="Worker",tileId=id,hp=50,moves=2,fortified=false,level=0}); s.nextUnit+=1
+                end
+            end
+        else c.queue="" end
+        local before=Game.serialize(s); local view=Game.snapshot(s,1); local forecast=view.cityForecasts[tostring(c.id)]
+        assert(forecast.production>0 and forecast.productionBlocked==reason and forecast.productionTurns==nil,"blocked current forecast: "..reason)
+        local own=viewCity(view,c.id)
+        assert(equal(own.queueNext,{"Monument"}) and own.queueTurns==nil,"blocked current item omits queue estimates: "..reason)
+        assert(equal(before,Game.serialize(s)),"blocked queue forecast does not mutate state")
+    end
+end
+-- Border state and queue state coexist through both save APIs and the own-city view.
+for _,shape in {"Hex","Sphere"} do
+    local s,c=fixture(shape); queue(s,c,"Monument")
+    local candidate=assert(viewCity(Game.snapshot(s,1),c.id).buyableTiles[1])
+    apply(s,1,{kind="BuyTile",cityId=c.id,tileId=candidate.tileId}); c.borderCulture=7.5
+    local saved=Game.serialize(s); local stored=saved.state.cities[1]
+    assert(stored.borderCulture==7.5 and stored.borderTiles==1 and equal(stored.queueNext,{"Monument"}))
+    local expected=viewCity(Game.snapshot(s,1),c.id)
+    assert(expected.borderCulture==7.5 and expected.nextTileCost>0 and expected.borderTurns~=nil and expected.buyableTiles~=nil)
+    assert(equal(expected.queueNext,{"Monument"}) and expected.queueTurns~=nil,"view includes borders and queue")
+    for _,restore in {Game.restore,Save.restore} do
+        local loaded=assert(restore(saved)); local city=loaded.cities[1]
+        assert(city.borderCulture==7.5 and city.borderTiles==1 and equal(city.queueNext,{"Monument"}))
+        assert(equal(saved,Game.serialize(loaded)) and equal(expected,viewCity(Game.snapshot(loaded,1),c.id)),"combined save and view round-trip")
+    end
+end
 for _,shape in {"Hex","Sphere"} do
     local s,c,rival=fixture(shape); queue(s,c,"Monument"); queue(s,c,"Granary"); c.production=5
     for _,tile in s.tiles do tile.terrain="Grassland"; tile.feature=nil; tile.resource=nil; tile.improvement=nil; tile.river=nil end

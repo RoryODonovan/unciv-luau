@@ -2060,7 +2060,8 @@ function BaseGame.snapshot(state: State, actorId: number): View
             forecasts[tostring(c.id)]={food=food,production=made,gold=yields.gold,science=yields.science,culture=yields.culture,
                 growthTurns=if not canGrow then nil elseif c.food+food>=growAt then 1 elseif food>0 then math.ceil((growAt-c.food)/food) else nil,
                 productionTurns=turns,productionBlocked=blocked}
-            if c.queueNext and #c.queueNext>0 and made>0 then
+            -- Successors cannot finish while the current item is blocked, just like productionTurns.
+            if not blocked and c.queueNext and #c.queueNext>0 and made>0 then
                 local queuedTurns={}; local total=cost or 0
                 local previous=if cost then math.max(1,math.ceil((total-c.production)/made)) else 0
                 for _, item in c.queueNext do
