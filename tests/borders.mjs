@@ -12,7 +12,25 @@ try {
   const source=fs.readFileSync(module,'utf8');
   const marker='return table.freeze(BaseGame)';
   if(!source.includes(marker))throw new Error('missing BaseGame export');
-  const internals='BaseGame._internal={ai=ai,aiBuyTile=aiBuyTile,campSpawn=campSpawn}\n';
+  // A temporary guard rejects even cache hits: scoring and prices must use their bounded BFS distances.
+  const worldFile=path.join(temp,'src/simulation/WorldMap.luau');
+  fs.writeFileSync(worldFile,fs.readFileSync(worldFile,'utf8')
+    .replace('local WorldMap = {}','local WorldMap = {}\nlocal forbidDistance=false')
+    .replace('function WorldMap.distance(map: Map, first: number, second: number): number',
+      'function WorldMap.distance(map: Map, first: number, second: number): number\n    assert(not forbidDistance,"border scoring called global distance")')
+    .replace('return table.freeze(WorldMap)',
+      'WorldMap._forbidDistance=function(value) forbidDistance=value end\nreturn table.freeze(WorldMap)'));
+  const internals=`BaseGame._internal={ai=ai,aiBuyTile=aiBuyTile,checkBorderDistances=function(s,c)
+    local seen=visible(s,c.ownerId)
+    WorldMap._forbidDistance(true)
+    local hidden=borderCandidates(s,c,{})
+    assert(#hidden==0,"defensive candidate visibility")
+    local candidates,distances=borderCandidates(s,c,seen)
+    assert(#candidates>0 and bestBorderTile(s,candidates,distances,seen))
+    for _, id in candidates do assert(buyTileCost(s,c,distances[id])>0) end
+    aiBuyTile(s,c.ownerId)
+    WorldMap._forbidDistance(false)
+end}\n`;
   fs.writeFileSync(module,source.replace(marker,internals+marker));
   fs.mkdirSync(path.join(temp,'tests/unit'),{recursive:true});
   fs.copyFileSync(path.join(root,'tests/unit/base-borders.luau'),path.join(temp,'tests/unit/base-borders.luau'));
@@ -30,25 +48,24 @@ try {
         'c.borderCulture-=cost; acquireBorderTile(s,c,tileId); if c.borderCulture>=nextTileCost(s,c) then borderStep(s,c,0) end'],
       ['yield score','return 2*y.food+2*y.production','return 0*y.food+2*y.production'],
       ['strategic reveal','return if tile.resource and known[tile.id] then','return if tile.resource and tile.resource~="Iron" and known[tile.id] then'],
-      ['explored resources','for _, id in s.players[owner].explored do known[id]=true end',''],
-      ['radius three','nearby(s,c.tileId,3) do','nearby(s,c.tileId,4) do'],
-      ['adjacency','if (seen[neighbor] and s.tiles[neighbor].ownerId==c.ownerId) or (claimed and claimed[neighbor]) then','if true then'],
+      ['territory sight','if tile.ownerId==owner then','if false then'],
+      ['territory ring','for _, id in neighbors[tile.id] do set[id]=true end',''],
+      ['territory contact','local seen=visible(s,owner); contact(s,owner,seen)','local seen=visible(s,owner)'],
+      ['defensive sight','if not seen[id] or (claimed and claimed[id])','if (claimed and claimed[id])'],
+      ['radius three','if distances[id]>=3 then','if distances[id]>=4 then'],
+      ['adjacency','if s.tiles[neighbor].ownerId==c.ownerId or (claimed and claimed[neighbor]) then','if true then'],
       ['foreign units','or (units[id] and units[id].ownerId~=c.ownerId)',''],
       ['foreign cities','or (cities[id] and cities[id].ownerId~=c.ownerId)',''],
-      ['camps','or camps[id])) then continue end', ')) then continue end'],
-      ['hidden units','seen[id] and (tile.ownerId','(seen[id] or (units[id] and units[id].ownerId~=c.ownerId)) and (tile.ownerId'],
-      ['hidden camps','seen[id] and (tile.ownerId','(seen[id] or camps[id]) and (tile.ownerId'],
-      ['hidden cities','seen[id] and (tile.ownerId','(seen[id] or (cities[id] and cities[id].ownerId~=c.ownerId)) and (tile.ownerId'],
-      ['hidden ownership','seen[id] and (tile.ownerId','(seen[id] or tile.ownerId) and (tile.ownerId'],
-      ['purchase ownership','or s.tiles[cmd.tileId].ownerId then return reject','then return reject'],
+      ['camps','or camps[id] then continue end', 'then continue end'],
+      ['candidate ownership','or tile.ownerId or (units[id]','or (units[id]'],
+      ['global score distance','extra-3*(d-1)','extra-3*(distance(s,tileId,tileId)+d-1)'],
+      ['global price distance','local factor=if d==3','d=distance(s,c.tileId,c.tileId)+d; local factor=if d==3'],
       ['tile tie','value==score and (not best or id<best)','value==score and (not best or id>best)'],
       ['purchase gold','p.gold-=cost; acquireBorderTile(s,c,cmd.tileId,cost)','acquireBorderTile(s,c,cmd.tileId,cost)'],
       ['acquisition count','c.borderTiles=(c.borderTiles or 0)+1','c.borderTiles=(c.borderTiles or 0)'],
       ['private events','if e.kind=="BorderGrowth" and e.ownerId~=actorId then continue end',''],
       ['AI purchase','    aiBuyTile(s,owner)',''],
       ['no-candidate cap','c.borderCulture=math.min(c.borderCulture,cost)','c.borderCulture=c.borderCulture'],
-      ['forecast unexplored resource','table.insert(added,{ownerId=actorId,kind=c.queue,tileId=spawn})',
-        'table.insert(added,{ownerId=actorId,kind=c.queue,tileId=spawn}); for _, id in nearby(s,spawn,2) do known[id]=true end'],
     ];
     for(const [name,from,to] of mutations) {
       if(!source.includes(from))throw new Error(`mutation marker missing: ${name}`);

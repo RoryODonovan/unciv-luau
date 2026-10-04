@@ -366,6 +366,10 @@ function BaseSave.restore(saved: any): (any?,string?)
             for actor=1,2 do
                 local centers={}; for _, entities in {state.units,state.cities} do for _, entity in entities do if entity.ownerId==actor then table.insert(centers,entity.tileId) end end end
                 local seen={}; for _, tileId in WorldMap.visibility(map,centers,2) do seen[tileId]=true end
+                -- Contact migration follows the same Civ V territory sight as the live game.
+                for _, tile in state.tiles do if tile.ownerId==actor then
+                    seen[tile.id]=true; for _, tileId in map.neighbors[tile.id] do seen[tileId]=true end
+                end end
                 for _, entities in {state.units,state.cities} do for _, entity in entities do if entity.ownerId==3-actor and seen[entity.tileId] then state.diplomacy.met=true end end end
             end
             if state.diplomacy.met then

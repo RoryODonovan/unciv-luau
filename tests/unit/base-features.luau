@@ -354,6 +354,9 @@ do
         local seen: {[number]: boolean}={}
         for _, u in s.units do if u.ownerId==unit.ownerId then for _, id in WorldMap.range(g,u.tileId,2) do seen[id]=true end end end
         for _, c in s.cities do if c.ownerId==unit.ownerId then for _, id in WorldMap.range(g,c.tileId,2) do seen[id]=true end end end
+        for _, tile in s.tiles do if tile.ownerId==unit.ownerId then
+            seen[tile.id]=true; for _, id in g.neighbors[tile.id] do seen[id]=true end
+        end end
         local unitAt: {[number]: any},cityAt: {[number]: any}={},{}
         for _, u in s.units do unitAt[u.tileId]=u end; for _, c in s.cities do cityAt[c.tileId]=c end
         local atWar=s.diplomacy.status=="War"; local military=Rules.units[unit.kind].strength>0

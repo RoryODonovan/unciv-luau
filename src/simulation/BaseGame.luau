@@ -246,7 +246,14 @@ end
 local function visible(s: any, owner: number): any
     local centers = {}; for _, u in s.units do if u.ownerId == owner then table.insert(centers, u.tileId) end end
     for _, c in s.cities do if c.ownerId == owner then table.insert(centers, c.tileId) end end
-    local set = {}; for _, center in centers do for _, id in nearby(s,center,2) do set[id]=true end end; return set
+    local set = {}; for _, center in centers do for _, id in nearby(s,center,2) do set[id]=true end end
+    -- Civ V territory sight: owned tiles and their adjacent ring, without a distance-row search.
+    local neighbors=mapFor(s).neighbors
+    for _, tile in s.tiles do if tile.ownerId==owner then
+        set[tile.id]=true
+        for _, id in neighbors[tile.id] do set[id]=true end
+    end end
+    return set
 end
 local function contact(s: any, owner: number, seen: any)
     if s.diplomacy.met then return end
@@ -956,46 +963,49 @@ end
 local function nextTileCost(s: any, c: any): number
     return scaledCost(s,math.floor(R.borderCultureBase+(R.borderCultureMultiplier*(c.borderTiles or 0))^R.borderCultureExponent),"policy")
 end
-local function buyTileCost(s: any, c: any, tileId: number): number
-    local d=distance(s,c.tileId,tileId)
+local function buyTileCost(s: any, c: any, d: number): number
     local factor=if d==3 then 1.5 elseif d==2 then 1 else 0.75
     return scaledCost(s,math.floor((R.borderBuyBase+R.borderBuyPerTile*(c.borderTiles or 0))*factor),"production")
 end
--- Match the tile projection: explored resources are known regardless of technology. Current sight also counts
--- during production, before refreshVision persists newly explored tiles at the end of the command.
-local function borderKnowledge(s: any, owner: number, seen: any): any
-    local known=table.clone(seen)
-    for _, id in s.players[owner].explored do known[id]=true end
-    return known
-end
+-- Every candidate is currently visible; resources match projection regardless of technology.
 local function borderResource(tile: any, known: any): any
     return if tile.resource and known[tile.id] then R.resources[tile.resource] else nil
 end
-local function borderScore(s: any, c: any, tileId: number, seen: any): number
+local function borderScore(s: any, tileId: number, d: number, seen: any): number
     local tile=s.tiles[tileId]; local resource=borderResource(tile,seen)
     local y=yieldFor({terrain=tile.terrain,feature=tile.feature,river=tile.river,resource=if resource then tile.resource else nil})
     local extra=if not resource then 0 elseif resource.category=="Luxury" then 6 elseif resource.category=="Strategic" then 4 else 2
-    return 2*y.food+2*y.production+y.gold+y.science+y.culture+extra-3*(distance(s,c.tileId,tileId)-1)
+    return 2*y.food+2*y.production+y.gold+y.science+y.culture+extra-3*(d-1)
 end
--- Shared projected legality for growth, purchase and AI. Ownership and blockers exist only in current sight,
--- exactly as in snapshot. Water and mountains are legal. `claimed` is the
+-- Shared actual legality for growth, purchase and AI: territory sight makes every adjacent candidate visible.
+-- Water and mountains are legal. `claimed` is the
 -- forecast's virtual culture acquisitions, applied after the yielding city's production, never a population claim.
-local function borderCandidates(s: any, c: any, seen: any, claimed: {[number]: boolean}?): {number}
+local function borderCandidates(s: any, c: any, seen: any, claimed: {[number]: boolean}?): ({number}, {[number]: number})
     local units,cities=occupants(s); local camps=campTiles(s); local result={}
-    for _, id in nearby(s,c.tileId,3) do
+    -- One bounded BFS supplies both candidates and distances. Never touch the global distance cache.
+    local neighbors=mapFor(s).neighbors
+    local distances: {[number]: number}={[c.tileId]=0}; local queue={c.tileId}; local head=1
+    while head<=#queue do
+        local id=queue[head]; head+=1
+        if distances[id]>=3 then continue end
+        for _, neighbor in neighbors[id] do if distances[neighbor]==nil then
+            distances[neighbor]=distances[id]+1; table.insert(queue,neighbor)
+        end end
+    end
+    for _, id in queue do
         local tile=s.tiles[id]
-        if (claimed and claimed[id]) or (seen[id] and (tile.ownerId or (units[id] and units[id].ownerId~=c.ownerId)
-            or (cities[id] and cities[id].ownerId~=c.ownerId) or camps[id])) then continue end
-        for _, neighbor in mapFor(s).neighbors[id] do
-            if (seen[neighbor] and s.tiles[neighbor].ownerId==c.ownerId) or (claimed and claimed[neighbor]) then table.insert(result,id); break end
+        if not seen[id] or (claimed and claimed[id]) or tile.ownerId or (units[id] and units[id].ownerId~=c.ownerId)
+            or (cities[id] and cities[id].ownerId~=c.ownerId) or camps[id] then continue end
+        for _, neighbor in neighbors[id] do
+            if s.tiles[neighbor].ownerId==c.ownerId or (claimed and claimed[neighbor]) then table.insert(result,id); break end
         end
     end
-    table.sort(result); return result
+    table.sort(result); return result,distances
 end
-local function bestBorderTile(s: any, c: any, candidates: {number}, seen: any): number?
+local function bestBorderTile(s: any, candidates: {number}, distances: {[number]: number}, seen: any): number?
     local best: number?=nil; local score=-math.huge
     for _, id in candidates do
-        local value=borderScore(s,c,id,seen)
+        local value=borderScore(s,id,distances[id],seen)
         if value>score or (value==score and (not best or id<best)) then best=id; score=value end
     end
     return best
@@ -1007,13 +1017,10 @@ end
 local function borderStep(s: any, c: any, culture: number)
     local cost=nextTileCost(s,c)
     c.borderCulture=math.min(1000000000,(c.borderCulture or 0)+math.max(0,culture)+R.borderBaseRate)
-    local seen=visible(s,c.ownerId); local candidates=borderCandidates(s,c,seen)
-    -- Actual ownership is checked only when applying growth. Silently skip stale fog candidates; never expose
-    -- skipped ids or reasons. Hidden units and camps remain in place on the acquired tile.
-    local available={}; for _, id in candidates do if not s.tiles[id].ownerId then table.insert(available,id) end end
+    local seen=visible(s,c.ownerId); local candidates,distances=borderCandidates(s,c,seen)
     if #candidates==0 then c.borderCulture=math.min(c.borderCulture,cost)
-    elseif c.borderCulture>=cost and #available>0 then
-        local tileId=bestBorderTile(s,c,available,borderKnowledge(s,c.ownerId,seen)) :: number
+    elseif c.borderCulture>=cost then
+        local tileId=bestBorderTile(s,candidates,distances,seen) :: number
         c.borderCulture-=cost; acquireBorderTile(s,c,tileId)
     end
 end
@@ -1597,22 +1604,23 @@ end
 -- One empire purchase after production, using the existing 60-gold reserve. Resource visibility and ranking are
 -- shared with culture growth. City id only resolves the same tile offered by two cities, so neither seat is favoured.
 local function aiBuyTile(s: any, owner: number)
-    local seen=visible(s,owner); local known=borderKnowledge(s,owner,seen); local p=s.players[owner]
-    local bestCity: any=nil; local bestTile: number?=nil; local bestScore=-math.huge
+    local seen=visible(s,owner); local p=s.players[owner]
+    local bestCity: any=nil; local bestTile: number?=nil; local bestScore=-math.huge; local bestCost=0
     for _, c in s.cities do
         if c.ownerId~=owner then continue end
-        for _, id in borderCandidates(s,c,seen) do
-            if s.tiles[id].ownerId then continue end
-            local resource=borderResource(s.tiles[id],known)
-            if not resource or (resource.category~="Luxury" and resource.category~="Strategic") or p.gold<buyTileCost(s,c,id)+AI_GOLD_RESERVE then continue end
-            local score=borderScore(s,c,id,known)
+        local candidates,distances=borderCandidates(s,c,seen)
+        for _, id in candidates do
+            local resource=borderResource(s.tiles[id],seen)
+            local cost=buyTileCost(s,c,distances[id])
+            if not resource or (resource.category~="Luxury" and resource.category~="Strategic") or p.gold<cost+AI_GOLD_RESERVE then continue end
+            local score=borderScore(s,id,distances[id],seen)
             if score>bestScore or (score==bestScore and (not bestTile or id<bestTile or (id==bestTile and c.id<bestCity.id))) then
-                bestCity=c; bestTile=id; bestScore=score
+                bestCity=c; bestTile=id; bestScore=score; bestCost=cost
             end
         end
     end
     if bestTile then
-        local cost=buyTileCost(s,bestCity,bestTile); p.gold-=cost; acquireBorderTile(s,bestCity,bestTile,cost)
+        p.gold-=bestCost; acquireBorderTile(s,bestCity,bestTile,bestCost)
     end
 end
 local function ai(s: any, owner: number)
@@ -1833,8 +1841,9 @@ function BaseGame.apply(state: State, actorId: number, command: Command): {ok: b
             if not has({"Balanced","Food","Production","Gold","Science","Culture"},cmd.focus) or c.focus==cmd.focus then return reject("Choose a different valid city focus.") end
             c.focus=cmd.focus
         elseif cmd.kind=="BuyTile" then
-            if not finiteId(cmd.tileId) or not table.find(borderCandidates(s,c,visible(s,actorId)),cmd.tileId) or s.tiles[cmd.tileId].ownerId then return reject("Choose an unowned adjacent tile within three tiles of your city.") end
-            local cost=buyTileCost(s,c,cmd.tileId)
+            local candidates,distances=borderCandidates(s,c,visible(s,actorId))
+            if not finiteId(cmd.tileId) or not table.find(candidates,cmd.tileId) then return reject("Choose an unowned adjacent tile within three tiles of your city.") end
+            local cost=buyTileCost(s,c,distances[cmd.tileId])
             if p.gold<cost then return reject("Buying this tile needs "..cost.." gold.") end
             p.gold-=cost; acquireBorderTile(s,c,cmd.tileId,cost)
         elseif cmd.kind=="CityRangedStrike" then
@@ -1962,10 +1971,10 @@ function BaseGame.snapshot(state: State, actorId: number): View
             end
             view.strength=cityStrength(s,c,occupancyUnits); view.rangedStrength=cityRangedStrength(s,c,occupancyUnits)
             view.strikeReady=ready; view.canStrike=#targets>0; view.strikeTargets=targets
-            local candidates=borderCandidates(s,c,seen)
+            local candidates,distances=borderCandidates(s,c,seen)
             view.borderCulture=c.borderCulture or 0; view.nextTileCost=nextTileCost(s,c)
-            view.nextBorderTile=bestBorderTile(s,c,candidates,borderKnowledge(s,actorId,seen))
-            view.buyableTiles={}; for _, id in candidates do table.insert(view.buyableTiles,{tileId=id,cost=buyTileCost(s,c,id)}) end
+            view.nextBorderTile=bestBorderTile(s,candidates,distances,seen)
+            view.buyableTiles={}; for _, id in candidates do table.insert(view.buyableTiles,{tileId=id,cost=buyTileCost(s,c,distances[id])}) end
             strikePreviews[tostring(c.id)]=list
             table.insert(cities,view)
         elseif seen[c.tileId] then table.insert(cities,{id=c.id,ownerId=c.ownerId,tileId=c.tileId,name=c.name,population=c.population,hp=c.hp,capital=c.capital,originalOwnerId=c.originalOwnerId}) end
@@ -2025,7 +2034,6 @@ function BaseGame.snapshot(state: State, actorId: number): View
     local forecasts={}
     do
         local actor=s.players[actorId]; local worked,claimed,added={},{},{}; local _,cityTiles=occupants(s)
-        local known=borderKnowledge(s,actorId,seen)
         local stepMood=stepHappiness(s,actorId,resourceInventory(s,actorId))
         local bonus=empireBonus(s,actorId); bonus.golden=goldenActive(actor)
         -- Wonders earlier own cities complete in this step: a later city queuing one loses the race and completes nothing.
@@ -2052,13 +2060,13 @@ function BaseGame.snapshot(state: State, actorId: number): View
             forecasts[tostring(c.id)]={food=food,production=made,gold=yields.gold,science=yields.science,culture=yields.culture,
                 growthTurns=if not canGrow then nil elseif c.food+food>=growAt then 1 elseif food>0 then math.ceil((growAt-c.food)/food) else nil,
                 productionTurns=turns,productionBlocked=blocked}
-            local candidates=borderCandidates(s,c,seen,claimed)
+            local candidates,distances=borderCandidates(s,c,seen,claimed)
             local rate=math.max(0,yields.culture)+R.borderBaseRate
             for _, view in cities do
                 if view.id==c.id then view.borderTurns=if #(view :: any).buyableTiles>0 then math.ceil((nextTileCost(s,c)-(c.borderCulture or 0))/rate) else nil end
             end
             if (c.borderCulture or 0)+rate>=nextTileCost(s,c) then
-                local tileId=bestBorderTile(s,c,candidates,known); if tileId then claimed[tileId]=true end
+                local tileId=bestBorderTile(s,candidates,distances,seen); if tileId then claimed[tileId]=true end
             end
         end
     end
