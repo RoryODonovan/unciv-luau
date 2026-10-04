@@ -17,9 +17,10 @@ local function integer(value: any,low: number,high: number): boolean return numb
 local function nearestSixth(value: number): number return math.round(value*6)/6 end
 local function sixths(value: number): boolean return math.abs(value-nearestSixth(value))<=1e-6 end
 -- Derived cost pace, shared rule configuration with BaseGame; no save schema field.
-local function researchCost(maxTurns: number, base: number): number
+local function researchCost(maxTurns: number, base: number, firstPass: boolean?): number
     local pace=Rules.costPace
-    local percent=math.clamp(math.floor(100*(maxTurns/pace.turns)^pace.exponent+0.5),pace.minPercent,pace.maxPercent)
+    local c=if firstPass then {exponent=1.5,minPercent=30,maxPercent=200} else pace.tech
+    local percent=math.clamp(math.floor(100*(maxTurns/pace.turns)^c.exponent+0.5),c.minPercent,c.maxPercent)
     return math.max(1,math.floor(base*percent/100+0.5))
 end
 local function owner(value: any): boolean return value==1 or value==2 end
@@ -190,8 +191,8 @@ function BaseSave.valid(saved: any): boolean
             if not object(r,"id progress cost") or type(r.id)~="string" or not Rules.technologies[r.id] or table.find(p.technologies,r.id) then return false end
             local rule=Rules.technologies[r.id]
             local cost=researchCost(s.maxTurns,rule.cost)
-            -- Before cost pacing, saves stored the base cost. Accept that legacy form as well.
-            if (r.cost~=cost and r.cost~=rule.cost) or not integer(r.progress,0,r.cost-1) then return false end
+            -- Accept pre-pacing and first-pass W2-D research; restore preserves its completed fraction.
+            if (r.cost~=cost and r.cost~=rule.cost and r.cost~=researchCost(s.maxTurns,rule.cost,true)) or not integer(r.progress,0,r.cost-1) then return false end
             for _,prerequisite in rule.prerequisites do if not table.find(p.technologies,prerequisite) then return false end end
         end
     end
@@ -333,8 +334,6 @@ function BaseSave.restore(saved: any): (any?,string?)
     return state,nil
 end
 return table.freeze(BaseSave)
-
-
 
 
 

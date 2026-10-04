@@ -284,10 +284,14 @@ local rules = {
     cityHp=150,cityBaseYields=yields(2,2,2,2,1),cityWorkRadius=2,foodPerPopulation=2,baseHappiness=9,unhappinessPerCity=2,unhappinessPerPopulation=1,
     growthBase=20,growthPerPopulation=8,starvationLoss=1,unitVision=2,cityVision=2,
     -- Cost pace: clamp(round(100 x (maxTurns / turns)^exponent), minPercent, maxPercent).
-    -- Research, production and food thresholds use max(1, round(base x costPercent / 100)).
-    -- Purchase gold uses the rounded production cost x its existing ratio. Derived, never saved.
-    -- 45/80/120/200 rounds: 30/54/100/200 percent. Full is an exact identity.
-    costPace={turns=120,exponent=1.5,minPercent=30,maxPercent=200},
+    -- Category costs use max(1, round(base x percent / 100)); policy bases scale before adoption growth.
+    -- Production and growth share a gentler curve; policy inflation delays short-game culture finishes.
+    -- Purchases/upgrades use production pace. All categories derive from maxTurns and are 100% at 120.
+    costPace={turns=120,
+        tech={exponent=1.8,minPercent=20,maxPercent=200},
+        production={exponent=0.5,minPercent=30,maxPercent=200},
+        growth={exponent=0.5,minPercent=30,maxPercent=200},
+        policy={exponent=-0.4,minPercent=30,maxPercent=200}},
     -- Moving between two road tiles costs a third of a move (Civ V), whatever the terrain.
     roadMovement=1/3,
     -- Rivers run along tile edges (the optional tile mask `river`). A tile with a river on any edge yields riverGold more
@@ -357,6 +361,4 @@ local rules = {
 }
 freeze(rules)
 return rules
-
-
 

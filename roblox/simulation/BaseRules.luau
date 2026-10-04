@@ -1,6 +1,6 @@
 --!strict
 -- Generated module-only Roblox form. Source: src/simulation/BaseRules.luau
--- Source SHA-256: cba1cf721c3c7d171eb1eb4be3ef1cedf69c55bebeba318eb2f032ea46c9a7b4
+-- Source SHA-256: 9ea35504b6b493ffe367f1ce0f7340416e4c7a8e100ef9a864d25bc4d66a7a17
 -- Reproduce with tools/roblox-export.mjs; preserve MPL notices below.
 -- Covered source: https://github.com/RoryODonovan/unciv-luau
 -- This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
@@ -291,10 +291,14 @@ local rules = {
     cityHp=150,cityBaseYields=yields(2,2,2,2,1),cityWorkRadius=2,foodPerPopulation=2,baseHappiness=9,unhappinessPerCity=2,unhappinessPerPopulation=1,
     growthBase=20,growthPerPopulation=8,starvationLoss=1,unitVision=2,cityVision=2,
     -- Cost pace: clamp(round(100 x (maxTurns / turns)^exponent), minPercent, maxPercent).
-    -- Research, production and food thresholds use max(1, round(base x costPercent / 100)).
-    -- Purchase gold uses the rounded production cost x its existing ratio. Derived, never saved.
-    -- 45/80/120/200 rounds: 30/54/100/200 percent. Full is an exact identity.
-    costPace={turns=120,exponent=1.5,minPercent=30,maxPercent=200},
+    -- Category costs use max(1, round(base x percent / 100)); policy bases scale before adoption growth.
+    -- Production and growth share a gentler curve; policy inflation delays short-game culture finishes.
+    -- Purchases/upgrades use production pace. All categories derive from maxTurns and are 100% at 120.
+    costPace={turns=120,
+        tech={exponent=1.8,minPercent=20,maxPercent=200},
+        production={exponent=0.5,minPercent=30,maxPercent=200},
+        growth={exponent=0.5,minPercent=30,maxPercent=200},
+        policy={exponent=-0.4,minPercent=30,maxPercent=200}},
     -- Moving between two road tiles costs a third of a move (Civ V), whatever the terrain.
     roadMovement=1/3,
     -- Rivers run along tile edges (the optional tile mask `river`). A tile with a river on any edge yields riverGold more

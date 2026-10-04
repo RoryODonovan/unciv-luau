@@ -1,6 +1,6 @@
 --!strict
 -- Generated module-only Roblox form. Source: src/simulation/BaseGame.luau
--- Source SHA-256: 81f5c1b6e1f707c44f857a0bc3e408aea27491fa24c9806cd86ca317115134df
+-- Source SHA-256: f6d7013be64f497ba5cfb914f08c1215ee99478642b3d8981a58abe9df1d3c45
 -- Reproduce with tools/roblox-export.mjs; preserve MPL notices below.
 -- Covered source: https://github.com/RoryODonovan/unciv-luau
 -- This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
@@ -12,6 +12,7 @@
 local Rules = require(script.Parent.BaseRules)
 local WorldMap = require(script.Parent.WorldMap)
 local Save = require(script.Parent.BaseSave)
+export type CostCategory = "tech" | "production" | "growth" | "policy"
 export type Options = {humanPlayers: number?, radius: number?, mapShape: string?, frequency: number?, difficulty: string?, forest: boolean?, maxTurns: number?, cultureVictoryPolicies: number?, policyCostIncrease: number?, barbarians: boolean?}
 export type Command = {kind: "MoveUnit" | "RangedAttack", unitId: number, tileId: number}
     | {kind: "FoundCity" | "FortifyUnit" | "UpgradeUnit", unitId: number}
@@ -199,16 +200,17 @@ local function pacePercent(s: any): number
     return math.clamp(math.floor(s.maxTurns*100/g.paceTurns+0.5),g.minPacePercent,g.maxPacePercent)
 end
 -- Independent of golden-age/barbarian pace. Derived from the saved round limit, including on restore.
-local function costPercent(s: any): number
-    local c=R.costPace
-    return math.clamp(math.floor(100*(s.maxTurns/c.turns)^c.exponent+0.5),c.minPercent,c.maxPercent)
+local function costPercent(s: any, category: CostCategory?): number
+    local pace=R.costPace
+    local c=pace[category or "tech"]
+    return math.clamp(math.floor(100*(s.maxTurns/pace.turns)^c.exponent+0.5),c.minPercent,c.maxPercent)
 end
-local function scaledCost(s: any, base: number): number return math.max(1,math.floor(base*costPercent(s)/100+0.5)) end
-local function productionCost(s: any, item: string): number return scaledCost(s,R.productionCosts[item]) end
+local function scaledCost(s: any, base: number, category: CostCategory?): number return math.max(1,math.floor(base*costPercent(s,category)/100+0.5)) end
+local function productionCost(s: any, item: string): number return scaledCost(s,R.productionCosts[item],"production") end
 local function purchaseCost(s: any, item: string): number
     return productionCost(s,item)*R.purchaseCosts[item]/R.productionCosts[item]
 end
-local function growthCost(s: any, population: number): number return scaledCost(s,R.growthBase+population*R.growthPerPopulation) end
+local function growthCost(s: any, population: number): number return scaledCost(s,R.growthBase+population*R.growthPerPopulation,"growth") end
 local function goldenAgeTurns(s: any): number return math.max(1,math.floor(R.goldenAge.turns*pacePercent(s)/100+0.5)) end
 local function goldenAgeThreshold(s: any, ages: number): number
     return math.floor((R.goldenAge.threshold+R.goldenAge.thresholdIncrease*ages)*pacePercent(s)/100)
@@ -237,7 +239,7 @@ local function enterCamp(s: any, unit: any)
 end
 -- A policy's culture cost: escalated by the policies already adopted, then reduced by the owner's wonders (Oracle).
 local function policyCost(s: any, p: any, policy: any): number
-    local cost=math.floor(policy.cost*(100+(s.policyCostIncrease or 0)*#p.policies)/100)
+    local cost=math.floor(scaledCost(s,policy.cost,"policy")*(100+(s.policyCostIncrease or 0)*#p.policies)/100)
     local discount=empireBonus(s,p.id).policyCostPercent
     if discount>0 then cost=math.floor(cost*(100-discount)/100) end
     return cost
@@ -407,7 +409,7 @@ local function upgradeKind(s: any, u: any): string?
     return nextKind
 end
 local function upgradeCost(s: any, kind: string, nextKind: string): number
-    return math.max(scaledCost(s,R.upgradeMinimumGold),productionCost(s,nextKind)-productionCost(s,kind))*R.upgradeCostMultiplier
+    return math.max(scaledCost(s,R.upgradeMinimumGold,"production"),productionCost(s,nextKind)-productionCost(s,kind))*R.upgradeCostMultiplier
 end
 -- Why UpgradeUnit refuses the unit now, or nil when it accepts it (turn ownership aside).
 local function upgradeRefusal(s: any, u: any): string?
@@ -2003,6 +2005,6 @@ function BaseGame.restore(saved: any): (State?,string?)
     if not s then return nil,message end
     mapFor(s); return s :: State,nil
 end
-function BaseGame.costPercent(state: State): number return costPercent(state) end
+function BaseGame.costPercent(state: State, category: CostCategory?): number return costPercent(state,category) end
 function BaseGame.getRules(): typeof(Rules) return copy(Rules) end
 return table.freeze(BaseGame)
