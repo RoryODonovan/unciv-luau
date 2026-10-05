@@ -121,7 +121,8 @@ local function versus(kind: string,otherKind: string): number
 end
 local function reference(setup: any): (number,number)
     local attackerKind=setup.attacker or "Warrior"; local defenderKind=setup.defender or "Warrior"
-    local a=Rules.units[attackerKind]; local ranged=a.range>1; local terrain=setup.terrain or "Plains"
+    local a=Rules.units[attackerKind]; local ranged=a.range>1
+    if not ranged and Rules.units[defenderKind].strength==0 then return 0,0 end; local terrain=setup.terrain or "Plains"
     local rough=terrain=="Hills" or terrain=="Forest"
     local flank=if ranged then 0 else math.min(30,10*(setup.flankers or 0))
     local attack=math.max(1,if ranged then a.rangedStrength else a.attack)*(0.5+(setup.attackerHp or a.hp)/200)
@@ -163,7 +164,8 @@ local function fight(setup: any): (any,any,number,number,any,any)
     local received=if after then attackerHp-after.hp else preview.received
     assert(attack.amount==preview.dealt,"dealt damage differs from preview")
     assert(received==preview.received,"received damage differs from preview")
-    if hit then assert(defenderHp-hit.hp==preview.dealt and preview.defenderDefeated=="No") else assert(preview.defenderDefeated=="Yes") end
+    if hit and hit.ownerId==1 then assert(preview.capturesCivilian=="Yes" and hit.hp==defenderHp and preview.defenderDefeated=="Yes")
+    elseif hit then assert(defenderHp-hit.hp==preview.dealt and preview.defenderDefeated=="No") else assert(preview.defenderDefeated=="Yes") end
     if after then assert(preview.attackerDefeated=="No") else assert(preview.attackerDefeated=="Yes") end
     local expectedDealt,expectedReceived=reference(setup)
     assert(attack.amount==expectedDealt and received==expectedReceived,"strike differs from the formula: "..attack.amount.."/"..received.." vs "..expectedDealt.."/"..expectedReceived)
@@ -187,7 +189,7 @@ do
     assert(veteran.xp==12 and old.xp==7)
     -- A strike on a civilian gives no experience to either side.
     local _,_,_,_,raider,worker=fight({defender="Worker",defenderHp=50})
-    assert(raider.xp==nil and worker==nil,"no experience from killing a worker")
+    assert(raider.xp==nil and worker.ownerId==1 and worker.xp==nil,"no experience from capturing a worker")
     local _,_,_,_,shooter,civilian=fight({attacker="Archer",defender="Settler"})
     assert(shooter.xp==nil and (civilian==nil or civilian.xp==nil),"no experience from shooting a settler")
     -- Experience is capped at the last threshold.

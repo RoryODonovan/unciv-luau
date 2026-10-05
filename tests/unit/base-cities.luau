@@ -181,10 +181,10 @@ end
 do
     local s,city,graph=fixture(44)
     city.queue="Warrior"; city.production=Rules.productionCosts.Warrior
-    local occupied={}; for _, u in s.units do occupied[u.tileId]=true end
+    local occupied={}; for _, u in s.units do if Rules.units[u.kind].strength>0 then occupied[u.tileId]=true end end
     for _, id in WorldMap.range(graph,city.tileId,1) do
         if occupied[id] or not Rules.terrains[s.tiles[id].terrain].passable then continue end
-        table.insert(s.units,{id=s.nextUnit,ownerId=1,kind="Worker",tileId=id,hp=50,moves=0,fortified=false,level=0}); s.nextUnit += 1
+        table.insert(s.units,{id=s.nextUnit,ownerId=1,kind="Warrior",tileId=id,hp=100,moves=0,fortified=false,level=0}); s.nextUnit += 1
     end
     local restored=assert(Game.restore(Game.serialize(s))); s=restored
     for _, c in s.cities do if c.id==city.id then city=c end end
@@ -203,12 +203,12 @@ do
     assert(forecast.productionBlocked==nil and forecast.productionTurns==1,"Monument completes despite the occupied tiles")
     -- Free one deployment tile: the Warrior is completable again and finishes exactly as forecast.
     city.queue="Warrior"
-    for i=#s.units,1,-1 do local u=s.units[i]; if u.ownerId==1 and u.kind=="Worker" and WorldMap.distance(graph,u.tileId,city.tileId)==1 then table.remove(s.units,i); break end end
+    for i=#s.units,1,-1 do local u=s.units[i]; if u.ownerId==1 and u.kind=="Warrior" and WorldMap.distance(graph,u.tileId,city.tileId)==1 then table.remove(s.units,i); break end end
     forecast=Game.snapshot(s,1).cityForecasts[tostring(city.id)]
     assert(forecast.productionBlocked==nil and forecast.productionTurns==1,"freed tile restores the estimate")
     endTurnMatchesForecast(s,1)
     local finished=0; for _, u in s.units do if u.ownerId==1 and u.kind=="Warrior" then finished += 1 end end
-    assert(finished==warriors+1,"the Warrior was produced")
+    assert(finished==warriors,"the removed Warrior was replaced by production")
 end
 
 -- 7. Within one step an earlier city's completion uses up what a later city needs. One improved Iron supplies two Iron

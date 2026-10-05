@@ -198,14 +198,19 @@ function BaseSave.valid(saved: any): boolean
             for _,prerequisite in rule.prerequisites do if not table.find(p.technologies,prerequisite) then return false end end
         end
     end
-    local units,occupancy={},{}; local barbarianUnits=0
+    local units,occupancy,slots={},{},{}; local barbarianUnits=0
     for _,u in s.units do
         -- The entry's shape is checked before any field is read. A barbarian unit (owner 0) needs a match with barbarians.
         if not object(u,"id ownerId kind tileId hp moves fortified level xp promotions work sentry") then return false end
         local barbarian=u.ownerId==BARBARIAN and barbarians~=nil
-        if not id(u.id) or u.id>=s.nextUnit or units[u.id] or not (owner(u.ownerId) or barbarian) or not integer(u.tileId,1,#s.tiles) or occupancy[u.tileId] then return false end
+        if not id(u.id) or u.id>=s.nextUnit or units[u.id] or not (owner(u.ownerId) or barbarian) or not integer(u.tileId,1,#s.tiles) then return false end
         if type(u.kind)~="string" or not Rules.units[u.kind] then return false end
         local rule=Rules.units[u.kind]
+        local slot=if rule.unitClass=="Civilian" then "Civilian" else "Military"
+        local existing=occupancy[u.tileId]
+        if existing and (existing.ownerId~=u.ownerId or slots[u.tileId][slot]) then return false end
+        if not slots[u.tileId] then slots[u.tileId]={} end
+        slots[u.tileId][slot]=true
         -- Optional civilization-only sentry order; absent/false means awake. Settlers and working units cannot sleep.
         if u.sentry~=nil and (type(u.sentry)~="boolean" or not owner(u.ownerId) or u.kind=="Settler" or (u.sentry and u.work~=nil)) then return false end
         -- Barbarians research nothing; their units are military, never work, gain no experience and take no promotions.

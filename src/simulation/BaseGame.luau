@@ -66,7 +66,9 @@ export type Progress = {cities: number, policies: number, era: number}
 -- and its owner may enter that land (a civilization at peace keeps its borders closed even to a unit chasing a
 -- barbarian). `clearsCamp` is true when that advance enters a barbarian encampment and destroys it. Both are exact (a
 -- strike on a unit outside a city is exact); a city capture is reported by `captures`.
-export type AttackPreview = {unitId: number, tileId: number, target: string, ranged: boolean, exact: boolean, hiddenDefense: boolean, acrossRiver: boolean, advances: boolean, clearsCamp: boolean, dealt: number?, received: number?, dealtMin: number, dealtMax: number, receivedMin: number, receivedMax: number, attackerHp: number, defenderHp: number, attackerDefeated: string, defenderDefeated: string, captures: string}
+-- When a civilian is present, optional `civilianUnitId` identifies it and `capturesCivilian` reports Yes/No/Maybe.
+-- A lone civilian captured by melee has zero damage and defenderDefeated=Yes (neutralized, not killed).
+export type AttackPreview = {unitId: number, tileId: number, target: string, ranged: boolean, exact: boolean, hiddenDefense: boolean, acrossRiver: boolean, advances: boolean, clearsCamp: boolean, dealt: number?, received: number?, dealtMin: number, dealtMax: number, receivedMin: number, receivedMax: number, attackerHp: number, defenderHp: number, attackerDefeated: string, defenderDefeated: string, captures: string, capturesCivilian: string?, civilianUnitId: number?}
 -- One legal move: the path from the unit's tile (first) to the destination (last), the movement it spends and keeps,
 -- whether it ends the unit's movement, whether the zone of control ended it and whether its final step crossed a river
 -- (which also ends it). `clearsCamp` is true when the destination is a barbarian encampment, which the move destroys
@@ -123,8 +125,26 @@ end
 local function has(list: any, id: string): boolean return table.find(list, id) ~= nil end
 local function unitById(s: any, id: number): any for _, unit in s.units do if unit.id == id then return unit end end; return nil end
 local function cityById(s: any, id: number): any for _, city in s.cities do if city.id == id then return city end end; return nil end
+-- Combat, garrisons, flanking and zones of control see the military unit first, independent of array order.
+-- The public units array still contains both units; this internal index is only the primary occupant.
+local function civilian(kind: string): boolean return R.units[kind].unitClass=="Civilian" end
 local function occupants(s: any): (any, any)
-    local units, cities = {}, {}; for _, u in s.units do units[u.tileId] = u end; for _, c in s.cities do cities[c.tileId] = c end; return units, cities
+    local units, cities = {}, {}
+    for _, u in s.units do if not units[u.tileId] or not civilian(u.kind) then units[u.tileId] = u end end
+    for _, c in s.cities do cities[c.tileId] = c end
+    return units, cities
+end
+local function civilianAt(s: any, tileId: number): any
+    for _, u in s.units do if u.tileId==tileId and civilian(u.kind) then return u end end
+    return nil
+end
+local function slotFree(s: any, owner: number, kind: string, tileId: number, extra: {any}?): boolean
+    for _, list in {s.units,extra or {}} do
+        for _, u in list do
+            if u.tileId==tileId and (u.ownerId~=owner or civilian(u.kind)==civilian(kind)) then return false end
+        end
+    end
+    return true
 end
 -- Barbarians are a non-playing faction: their units carry this owner id, which no civilization uses. Every civilization
 -- is always at war with them; between the two civilizations hostility follows their diplomacy.
@@ -163,7 +183,7 @@ end
 -- Loss events are owned by the losing civilization, so its projection includes them whatever
 -- its current fog. Saves written before these fields existed simply lack them.
 local function unitLost(s: any, u: any, tileId: number, cause: string, byOwnerId: number?, damage: number?)
-    local message=if u.ownerId==BARBARIAN then "A barbarian "..u.kind.." was destroyed." else "Your "..u.kind.." was destroyed."
+    local message=if cause=="Captured" then "Your "..u.kind.." was captured." elseif u.ownerId==BARBARIAN then "A barbarian "..u.kind.." was destroyed." else "Your "..u.kind.." was destroyed."
     event(s,"UnitLost",message,tileId,u.id,u.ownerId,damage,nil,cause,byOwnerId,u.kind)
 end
 -- The culture victory threshold and per-adoption policy cost growth are stored per game.
@@ -397,15 +417,15 @@ local function productionAvailable(s: any, city: any, item: string, extra: {any}
     if entry.resource and not resourceSpare(stock or strategicStock(s,city.ownerId,extra,claimed),entry) then return false end
     return true
 end
-local function spawnTile(s: any, city: any, extra: {any}?): number?
-    local units,cities=occupants(s); local camps=campTiles(s)
-    if extra then for _, u in extra do units[u.tileId]=u end end
-    local ids={city.tileId}; for _, id in mapFor(s).neighbors[city.tileId] do table.insert(ids,id) end; table.sort(ids)
+local function spawnTile(s: any, city: any, kind: string, extra: {any}?): number?
+    local _,cities=occupants(s); local camps=campTiles(s)
+    -- City first, then the existing bounded adjacent fallback in ascending tile order.
+    local ids: {number}={}; for _, id in mapFor(s).neighbors[city.tileId] do table.insert(ids,id) end; table.sort(ids); table.insert(ids,1,city.tileId)
     for _, id in ids do
         local tile=s.tiles[id]
         local territoryAllowed=not tile.ownerId or tile.ownerId==city.ownerId or s.diplomacy.status=="War"
         -- A barbarian camp next to the city is never a deployment tile (the city's owner always sees it).
-        if not units[id] and not camps[id] and R.terrains[tile.terrain].passable and territoryAllowed and (not cities[id] or cities[id].ownerId==city.ownerId) then return id end
+        if slotFree(s,city.ownerId,kind,id,extra) and not camps[id] and R.terrains[tile.terrain].passable and territoryAllowed and (not cities[id] or cities[id].ownerId==city.ownerId) then return id end
     end
     return nil
 end
@@ -599,7 +619,7 @@ local function movementCost(s: any, unit: any, fromId: number, toId: number, see
     local tile=s.tiles[toId]; local terrain=R.terrains[tile.terrain]
     if not terrain.passable then return nil end
     local occupant,city=units[toId],cities[toId]
-    if occupant and occupant.id~=unit.id then return nil end
+    if occupant and occupant.ownerId~=unit.ownerId then return nil end
     if city and city.ownerId~=unit.ownerId then return nil end
     -- Foreign land only when hostile: the other civilization at war, and any land for barbarians.
     if not territoryOpen(s,unit,toId) then return nil end
@@ -641,7 +661,7 @@ local function movementSearch(s: any, unit: any, seen: any, units: any, cities: 
     -- Barbarian encampments: a civilization's military unit may enter one (destroying it), which ends its movement, so
     -- it never passes through; civilians cannot enter one. Barbarians move through their camps freely. Only visible
     -- tiles are entered, so this reads only camps the mover can see.
-    local camps=if unit.ownerId==BARBARIAN then {} else campTiles(s); local civilian=R.units[unit.kind].strength<=0
+    local camps=if unit.ownerId==BARBARIAN then {} else campTiles(s); local isCivilian=R.units[unit.kind].strength<=0
     local buckets: {[number]: {number}}={[0]={unit.tileId}}
     for here=0,budget do
         local bucket=buckets[here]
@@ -657,7 +677,7 @@ local function movementSearch(s: any, unit: any, seen: any, units: any, cities: 
                 local step=movementCost(s,unit,current,nextId,seen,units,cities)
                 if step==nil then continue end
                 local camp=camps[nextId]~=nil
-                if camp and civilian then continue end
+                if camp and isCivilian then continue end
                 local controlled=zoneOfControl(s,sources,current,nextId)
                 local crossing=riverCrossing(s,current,nextId)
                 local arrival=if controlled or crossing or camp then budget else math.min(budget,here+step)
@@ -667,6 +687,12 @@ local function movementSearch(s: any, unit: any, seen: any, units: any, cities: 
                 end
             end
         end
+    end
+    -- Same-class friendly tiles are transit nodes, never destinations. Nodes at the movement budget are not
+    -- expanded, so a forced stop (cost, river, camp or zone of control) cannot pass through an occupied class slot.
+    -- Keep previous intact: a legal destination's path may include these transit nodes.
+    for _, u in s.units do
+        if u.id~=unit.id and u.ownerId==unit.ownerId and civilian(u.kind)==civilian(unit.kind) then spent[u.tileId]=nil end
     end
     return spent,previous,zoc,crossed
 end
@@ -797,6 +823,8 @@ end
 local function strike(s: any, unit: any, defender: any, city: any, target: number, cityDefense: number, units: any): (number, number, boolean)
     local rule=R.units[unit.kind]
     local ranged=(rule.range or 1)>1
+    -- A civilization's melee unit takes an unprotected civilian without a damage exchange.
+    if not ranged and unit.ownerId~=BARBARIAN and defender and civilian(defender.kind) and not city then return 0,0,false end
     local attack=if ranged then rule.rangedStrength else rule.attack
     local flanking=if ranged or not defender then 0 else flankingPercent(s,unit,target,units)
     local promoted=promotionPercent(s,unit,target,true,ranged,defender~=nil)
@@ -816,9 +844,26 @@ local function strike(s: any, unit: any, defender: any, city: any, target: numbe
     local received=if ranged or (defender and R.units[defender.kind].strength==0) then 0 else math.clamp(math.floor(25*defense/attack+0.5),8,65)
     return dealt,received,ranged
 end
+local function captureCivilian(s: any, attacker: any, target: number)
+    local victim=civilianAt(s,target)
+    if not victim or victim.ownerId==attacker.ownerId then return end
+    -- Barbarians retain the existing kill-only behaviour (their save schema permits military units only).
+    if attacker.ownerId==BARBARIAN then
+        removeUnit(s,victim.id)
+        unitLost(s,victim,target,"Combat",attacker.ownerId,victim.hp)
+        return
+    end
+    unitLost(s,victim,target,"Captured",attacker.ownerId)
+    victim.ownerId=attacker.ownerId; if victim.kind=="Settler" then victim.kind="Worker" end
+    victim.hp=math.min(victim.hp,R.units[victim.kind].hp); victim.moves=0; victim.fortified=false
+    victim.work=nil; victim.sentry=nil; victim.level=0; victim.xp=nil; victim.promotions=nil
+    event(s,"Capture","Civilian captured.",target,victim.id,attacker.ownerId,nil,nil,"Captured",nil,victim.kind)
+end
 local function combat(s: any, unit: any, target: number)
     local from=unit.tileId; local witnesses=sentryWitnesses(s,unit.ownerId,from,target)
     local units,cities=occupants(s); local defender,city=units[target],cities[target]
+    -- A civilian is not a city garrison: the city must fall before it can be taken.
+    if city and defender and civilian(defender.kind) then defender=nil end
     local dealt,received,ranged=strike(s,unit,defender,city,target,if city then buildingDefense(city) else 0,units)
     local enemyOwner=if defender then defender.ownerId else city.ownerId
     unit.hp -= received; unit.moves=0; unit.fortified=false; unit.work=nil
@@ -838,7 +883,8 @@ local function combat(s: any, unit: any, target: number)
         removeUnit(s,unit.id); unitLost(s,unit,unit.tileId,"Combat",enemyOwner,received)
         wakeAfterAction(s,unit.ownerId,from,target,witnesses); return
     end
-    if not ranged and not select(1,occupants(s))[target] then
+    local remaining=select(1,occupants(s))[target]
+    if not ranged and (not remaining or (civilian(remaining.kind) and (unit.ownerId~=BARBARIAN or remaining~=defender))) then
         if city and city.ownerId~=unit.ownerId then
             -- Barbarians damage cities but never capture them.
             if city.hp==0 and unit.ownerId~=BARBARIAN then
@@ -847,12 +893,12 @@ local function combat(s: any, unit: any, target: number)
                 city.ownerId=unit.ownerId; city.hp=50; city.population=math.max(1,city.population-1); city.production=0; city.queue=""; city.queueNext=nil; city.food=0; city.strikeTurn=s.turn
                 local ids={target}; for _, id in mapFor(s).neighbors[target] do table.insert(ids,id) end
                 for _, id in ids do s.tiles[id].ownerId=unit.ownerId end
-                unit.tileId=target; event(s,"Capture","City captured.",target,unit.id,unit.ownerId)
+                unit.tileId=target; captureCivilian(s,unit,target); event(s,"Capture","City captured.",target,unit.id,unit.ownerId)
                 event(s,"CityLost",city.name.." was captured.",target,nil,loser,nil,nil,"Captured",unit.ownerId)
             end
         -- A melee attacker that kills a unit outside a city advances only into land its owner may enter: a barbarian
         -- killed on the territory of a civilization at peace with the attacker dies, and the attacker stays put.
-        elseif territoryOpen(s,unit,target) then unit.tileId=target; enterCamp(s,unit) end
+        elseif territoryOpen(s,unit,target) then unit.tileId=target; captureCivilian(s,unit,target); enterCamp(s,unit) end
     end
     wakeAfterAction(s,unit.ownerId,from,target,witnesses)
 end
@@ -863,12 +909,14 @@ local function outcome(low: boolean, high: boolean): string return if low~=high 
 -- widen the result to a range. Damage is monotonic in defence, so the bounds are exact.
 local function previewFor(s: any, unit: any, target: number, units: any, cities: any): AttackPreview
     local defender,city=units[target],cities[target]
+    if city and defender and civilian(defender.kind) then defender=nil end
+    local victim=civilianAt(s,target)
     local high=if city then hiddenCityDefense else 0
     local dealtMax,receivedMin,ranged=strike(s,unit,defender,city,target,0,units)
     local dealtMin,receivedMax=strike(s,unit,defender,city,target,high,units)
     local function result(dealt: number, received: number): (boolean, boolean, boolean)
         local attackerDead=unit.hp-received<=0
-        local defenderDead=defender~=nil and defender.hp-dealt<=0
+        local defenderDead=defender~=nil and (defender.hp-dealt<=0 or (not ranged and unit.ownerId~=BARBARIAN and civilian(defender.kind)))
         local cityHp=if not city then 1 elseif defender then city.hp else math.max(0,city.hp-dealt)
         return attackerDead,defenderDead,not ranged and not attackerDead and city~=nil and (defender==nil or defenderDead) and cityHp==0
     end
@@ -885,7 +933,8 @@ local function previewFor(s: any, unit: any, target: number, units: any, cities:
         dealtMin=dealtMin,dealtMax=dealtMax,receivedMin=receivedMin,receivedMax=receivedMax,
         attackerHp=unit.hp,defenderHp=if defender then defender.hp else city.hp,
         attackerDefeated=outcome(attackerLow,attackerHigh),defenderDefeated=if defender then outcome(defenderLow,defenderHigh) else "No",
-        captures=outcome(captureLow,captureHigh)}
+        captures=outcome(captureLow,captureHigh),civilianUnitId=if victim then victim.id else nil,
+        capturesCivilian=if victim then outcome(not ranged and unit.ownerId~=BARBARIAN and (advances or captureLow),not ranged and unit.ownerId~=BARBARIAN and (advances or captureHigh)) else nil}
 end
 -- A civilization's era (G7): the highest era among the technologies it knows (1-6; 1 with none), the coarse value
 -- `progress` makes public. It was 1 + floor(technologies / 4) before G7.
@@ -911,15 +960,16 @@ end
 local function strikeReady(s: any, city: any): boolean return city.strikeTurn~=s.turn end
 -- A legal city strike target: an enemy unit at war, on a tile the city's owner can see, within cityStrikeRange of the
 -- city and not inside a city (cities stand at least three apart, so that only matters for hand-made states).
-local function strikeTargetAllowed(s: any, city: any, target: any, seen: any, cities: any): boolean
+local function strikeTargetAllowed(s: any, city: any, target: any, seen: any, cities: any, units: any): boolean
     return hostile(s,city.ownerId,target.ownerId) and seen[target.tileId]==true and cities[target.tileId]==nil
+        and units[target.tileId]==target
         and W.inRange(mapFor(s),city.tileId,target.tileId,R.cityStrikeRange)
 end
 local function cityStrikeTargets(s: any, city: any, seen: any, units: any, cities: any): {number}
     local ids={}
     for _, tileId in nearby(s,city.tileId,R.cityStrikeRange) do
         local target=units[tileId]
-        if target and strikeTargetAllowed(s,city,target,seen,cities) then table.insert(ids,target.id) end
+        if target and strikeTargetAllowed(s,city,target,seen,cities,units) then table.insert(ids,target.id) end
     end
     table.sort(ids); return ids
 end
@@ -1173,7 +1223,7 @@ local function economy(s: any, owner: number)
         for key,value in yields do income[key] += value end
         -- A city that lost a wonder race earlier in this step completes nothing until its next step.
         if c.queue~="" and not converted[c.id] and productionAvailable(s,c,c.queue) and c.production>=productionCost(s,c.queue) then
-            local spawn=spawnTile(s,c)
+            local spawn=if R.units[c.queue] then spawnTile(s,c,c.queue) else nil
             if R.buildings[c.queue] or spawn then
                 local item=c.queue; c.production -= productionCost(s,item); complete(s,c,item,spawn,converted,bonus)
                 if R.buildings[item] and R.buildings[item].startsGoldenAge then granted += goldenAgeTurns(s); grantedBy=item end
@@ -1345,6 +1395,7 @@ local function barbarianAttack(s: any, u: any): number?
     local units,cities=occupants(s); local best: number?=nil; local bestRank=-math.huge
     for _, tileId in attackTargets(s,u,everywhere,units,cities) do
         local defender,city=units[tileId],cities[tileId]
+        if city and defender and civilian(defender.kind) then defender=nil end
         if city and not defender and city.hp<=0 then continue end
         local dealt,received=strike(s,u,defender,city,tileId,if city then buildingDefense(city) else 0,units)
         if received>=u.hp then continue end
@@ -1905,7 +1956,7 @@ function BaseGame.apply(state: State, actorId: number, command: Command): {ok: b
             if not strikeReady(s,c) then return reject("This city has used its strike this round.") end
             -- One message for a missing, hidden, friendly, out-of-range or peaceful target, so nothing hidden is revealed.
             local units,cities=occupants(s); local target=unitById(s,cmd.targetUnitId)
-            if not target or not strikeTargetAllowed(s,c,target,visible(s,actorId),cities) then return reject("Choose a visible enemy unit within the city's range.") end
+            if not target or not strikeTargetAllowed(s,c,target,visible(s,actorId),cities,units) then return reject("Choose a visible enemy unit within the city's range.") end
             cityStrike(s,c,target,units)
         else
             if type(cmd.item)~="string" then return reject("Production item is unavailable.") end
@@ -1916,7 +1967,7 @@ function BaseGame.apply(state: State, actorId: number, command: Command): {ok: b
                 if c.queue=="" then c.queue=cmd.item else c.queueNext=c.queueNext or {}; table.insert(c.queueNext,cmd.item) end
             elseif cmd.kind=="Purchase" then
                 if isWonder(cmd.item) then return reject("World wonders cannot be purchased.") end
-                local cost=purchaseCost(s,cmd.item); local spawn=spawnTile(s,c)
+                local cost=purchaseCost(s,cmd.item); local spawn=if R.units[cmd.item] then spawnTile(s,c,cmd.item) else nil
                 if p.gold<cost or (not R.buildings[cmd.item] and not spawn) then return reject("Purchase needs gold and a free deployment tile.") end
                 p.gold -= cost; complete(s,c,cmd.item,spawn)
             else
@@ -2063,7 +2114,7 @@ function BaseGame.snapshot(state: State, actorId: number): View
         for _, c in s.cities do
             if c.ownerId==actorId and canChoose(s,c,id,stock) then
                 table.insert(productionByCity[tostring(c.id)],id)
-                if not isWonder(id) and p.gold>=purchaseCost(s,id) and (R.buildings[id] or spawnTile(s,c)) then table.insert(purchasesByCity[tostring(c.id)],id) end
+                if not isWonder(id) and p.gold>=purchaseCost(s,id) and (R.buildings[id] or spawnTile(s,c,id)) then table.insert(purchasesByCity[tostring(c.id)],id) end
                 if not added then table.insert(production,id); added=true end
             end
         end
@@ -2106,7 +2157,7 @@ function BaseGame.snapshot(state: State, actorId: number): View
             local blocked: ("NotAvailable" | "NoSpace" | "Idle")?=nil; local spawn: number?=nil
             if c.queue=="" then blocked="Idle"
             elseif wondersNow[c.queue] or not productionAvailable(s,c,c.queue,added,claimed) or (R.units[c.queue] and #units+#added>=R.maxUnits) then blocked="NotAvailable"
-            elseif R.units[c.queue] then spawn=spawnTile(s,c,added); if not spawn then blocked="NoSpace" end end
+            elseif R.units[c.queue] then spawn=spawnTile(s,c,c.queue,added); if not spawn then blocked="NoSpace" end end
             local turns: number?=nil
             if not blocked and cost then
                 if c.production+made>=cost then turns=1 elseif made>0 then turns=math.ceil((cost-c.production)/made) end
@@ -2191,7 +2242,7 @@ function BaseGame.previewCityStrike(state: State, actorId: number, cityId: numbe
     local c=cityById(s,cityId); if not c or c.ownerId~=actorId then return nil,"Select your city." end
     if not strikeReady(s,c) then return nil,"This city has used its strike this round." end
     local units,cities=occupants(s); local target=unitById(s,targetUnitId)
-    if not target or not strikeTargetAllowed(s,c,target,visible(s,actorId),cities) then return nil,"Choose a visible enemy unit within the city's range." end
+    if not target or not strikeTargetAllowed(s,c,target,visible(s,actorId),cities,units) then return nil,"Choose a visible enemy unit within the city's range." end
     return cityStrikePreviewFor(s,c,target,units),nil
 end
 -- Pure, fog-safe query for one move the actor's unit could make now (any destination in its `legalMoves` that is

@@ -67,6 +67,7 @@ end
 -- level); the sweep still varies it to show that.
 local function reference(attackerKind: string,attackerHp: number,level: number,defenderKind: string,defenderHp: number,fortified: boolean,terrain: string,flankers: number): (number,number)
     local a=Rules.units[attackerKind]; local ranged=a.range>1
+    if not ranged and Rules.units[defenderKind].strength==0 then return 0,0 end
     local flank=if ranged then 0 else math.min(30,10*flankers)
     local _=level
     local attack=math.max(1,if ranged then a.rangedStrength else a.attack)*(0.5+attackerHp/200)*(100+flank+versus(attackerKind,defenderKind))/100
@@ -125,7 +126,8 @@ local function fight(setup: {attacker: string?,attackerHp: number?,level: number
     -- Preview equals the applied result: damage both ways and both outcomes.
     assert(attack.amount==preview.dealt,"dealt damage differs from preview")
     assert(received==preview.received,"received damage differs from preview")
-    if hit then assert(defenderHp-hit.hp==preview.dealt and preview.defenderDefeated=="No") else assert(preview.defenderDefeated=="Yes") end
+    if hit and hit.ownerId==1 then assert(preview.capturesCivilian=="Yes" and hit.hp==defenderHp and preview.defenderDefeated=="Yes")
+    elseif hit then assert(defenderHp-hit.hp==preview.dealt and preview.defenderDefeated=="No") else assert(preview.defenderDefeated=="Yes") end
     if after then assert(preview.attackerDefeated=="No") else assert(preview.attackerDefeated=="Yes" and attackerHp-preview.received<=0) end
     return preview,attack.amount,received
 end

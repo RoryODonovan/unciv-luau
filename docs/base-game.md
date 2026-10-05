@@ -4,6 +4,8 @@
 
 ## Public API
 
+G15 adds [military/civilian stacking, capture and compatibility notes](g15-stacking.md). This supersedes earlier single-unit occupancy descriptions below.
+
 The optional [whole-sphere mode](sphere.md) uses `mapShape="Sphere", frequency=1..22`, graph distance and complete globe coverage. Sphere state/snapshots omit planar coordinates and radius; deterministic public geometry is regenerated from frequency. Sphere saves use explicit version 2; all hex behavior and version-1 saves described below remain supported.
 
 ```luau

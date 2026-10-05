@@ -177,9 +177,9 @@ for _,shape in {"Hex","Sphere"} do
             local graph=if shape=="Sphere" then Map.fromSphereTiles(s.tiles,s.frequency) else Map.fromTiles(s.tiles,s.radius)
             local ids={c.tileId}; for _,id in graph.neighbors[c.tileId] do table.insert(ids,id) end
             for _,id in ids do
-                local occupied=false; for _,u in s.units do if u.tileId==id then occupied=true end end
+                local occupied=false; for _,u in s.units do if u.tileId==id and Rules.units[u.kind].strength>0 then occupied=true end end
                 if not occupied and Rules.terrains[s.tiles[id].terrain].passable then
-                    table.insert(s.units,{id=s.nextUnit,ownerId=1,kind="Worker",tileId=id,hp=50,moves=2,fortified=false,level=0}); s.nextUnit+=1
+                    table.insert(s.units,{id=s.nextUnit,ownerId=1,kind="Warrior",tileId=id,hp=100,moves=2,fortified=false,level=0}); s.nextUnit+=1
                 end
             end
         else c.queue="" end

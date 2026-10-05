@@ -358,7 +358,7 @@ do
             seen[tile.id]=true; for _, id in g.neighbors[tile.id] do seen[id]=true end
         end end
         local unitAt: {[number]: any},cityAt: {[number]: any}={},{}
-        for _, u in s.units do unitAt[u.tileId]=u end; for _, c in s.cities do cityAt[c.tileId]=c end
+        for _, u in s.units do if not unitAt[u.tileId] or Rules.units[u.kind].strength>0 then unitAt[u.tileId]=u end end; for _, c in s.cities do cityAt[c.tileId]=c end
         local atWar=s.diplomacy.status=="War"; local military=Rules.units[unit.kind].strength>0
         local function source(id: number): boolean
             if not seen[id] then return false end
@@ -368,7 +368,7 @@ do
         local function enterable(id: number): boolean
             local t=s.tiles[id]
             if not seen[id] or not passable(t) then return false end
-            if unitAt[id]~=nil and unitAt[id]~=unit then return false end
+            if unitAt[id]~=nil and unitAt[id].ownerId~=unit.ownerId then return false end
             if cityAt[id]~=nil and cityAt[id].ownerId~=unit.ownerId then return false end
             if t.ownerId~=nil and t.ownerId~=unit.ownerId and not atWar then return false end
             return true
@@ -393,7 +393,8 @@ do
             end
         end
         if start>0 then walk(unit.tileId,start) end
-        best[unit.tileId]=nil
+        for _,u in s.units do if u.id~=unit.id and u.ownerId==unit.ownerId and (Rules.units[u.kind].strength>0)==military then best[u.tileId]=nil end end
+    best[unit.tileId]=nil
         return best
     end
     local checked,crossings,featureSteps,riverListed=0,0,0,0

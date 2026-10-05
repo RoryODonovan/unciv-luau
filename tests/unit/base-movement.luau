@@ -95,8 +95,8 @@ end
 -- Independent statement of the movement rules: a depth-first relaxation that keeps the most movement left on each
 -- tile, in sixths. Steps cost the terrain's movement (or a third between two road tiles); a step that costs at least
 -- what remains, or that goes between two tiles next to the same visible enemy military unit or city while at war
--- (military movers only), leaves no movement. Only visible, passable, unoccupied tiles outside enemy cities (and
--- outside foreign land at peace) may be entered.
+-- (military movers only), leaves no movement. Only visible, passable tiles outside enemy cities (and
+-- outside foreign land at peace) may be entered. Friendly units permit transit; same-class slots forbid stopping.
 local function reference(s: any,unit: any): {[number]: number}
     local g=graphOf(s); local seen: {[number]: boolean}={}
     for _, u in s.units do if u.ownerId==unit.ownerId then for _, id in WorldMap.range(g,u.tileId,2) do seen[id]=true end end end
@@ -105,7 +105,7 @@ local function reference(s: any,unit: any): {[number]: number}
         seen[tile.id]=true; for _, id in g.neighbors[tile.id] do seen[id]=true end
     end end
     local unitAt: {[number]: any},cityAt: {[number]: any}={},{}
-    for _, u in s.units do unitAt[u.tileId]=u end; for _, c in s.cities do cityAt[c.tileId]=c end
+    for _, u in s.units do if not unitAt[u.tileId] or Rules.units[u.kind].strength>0 then unitAt[u.tileId]=u end end; for _, c in s.cities do cityAt[c.tileId]=c end
     local atWar=s.diplomacy.status=="War"; local military=Rules.units[unit.kind].strength>0
     local function source(id: number): boolean
         if not seen[id] then return false end
@@ -115,7 +115,7 @@ local function reference(s: any,unit: any): {[number]: number}
     local function enterable(id: number): boolean
         local t=s.tiles[id]
         if not seen[id] or not Rules.terrains[t.terrain].passable then return false end
-        if unitAt[id]~=nil and unitAt[id]~=unit then return false end
+        if unitAt[id]~=nil and unitAt[id].ownerId~=unit.ownerId then return false end
         if cityAt[id]~=nil and cityAt[id].ownerId~=unit.ownerId then return false end
         if t.ownerId~=nil and t.ownerId~=unit.ownerId and not atWar then return false end
         return true
@@ -132,6 +132,7 @@ local function reference(s: any,unit: any): {[number]: number}
         end
     end
     if start>0 then walk(unit.tileId,start) end
+    for _,u in s.units do if u.id~=unit.id and u.ownerId==unit.ownerId and (Rules.units[u.kind].strength>0)==military then best[u.tileId]=nil end end
     best[unit.tileId]=nil
     return best
 end
