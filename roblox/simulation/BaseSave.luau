@@ -1,6 +1,6 @@
 --!strict
 -- Generated module-only Roblox form. Source: src/simulation/BaseSave.luau
--- Source SHA-256: f3878f65696524d2f0217a5b7faf2b8523efcd74d280d7d41d99dc377789c615
+-- Source SHA-256: e21769e0a12067a1d54090f731b38ef462058043025f7c05598bb5f7579dc729
 -- Reproduce with tools/roblox-export.mjs; preserve MPL notices below.
 -- Covered source: https://github.com/RoryODonovan/unciv-luau
 -- This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
@@ -305,9 +305,12 @@ function BaseSave.valid(saved: any): boolean
     local causes={Combat=true,Ranged=true,Upkeep=true,Captured=true,NoCities=true,NeverFounded=true,CapitalsLost=true,CityStrike=true,Happiness=true,Wonder=true}
     local previous=0
     for _,e in s.events do
-        if not object(e,"id kind message tileId unitId ownerId amount public cause byOwnerId unitKind cityId wonder") or not integer(e.id,previous+1,s.nextEvent-1) or type(e.kind)~="string" or not (kinds :: any)[e.kind] or not text(e.message,256) then return false end
+        if not object(e,"id kind message tileId unitId defenderUnitId civilianUnitId ownerId amount public cause byOwnerId unitKind cityId wonder") or not integer(e.id,previous+1,s.nextEvent-1) or type(e.kind)~="string" or not (kinds :: any)[e.kind] or not text(e.message,256) then return false end
         if e.tileId~=nil and not integer(e.tileId,1,#s.tiles) then return false end
         if e.unitId~=nil and (not id(e.unitId) or e.unitId>=s.nextUnit) then return false end
+        -- Optional combat identities survive the units' removal; legacy events may omit them.
+        if e.defenderUnitId~=nil and (not id(e.defenderUnitId) or e.defenderUnitId>=s.nextUnit or (e.kind~="Attack" and e.kind~="Capture" and e.kind~="CityStrike")) then return false end
+        if e.civilianUnitId~=nil and (not id(e.civilianUnitId) or e.civilianUnitId>=s.nextUnit or (e.kind~="Attack" and e.kind~="Capture")) then return false end
         -- The barbarian owner (0) appears only in a match with barbarians: as the owner of a barbarian's Attack or
         -- UnitLost, and as the civilization-unit loser's byOwnerId of a UnitLost.
         local barbarianEvent=barbarians~=nil and (e.kind=="Attack" or e.kind=="UnitLost")

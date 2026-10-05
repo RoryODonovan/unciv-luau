@@ -1,6 +1,6 @@
 --!strict
 -- Generated module-only Roblox form. Source: src/simulation/BaseGame.luau
--- Source SHA-256: 0d20f3b95e4fd4a132a50e4a1bbae008d02f3a669cb91070c333f70a251c03d2
+-- Source SHA-256: b87716a7f89b2362bbb4f0ddd83a118c78d2c40858f9b1f8fff326907eb32540
 -- Reproduce with tools/roblox-export.mjs; preserve MPL notices below.
 -- Covered source: https://github.com/RoryODonovan/unciv-luau
 -- This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
@@ -39,7 +39,9 @@ export type Unit = {id: number, ownerId: number, kind: string, tileId: number, h
 -- Own units with an upgrade whose technology the owner knows also carry `upgradeKind` (the unit kind it becomes),
 -- `upgradeCost` (gold) and `canUpgrade` (UpgradeUnit accepts it now: movement left, the strategic resource and the
 -- gold, and the actor can act).
-export type UnitView = {id: number, ownerId: number, kind: string, tileId: number, hp: number, moves: number, fortified: boolean, level: number, promotions: {string}, xp: number?, nextLevelXp: number?, promotionsAvailable: {string}?, work: {improvement: string, remaining: number}?, upgradeKind: string?, upgradeCost: number?, canUpgrade: boolean?, sentry: boolean?}
+-- `unitClass` comes from BaseRules; only Civilian occupies the civilian slot. Snapshot units are ordered by tile id,
+-- military before civilian on a shared tile, then unit id, independently of state insertion order and viewer.
+export type UnitView = {id: number, ownerId: number, kind: string, unitClass: string, tileId: number, hp: number, moves: number, fortified: boolean, level: number, promotions: {string}, xp: number?, nextLevelXp: number?, promotionsAvailable: {string}?, work: {improvement: string, remaining: number}?, upgradeKind: string?, upgradeCost: number?, canUpgrade: boolean?, sentry: boolean?}
 -- `strikeTurn` is optional: the round whose ranged strike the city has used (it struck, or it was captured, that
 -- round). Absent means the city has never used one.
 -- Optional border fields: accumulated culture and post-founding culture/purchase acquisitions. Restore migrates
@@ -52,7 +54,9 @@ export type Research = {id: string, progress: number, cost: number}
 export type GoldenAge = {progress: number, turnsLeft: number, ages: number}
 export type Player = {id: number, human: boolean, gold: number, science: number, culture: number, happiness: number, technologies: {string}, policies: {string}, research: Research?, explored: {number}, resources: {[string]: number}, income: {food: number, production: number, gold: number, science: number, culture: number, maintenance: number}, goldenAge: GoldenAge?}
 -- `wonder` names the world wonder of a WonderBuilt or WonderLost event, or the wonder that started a golden age.
-export type Event = {id: number, kind: string, message: string, tileId: number?, unitId: number?, ownerId: number?, amount: number?, public: boolean?, cause: string?, byOwnerId: number?, unitKind: string?, cityId: number?, wonder: string?}
+-- Attack/CityStrike/Capture name the defender with optional `defenderUnitId`; `civilianUnitId` names a captured
+-- civilian. These historical ids survive unit removal; old saves may omit them. Existing `unitId` meanings remain.
+export type Event = {id: number, kind: string, message: string, tileId: number?, unitId: number?, defenderUnitId: number?, civilianUnitId: number?, ownerId: number?, amount: number?, public: boolean?, cause: string?, byOwnerId: number?, unitKind: string?, cityId: number?, wonder: string?}
 -- met is optional only for legacy/raw fixtures. warPlan's treaty value invalidates a plan when peace is re-made.
 export type WarPlan = {by: number, at: number, peaceUntil: number}
 export type Diplomacy = {status: string, peaceOfferBy: number?, peaceUntil: number, met: boolean?, warPlan: WarPlan?}
@@ -60,7 +64,8 @@ export type DiplomacyView = {status: string, peaceOfferBy: number?, peaceUntil: 
 export type Trade = {id: number, fromId: number, toId: number, giveGold: number, receiveGold: number, expires: number}
 -- An explored tile shows its terrain, resource, `feature` and `river` mask (static knowledge, like terrain); an unexplored
 -- tile shows none of them.
-export type TileView = {id: number, x: number?, y: number?, visible: boolean, explored: boolean, terrain: string?, resource: string?, feature: string?, river: number?, ownerId: number?, improvement: string?, road: boolean?, food: number?, production: number?, gold: number?}
+-- Occupancy ids name only units included in this viewer's units projection; fog never retains enemy occupancy.
+export type TileView = {id: number, x: number?, y: number?, visible: boolean, explored: boolean, militaryUnitId: number?, civilianUnitId: number?, terrain: string?, resource: string?, feature: string?, river: number?, ownerId: number?, improvement: string?, road: boolean?, food: number?, production: number?, gold: number?}
 -- A city in a snapshot. Only the actor's own cities carry the economy fields and the city-combat fields: `strength`
 -- (combat strength), `rangedStrength` (what its strike uses), `strikeReady` (its strike for this round is unused),
 -- `canStrike` (ready, the actor can act now and at least one target is legal) and `strikeTargets` (the unit ids
@@ -75,7 +80,8 @@ export type Progress = {cities: number, policies: number, era: number}
 -- strike on a unit outside a city is exact); a city capture is reported by `captures`.
 -- When a civilian is present, optional `civilianUnitId` identifies it and `capturesCivilian` reports Yes/No/Maybe.
 -- A lone civilian captured by melee has zero damage and defenderDefeated=Yes (neutralized, not killed).
-export type AttackPreview = {unitId: number, tileId: number, target: string, ranged: boolean, exact: boolean, hiddenDefense: boolean, acrossRiver: boolean, advances: boolean, clearsCamp: boolean, dealt: number?, received: number?, dealtMin: number, dealtMax: number, receivedMin: number, receivedMax: number, attackerHp: number, defenderHp: number, attackerDefeated: string, defenderDefeated: string, captures: string, capturesCivilian: string?, civilianUnitId: number?}
+-- `unitId` is the attacker; `defenderUnitId` is present exactly for a Unit target, absent for a City target.
+export type AttackPreview = {unitId: number, defenderUnitId: number?, tileId: number, target: string, ranged: boolean, exact: boolean, hiddenDefense: boolean, acrossRiver: boolean, advances: boolean, clearsCamp: boolean, dealt: number?, received: number?, dealtMin: number, dealtMax: number, receivedMin: number, receivedMax: number, attackerHp: number, defenderHp: number, attackerDefeated: string, defenderDefeated: string, captures: string, capturesCivilian: string?, civilianUnitId: number?}
 -- One legal move: the path from the unit's tile (first) to the destination (last), the movement it spends and keeps,
 -- whether it ends the unit's movement, whether the zone of control ended it and whether its final step crossed a river
 -- (which also ends it). `clearsCamp` is true when the destination is a barbarian encampment, which the move destroys
@@ -84,7 +90,8 @@ export type MovePreview = {unitId: number, tileId: number, path: {number}, moves
 -- One legal city strike: the striking city, the target unit and its tile, the city's ranged strength, the exact damage
 -- (a strike is deterministic and reads only visible facts, so `exact` is always true), `received` (always 0: the
 -- city takes no damage), the target's hit points before the strike and whether it dies ("Yes" or "No").
-export type CityStrikePreview = {cityId: number, unitId: number, tileId: number, rangedStrength: number, exact: boolean, dealt: number, received: number, defenderHp: number, defenderDefeated: string}
+-- Both `unitId` and `defenderUnitId` identify the defending unit (the former is retained for compatibility).
+export type CityStrikePreview = {cityId: number, unitId: number, defenderUnitId: number, tileId: number, rangedStrength: number, exact: boolean, dealt: number, received: number, defenderHp: number, defenderDefeated: string}
 export type Technology = Rules.Technology
 export type Policy = Rules.Policy
 export type Promotion = Rules.Promotion
@@ -177,7 +184,8 @@ end
 -- owns it.
 local RETAINED={UnitLost=true, CityLost=true, Eliminated=true, Victory=true, WonderBuilt=true, WonderLost=true, GoldenAgeStarted=true, GoldenAgeEnded=true, CampCleared=true, Contact=true, WarWarning=true}
 local function event(s: any, kind: string, message: string, tileId: number?, unitId: number?, ownerId: number?, amount: number?, public: boolean?, cause: string?, byOwnerId: number?, unitKind: string?, cityId: number?, wonder: string?)
-    table.insert(s.events, {id=s.nextEvent, kind=kind, message=message, tileId=tileId, unitId=unitId, ownerId=ownerId, amount=amount, public=public, cause=cause, byOwnerId=byOwnerId, unitKind=unitKind, cityId=cityId, wonder=wonder})
+    local entry: Event={id=s.nextEvent, kind=kind, message=message, tileId=tileId, unitId=unitId, ownerId=ownerId, amount=amount, public=public, cause=cause, byOwnerId=byOwnerId, unitKind=unitKind, cityId=cityId, wonder=wonder}
+    table.insert(s.events, entry)
     s.nextEvent += 1
     if #s.events > 64 then
         -- One command (an EndTurn running the AI and both economies) can emit more than 64 events, so
@@ -186,6 +194,7 @@ local function event(s: any, kind: string, message: string, tileId: number?, uni
         for i=1,#s.events-1 do local e=s.events[i]; if not RETAINED[e.kind] or e.ownerId==BARBARIAN then drop=i; break end end
         table.remove(s.events, drop)
     end
+    return entry
 end
 -- Loss events are owned by the losing civilization, so its projection includes them whatever
 -- its current fog. Saves written before these fields existed simply lack them.
@@ -864,13 +873,15 @@ local function captureCivilian(s: any, attacker: any, target: number)
     victim.ownerId=attacker.ownerId; if victim.kind=="Settler" then victim.kind="Worker" end
     victim.hp=math.min(victim.hp,R.units[victim.kind].hp); victim.moves=0; victim.fortified=false
     victim.work=nil; victim.sentry=nil; victim.level=0; victim.xp=nil; victim.promotions=nil
-    event(s,"Capture","Civilian captured.",target,victim.id,attacker.ownerId,nil,nil,"Captured",nil,victim.kind)
+    local captured=event(s,"Capture","Civilian captured.",target,victim.id,attacker.ownerId,nil,nil,"Captured",nil,victim.kind)
+    captured.defenderUnitId=victim.id; captured.civilianUnitId=victim.id
 end
 local function combat(s: any, unit: any, target: number)
     local from=unit.tileId; local witnesses=sentryWitnesses(s,unit.ownerId,from,target)
     local units,cities=occupants(s); local defender,city=units[target],cities[target]
     -- A civilian is not a city garrison: the city must fall before it can be taken.
     if city and defender and civilian(defender.kind) then defender=nil end
+    local victim=civilianAt(s,target)
     local dealt,received,ranged=strike(s,unit,defender,city,target,if city then buildingDefense(city) else 0,units)
     local enemyOwner=if defender then defender.ownerId else city.ownerId
     unit.hp -= received; unit.moves=0; unit.fortified=false; unit.work=nil
@@ -884,7 +895,8 @@ local function combat(s: any, unit: any, target: number)
         gainExperience(unit,if ranged then R.experience.rangedAttack else R.experience.meleeAttack,versusBarbarian)
         if defender then gainExperience(defender,if ranged then R.experience.rangedDefense else R.experience.meleeDefense,versusBarbarian) end
     end
-    event(s,"Attack","Battle dealt "..dealt.." damage.",target,unit.id,unit.ownerId,dealt)
+    local battle=event(s,"Attack","Battle dealt "..dealt.." damage.",target,unit.id,unit.ownerId,dealt,nil,nil,nil,nil,if city then city.id else nil)
+    battle.defenderUnitId=if defender then defender.id else nil
     if defender and defender.hp<=0 then removeUnit(s,defender.id); unitLost(s,defender,target,if ranged then "Ranged" else "Combat",unit.ownerId,dealt) end
     if unit.hp<=0 then
         removeUnit(s,unit.id); unitLost(s,unit,unit.tileId,"Combat",enemyOwner,received)
@@ -900,13 +912,17 @@ local function combat(s: any, unit: any, target: number)
                 city.ownerId=unit.ownerId; city.hp=50; city.population=math.max(1,city.population-1); city.production=0; city.queue=""; city.queueNext=nil; city.food=0; city.strikeTurn=s.turn
                 local ids={target}; for _, id in mapFor(s).neighbors[target] do table.insert(ids,id) end
                 for _, id in ids do s.tiles[id].ownerId=unit.ownerId end
-                unit.tileId=target; captureCivilian(s,unit,target); event(s,"Capture","City captured.",target,unit.id,unit.ownerId)
+                unit.tileId=target; captureCivilian(s,unit,target)
+                local captured=event(s,"Capture","City captured.",target,unit.id,unit.ownerId,nil,nil,nil,nil,nil,city.id)
+                captured.defenderUnitId=battle.defenderUnitId
+                captured.civilianUnitId=if victim then victim.id else nil
                 event(s,"CityLost",city.name.." was captured.",target,nil,loser,nil,nil,"Captured",unit.ownerId)
             end
         -- A melee attacker that kills a unit outside a city advances only into land its owner may enter: a barbarian
         -- killed on the territory of a civilization at peace with the attacker dies, and the attacker stays put.
         elseif territoryOpen(s,unit,target) then unit.tileId=target; captureCivilian(s,unit,target); enterCamp(s,unit) end
     end
+    if victim and victim.ownerId==unit.ownerId then battle.civilianUnitId=victim.id end
     wakeAfterAction(s,unit.ownerId,from,target,witnesses)
 end
 local function outcome(low: boolean, high: boolean): string return if low~=high then "Maybe" elseif low then "Yes" else "No" end
@@ -935,7 +951,7 @@ local function previewFor(s: any, unit: any, target: number, units: any, cities:
     -- The territory owner is visible (the target tile is), so this reads nothing hidden.
     local advances=not ranged and city==nil and defender~=nil and defenderLow and defenderHigh and not attackerLow and not attackerHigh and territoryOpen(s,unit,target)
     local clearsCamp=advances and unit.ownerId~=BARBARIAN and campTiles(s)[target]~=nil
-    return {unitId=unit.id,tileId=target,target=if defender then "Unit" else "City",ranged=ranged,exact=exact,hiddenDefense=high>0,acrossRiver=not ranged and riverBetween(s,unit.tileId,target),advances=advances,clearsCamp=clearsCamp,
+    return {unitId=unit.id,defenderUnitId=if defender then defender.id else nil,tileId=target,target=if defender then "Unit" else "City",ranged=ranged,exact=exact,hiddenDefense=high>0,acrossRiver=not ranged and riverBetween(s,unit.tileId,target),advances=advances,clearsCamp=clearsCamp,
         dealt=if exact then dealtMin else nil,received=if exact then receivedMin else nil,
         dealtMin=dealtMin,dealtMax=dealtMax,receivedMin=receivedMin,receivedMax=receivedMax,
         attackerHp=unit.hp,defenderHp=if defender then defender.hp else city.hp,
@@ -991,7 +1007,7 @@ end
 -- target (kind, hp, fortification, promotions) and terrain, and calls the same damage function as the strike.
 local function cityStrikePreviewFor(s: any, city: any, target: any, units: any): CityStrikePreview
     local dealt=cityStrikeDamage(s,city,target,units)
-    return {cityId=city.id,unitId=target.id,tileId=target.tileId,rangedStrength=cityRangedStrength(s,city,units),exact=true,dealt=dealt,received=0,
+    return {cityId=city.id,unitId=target.id,defenderUnitId=target.id,tileId=target.tileId,rangedStrength=cityRangedStrength(s,city,units),exact=true,dealt=dealt,received=0,
         defenderHp=target.hp,defenderDefeated=if target.hp-dealt<=0 then "Yes" else "No"}
 end
 -- A city strike: damages the target, uses the city's strike for this round and gives the target the experience of a
@@ -1001,7 +1017,8 @@ local function cityStrike(s: any, city: any, target: any, units: any)
     local dealt=cityStrikeDamage(s,city,target,units)
     city.strikeTurn=s.turn; target.hp -= dealt
     gainExperience(target,R.experience.rangedDefense)
-    event(s,"CityStrike","City strike dealt "..dealt.." damage.",target.tileId,target.id,city.ownerId,dealt,nil,nil,nil,target.kind,city.id)
+    local strikeEvent=event(s,"CityStrike","City strike dealt "..dealt.." damage.",target.tileId,target.id,city.ownerId,dealt,nil,nil,nil,target.kind,city.id)
+    strikeEvent.defenderUnitId=target.id
     if target.hp<=0 then removeUnit(s,target.id); unitLost(s,target,target.tileId,"CityStrike",city.ownerId,dealt) end
     wakeAfterAction(s,city.ownerId,city.tileId,tileId,witnesses)
 end
@@ -2045,7 +2062,7 @@ function BaseGame.snapshot(state: State, actorId: number): View
         if u.ownerId==actorId or seen[u.tileId] then
             -- Level and promotions are visible with the unit (the combat preview reads them). Experience and pending
             -- choices are the owner's alone.
-            local view=copy(u); view.promotions=copy(u.promotions or {})
+            local view=copy(u); view.unitClass=R.units[u.kind].unitClass; view.promotions=copy(u.promotions or {})
             if u.ownerId==actorId then
                 view.xp=u.xp or 0; view.nextLevelXp=R.experienceThresholds[earnedLevels(u)+1]
                 view.promotionsAvailable=if canAct then promotionsAvailable(u) else {}
@@ -2074,6 +2091,18 @@ function BaseGame.snapshot(state: State, actorId: number): View
             local choices={}; if canAct then for _, id in improvementOrder do if improvementAvailable(s,u,id) then table.insert(choices,id) end end end
             improvements[tostring(u.id)]=choices
         end
+    end
+    -- Canonical projection order, independent of state insertion order, viewer and save/resume.
+    -- Each tile's military occupant precedes its civilian; ids break ties without relying on sort stability.
+    table.sort(units,function(a: any,b: any)
+        if a.tileId~=b.tileId then return a.tileId<b.tileId end
+        if civilian(a.kind)~=civilian(b.kind) then return not civilian(a.kind) end
+        return a.id<b.id
+    end)
+    -- Use only projected units: occupancy must disclose exactly what the unit visibility rule discloses.
+    for _, u in units do
+        local tile: any=tiles[u.tileId]
+        if civilian(u.kind) then tile.civilianUnitId=u.id else tile.militaryUnitId=u.id end
     end
     local strikePreviews={}
     for _, c in s.cities do

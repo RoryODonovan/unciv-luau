@@ -131,9 +131,18 @@ for _,civilianKind in {"Worker","Settler"} do
             if reverse then victim=place(s,2,civilianKind,b); defender=place(s,2,"Warrior",b)
             else defender=place(s,2,"Warrior",b); victim=place(s,2,civilianKind,b) end
             if mode~="Survives" then defender.hp=1 end
-            local hp=victim.hp; local p=Game.previewAttack(s,1,attacker.id,b); assert(p and p.defenderHp==defender.hp and p.civilianUnitId==victim.id)
+            local hp=victim.hp; local p=Game.previewAttack(s,1,attacker.id,b); assert(p and p.defenderUnitId==defender.id and p.defenderHp==defender.hp and p.civilianUnitId==victim.id)
+            local projected: any=nil; for _,entry in Game.snapshot(s,1).attackPreviews[tostring(attacker.id)] do if entry.tileId==b then projected=entry end end
+            assert(projected and equal(projected,p),"snapshot and on-demand defender identities agree")
             assert(p.capturesCivilian==(if mode=="MeleeKill" then "Yes" else "No"))
             apply(s,1,{kind=if mode=="RangedKill" then "RangedAttack" else "MoveUnit",unitId=attacker.id,tileId=b})
+            local battle: any=nil
+            for _,e in Game.snapshot(s,1).events do
+                if e.kind=="Attack" and e.unitId==attacker.id then battle=e end
+                if e.kind=="Capture" and e.unitId==victim.id then assert(e.defenderUnitId==victim.id and e.civilianUnitId==victim.id) end
+            end
+            assert(battle and battle.defenderUnitId==defender.id)
+            assert(battle.civilianUnitId==(if mode=="MeleeKill" then victim.id else nil),"combat event names only captured civilian")
             assert(victim.hp==hp,"protected civilian takes no damage")
             if mode=="MeleeKill" then
                 assert(attacker.tileId==b and victim.ownerId==1 and victim.kind=="Worker" and victim.moves==0)
@@ -147,19 +156,25 @@ for _,civilianKind in {"Worker","Settler"} do
     -- Lone melee capture is immediate at full HP, with no retaliation or experience.
     local s,a,b=fixture(); apply(s,1,{kind="DeclareWar",targetId=2})
     local attacker=place(s,1,"Warrior",a); local victim=place(s,2,civilianKind,b)
-    local p=Game.previewAttack(s,1,attacker.id,b); assert(p and p.dealt==0 and p.received==0 and p.capturesCivilian=="Yes")
+    local p=Game.previewAttack(s,1,attacker.id,b); assert(p and p.defenderUnitId==victim.id and p.dealt==0 and p.received==0 and p.capturesCivilian=="Yes")
     apply(s,1,{kind="MoveUnit",unitId=attacker.id,tileId=b})
     assert(attacker.hp==100 and attacker.xp==nil and victim.ownerId==1 and victim.kind=="Worker"); roundtrip(s)
 end
 -- City strikes cannot bypass the military defender by naming the stacked civilian's id.
-do
+for _,reverse in {false,true} do
     local s,_,_,_,g=fixture(); local city=s.cities[1]; local tile=g.neighbors[city.tileId][1]
-    local worker=place(s,2,"Worker",tile); local defender=place(s,2,"Warrior",tile)
+    local worker: any; local defender: any
+    if reverse then worker=place(s,2,"Worker",tile); defender=place(s,2,"Warrior",tile)
+    else defender=place(s,2,"Warrior",tile); worker=place(s,2,"Worker",tile) end
     apply(s,1,{kind="DeclareWar",targetId=2})
     assert(Game.previewCityStrike(s,1,city.id,worker.id)==nil)
     reject(s,{kind="CityRangedStrike",cityId=city.id,targetUnitId=worker.id})
-    local p=Game.previewCityStrike(s,1,city.id,defender.id); assert(p)
+    local p=Game.previewCityStrike(s,1,city.id,defender.id); assert(p and p.unitId==defender.id and p.defenderUnitId==defender.id)
+    local view=Game.snapshot(s,1)
+    assert(equal(view.cityStrikePreviews[tostring(city.id)][1],p))
+    for _,c in view.cities do if c.id==city.id then assert(equal(c.strikeTargets,{defender.id})) end end
     apply(s,1,{kind="CityRangedStrike",cityId=city.id,targetUnitId=defender.id})
+    for _,e in Game.snapshot(s,1).events do if e.kind=="CityStrike" then assert(e.unitId==defender.id and e.defenderUnitId==defender.id and e.civilianUnitId==nil) end end
     assert(worker.hp==50 and defender.hp==100-p.dealt); roundtrip(s)
 end
 -- City slot priority, bounded nearest fallback, forecasts and purchase menus use the produced class.
@@ -210,9 +225,14 @@ do
     local s,_,_,_,g=fixture(); local city=s.cities[2]; local victim=place(s,2,"Worker",city.tileId)
     local attacker=place(s,1,"Warrior",g.neighbors[city.tileId][1]); city.hp=1
     apply(s,1,{kind="DeclareWar",targetId=2})
-    local p=Game.previewAttack(s,1,attacker.id,city.tileId); assert(p and p.target=="City" and p.capturesCivilian=="Yes")
+    local p=Game.previewAttack(s,1,attacker.id,city.tileId); assert(p and p.target=="City" and p.defenderUnitId==nil and p.civilianUnitId==victim.id and p.capturesCivilian=="Yes")
     apply(s,1,{kind="MoveUnit",unitId=attacker.id,tileId=city.tileId})
     assert(city.ownerId==1 and victim.ownerId==1 and victim.hp==50); roundtrip(s)
+    for _,e in Game.snapshot(s,1).events do
+        if e.kind=="Attack" or (e.kind=="Capture" and e.cityId==city.id) then
+            assert(e.defenderUnitId==nil and e.civilianUnitId==victim.id and e.cityId==city.id)
+        end
+    end
 end
 do
     local s,_,_,_,g=fixture(); local city=s.cities[2]; local victim=place(s,2,"Worker",city.tileId)
@@ -225,4 +245,85 @@ do
     assert(city.ownerId==2 and city.hp==150 and victim.ownerId==2 and victim.hp==50 and attacker.tileId~=city.tileId)
     roundtrip(s)
 end
-print("G15 stacking: movement/transit, combat/capture, cities/spawn, projections and saves passed")
+-- Projection order and class slots are canonical for both insertion orders, viewers and map shapes.
+for _,shape in {"Hex","Sphere"} do
+    for _,reverse in {false,true} do
+        local s,a,b=fixture(shape)
+        local attacker=place(s,1,"Warrior",a)
+        local worker: any; local guard: any
+        if reverse then worker=place(s,2,"Worker",b); guard=place(s,2,"Warrior",b)
+        else guard=place(s,2,"Warrior",b); worker=place(s,2,"Worker",b) end
+        apply(s,1,{kind="DeclareWar",targetId=2})
+        local saved=Game.serialize(s); local restored,message=Game.restore(saved); assert(restored,message)
+        local function check(state: any,actor: number): any
+            local view=Game.snapshot(state,actor); local stack={}
+            local previous: any=nil
+            for _,u in view.units do
+                assert(u.unitClass==Rules.units[u.kind].unitClass)
+                if previous then assert(previous.tileId<=u.tileId,"ascending tile order") end
+                previous=u
+                if u.tileId==b then table.insert(stack,u.id) end
+                local tile=view.tiles[u.tileId]
+                assert((if u.unitClass=="Civilian" then tile.civilianUnitId else tile.militaryUnitId)==u.id)
+            end
+            assert(equal(stack,{guard.id,worker.id}),"first-match sees military defender in either insertion order")
+            assert(view.tiles[b].militaryUnitId==guard.id and view.tiles[b].civilianUnitId==worker.id)
+            return view
+        end
+        for actor=1,2 do assert(equal(check(s,actor),check(restored,actor)),"snapshot identities/order survive restore") end
+        -- Reorder the same stable ids, rather than assigning new ids to the alternate insertion order.
+        s.units={worker,attacker,guard}
+        for actor=1,2 do assert(equal(check(s,actor),check(restored,actor)),"viewer projection ignores state array order") end
+        -- Resume a combat command from the save; event identities and resulting projections must match.
+        apply(s,1,{kind="MoveUnit",unitId=attacker.id,tileId=b})
+        apply(restored,1,{kind="MoveUnit",unitId=attacker.id,tileId=b})
+        for actor=1,2 do assert(equal(Game.snapshot(s,actor),Game.snapshot(restored,actor)),"resumed combat projection matches") end
+        roundtrip(s)
+    end
+end
+-- Fog never exposes either hidden slot, including on explored tiles; the other viewer sees its own full stack.
+for _,shape in {"Hex","Sphere"} do
+    for _,reverse in {false,true} do
+        for _,explored in {false,true} do
+            local s=fixture(shape); local attacker=place(s,1,"Warrior",s.cities[1].tileId); local hidden: number?=nil
+            for _,tile in Game.snapshot(s,1).tiles do
+                if not tile.visible and not tile.explored then hidden=tile.id; break end
+            end
+            assert(hidden)
+            if explored then table.insert(s.players[1].explored,hidden :: number); table.sort(s.players[1].explored) end
+            local before=Game.snapshot(s,1)
+            local worker: any; local guard: any
+            if reverse then worker=place(s,2,"Worker",hidden :: number); guard=place(s,2,"Warrior",hidden :: number)
+            else guard=place(s,2,"Warrior",hidden :: number); worker=place(s,2,"Worker",hidden :: number) end
+            local saved=Game.serialize(s); local restored,message=Game.restore(saved); assert(restored,message)
+            for _,state in {s,restored} do
+                local view=Game.snapshot(state,1)
+                assert(equal(view.units,before.units) and equal(view.tiles,before.tiles),"hidden stack changes no unit or tile projection")
+                assert(equal(view.attackPreviews,before.attackPreviews) and equal(view.cityStrikePreviews,before.cityStrikePreviews),"hidden stack changes no targets")
+                assert(view.tiles[hidden :: number].militaryUnitId==nil and view.tiles[hidden :: number].civilianUnitId==nil)
+                local own=Game.snapshot(state,2); local tile=own.tiles[hidden :: number]
+                assert(tile.militaryUnitId==guard.id and tile.civilianUnitId==worker.id)
+                local stack={}; for _,u in own.units do if u.tileId==hidden then table.insert(stack,u.id) end end
+                assert(equal(stack,{guard.id,worker.id}))
+                assert(Game.previewCityStrike(state,1,state.cities[1].id,guard.id)==nil)
+                assert(Game.previewAttack(state,1,attacker.id,hidden :: number)==nil)
+            end
+        end
+    end
+end
+-- Combat identity fields are optional for old saves, but bounded and restricted to combat events.
+do
+    local s,a,b=fixture(); local attacker=place(s,1,"Warrior",a); local victim=place(s,2,"Worker",b)
+    apply(s,1,{kind="DeclareWar",targetId=2}); apply(s,1,{kind="MoveUnit",unitId=attacker.id,tileId=b})
+    local saved=Game.serialize(s); assert(Save.valid(saved))
+    local index: number?=nil; for i,e in saved.state.events do if e.kind=="Attack" then index=i end end; assert(index)
+    for _,field in {"defenderUnitId","civilianUnitId"} do
+        for _,bad in {0,s.nextUnit,"hidden"} do
+            local invalid=Game.serialize(s); invalid.state.events[index :: number][field]=bad; assert(not Save.valid(invalid))
+        end
+    end
+    for _,e in saved.state.events do e.defenderUnitId=nil; e.civilianUnitId=nil end
+    assert(Game.restore(saved),"legacy events need no new identities")
+    saved.state.events[1].defenderUnitId=victim.id; assert(not Save.valid(saved),"public war event cannot disclose a unit")
+end
+print("G15 stacking: movement/transit, combat/capture, cities/spawn, fog-safe identities/order and saves passed")
