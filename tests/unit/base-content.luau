@@ -190,6 +190,7 @@ local function versus(kind: string,otherKind: string): number
 end
 local function reference(attackerKind: string,attackerHp: number,defenderKind: string,defenderHp: number,terrain: string,fortified: boolean): (number,number)
     local a,d=Rules.units[attackerKind],Rules.units[defenderKind]; local ranged=a.range>1
+    if not ranged and Rules.units[defenderKind].strength==0 then return 0,0 end
     local attack=math.max(1,if ranged then a.rangedStrength else a.attack)*(0.5+attackerHp/200)*(100+versus(attackerKind,defenderKind))/100
     local percent=(if terrain=="Hills" then 25 else 0)+(if fortified then 50 else 0)+versus(defenderKind,attackerKind)
     local defense=math.max(3,d.defense)*(100+percent)/100*(0.5+defenderHp/200)

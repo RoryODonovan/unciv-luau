@@ -64,8 +64,8 @@ do
     local loserView=Game.snapshot(s,2)
     assert(loserView.tiles[to].visible==false,"fixture must place the loss outside the loser's sight")
     local lost=eventsOf(loserView,"UnitLost")
-    assert(#lost==1 and lost[1].ownerId==2 and lost[1].unitId==victim.id and lost[1].unitKind=="Worker" and lost[1].cause=="Combat" and lost[1].byOwnerId==1 and lost[1].tileId==to and lost[1].amount>=5)
-    assert(lost[1].message=="Your Worker was destroyed.")
+    assert(#lost==1 and lost[1].ownerId==2 and lost[1].unitId==victim.id and lost[1].unitKind=="Worker" and lost[1].cause=="Captured" and lost[1].byOwnerId==1 and lost[1].tileId==to and lost[1].amount==nil)
+    assert(lost[1].message=="Your Worker was captured.")
     -- The winner sees the loss only through ordinary tile visibility.
     assert(#eventsOf(Game.snapshot(s,1),"UnitLost")==1)
     local saved=Game.serialize(s); assert(Save.valid(saved)); local restored=Game.restore(saved); assert(restored and equal(Game.serialize(restored),saved))
@@ -201,7 +201,7 @@ do
                 assert(attack and attack.unitId==attacker.id and attack.amount==preview.dealt,"dealt damage differs from preview")
                 if stillAttacker then assert(attackerHp-stillAttacker.hp==preview.received and preview.attackerDefeated=="No")
                 else assert(preview.attackerDefeated=="Yes" and attackerHp-preview.received<=0) end
-                assert((stillDefender==nil)==(preview.defenderDefeated=="Yes"),"defender outcome differs from preview")
+                assert((stillDefender==nil or stillDefender.ownerId==1)==(preview.defenderDefeated=="Yes"),"defender outcome (death or capture) differs from preview")
                 if stillDefender then assert(stillDefender.hp==defenderHp-preview.dealt) else kills += 1 end
                 if not stillAttacker then deaths += 1 end
                 cases += 1

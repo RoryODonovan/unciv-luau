@@ -230,7 +230,7 @@ assert(not table.find(Game.snapshot(capped,1).availableProductionByCity[tostring
 local function blockedDeployment(owner: number): (any,any,number)
     local s=founded(24+owner); if owner==2 then apply(s,1,{kind="EndTurn"}) end
     local city=firstCity(s,owner); local graph=WorldMap.fromTiles(s.tiles,s.radius)
-    local unitsAt={}; for _, u in s.units do unitsAt[u.tileId]=true end
+    local unitsAt={}; for _, u in s.units do if Rules.units[u.kind].strength>0 then unitsAt[u.tileId]=true end end
     local target: number?=nil
     for _, id in graph.neighbors[city.tileId] do if not unitsAt[id] then target=id; break end end
     assert(target)
@@ -239,7 +239,7 @@ local function blockedDeployment(owner: number): (any,any,number)
         local tile=s.tiles[id]; tile.terrain="Plains"; tile.resource=nil; tile.improvement=nil; tile.road=nil
         tile.ownerId=if id==target then 3-owner else owner
         if id~=target and not unitsAt[id] then
-            table.insert(s.units,{id=s.nextUnit,ownerId=owner,kind="Worker",tileId=id,hp=Rules.units.Worker.hp,moves=0,fortified=false,level=0}); s.nextUnit += 1
+            table.insert(s.units,{id=s.nextUnit,ownerId=owner,kind="Warrior",tileId=id,hp=Rules.units.Warrior.hp,moves=0,fortified=false,level=0}); s.nextUnit += 1
         end
     end
     s.players[owner].gold=1000; city.queue="Warrior"; city.production=Rules.productionCosts.Warrior

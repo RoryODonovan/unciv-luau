@@ -459,6 +459,18 @@ do
     s=fresh(); firstCity(s,1).hp=0; raider=place(s,0,"Warrior",ring1[1])
     before=s.nextEvent; round(s); assert(#eventsAfter(s,before,"Attack")==0 and firstCity(s,1).ownerId==1,"a city at 0 HP is left alone")
     home=firstCity(base,1)
+    -- G15: a lone civilian in a city is protected by city combat. The barbarian planner must use the same
+    -- retaliation as combat, and avoid a suicidal attack whether or not the city contains a Worker.
+    for _,withWorker in {false,true} do
+        s=fresh(); local protectedCity=firstCity(s,1); protectedCity.queue=""
+        if withWorker then place(s,1,"Worker",protectedCity.tileId) end
+        local wounded=place(s,0,"Warrior",ring1[1],10); wounded.moves=0
+        before=s.nextEvent; round(s)
+        assert(unitById(s,wounded.id)~=nil,"planner avoids suicidal city attack with a civilian")
+        for _,e in eventsAfter(s,before,"Attack") do assert(e.unitId~=wounded.id,"no suicidal attack on the city") end
+        assert(protectedCity.hp==Rules.cityHp,"protected city is not attacked")
+        assert(Save.valid(Game.serialize(s)))
+    end
     -- A crowded phase: thirty barbarians among civilization units and cities; every phase ends and every state is valid.
     s=fresh(); local taken: {[number]: boolean}={}
     for _, c in s.cities do taken[c.tileId]=true end

@@ -198,14 +198,19 @@ function BaseSave.valid(saved: any): boolean
             for _,prerequisite in rule.prerequisites do if not table.find(p.technologies,prerequisite) then return false end end
         end
     end
-    local units,occupancy={},{}; local barbarianUnits=0
+    local units,occupancy,slots={},{},{}; local barbarianUnits=0
     for _,u in s.units do
         -- The entry's shape is checked before any field is read. A barbarian unit (owner 0) needs a match with barbarians.
         if not object(u,"id ownerId kind tileId hp moves fortified level xp promotions work sentry") then return false end
         local barbarian=u.ownerId==BARBARIAN and barbarians~=nil
-        if not id(u.id) or u.id>=s.nextUnit or units[u.id] or not (owner(u.ownerId) or barbarian) or not integer(u.tileId,1,#s.tiles) or occupancy[u.tileId] then return false end
+        if not id(u.id) or u.id>=s.nextUnit or units[u.id] or not (owner(u.ownerId) or barbarian) or not integer(u.tileId,1,#s.tiles) then return false end
         if type(u.kind)~="string" or not Rules.units[u.kind] then return false end
         local rule=Rules.units[u.kind]
+        local slot=if rule.unitClass=="Civilian" then "Civilian" else "Military"
+        local existing=occupancy[u.tileId]
+        if existing and (existing.ownerId~=u.ownerId or slots[u.tileId][slot]) then return false end
+        if not slots[u.tileId] then slots[u.tileId]={} end
+        slots[u.tileId][slot]=true
         -- Optional civilization-only sentry order; absent/false means awake. Settlers and working units cannot sleep.
         if u.sentry~=nil and (type(u.sentry)~="boolean" or not owner(u.ownerId) or u.kind=="Settler" or (u.sentry and u.work~=nil)) then return false end
         -- Barbarians research nothing; their units are military, never work, gain no experience and take no promotions.
@@ -293,9 +298,12 @@ function BaseSave.valid(saved: any): boolean
     local causes={Combat=true,Ranged=true,Upkeep=true,Captured=true,NoCities=true,NeverFounded=true,CapitalsLost=true,CityStrike=true,Happiness=true,Wonder=true}
     local previous=0
     for _,e in s.events do
-        if not object(e,"id kind message tileId unitId ownerId amount public cause byOwnerId unitKind cityId wonder") or not integer(e.id,previous+1,s.nextEvent-1) or type(e.kind)~="string" or not (kinds :: any)[e.kind] or not text(e.message,256) then return false end
+        if not object(e,"id kind message tileId unitId defenderUnitId civilianUnitId ownerId amount public cause byOwnerId unitKind cityId wonder") or not integer(e.id,previous+1,s.nextEvent-1) or type(e.kind)~="string" or not (kinds :: any)[e.kind] or not text(e.message,256) then return false end
         if e.tileId~=nil and not integer(e.tileId,1,#s.tiles) then return false end
         if e.unitId~=nil and (not id(e.unitId) or e.unitId>=s.nextUnit) then return false end
+        -- Optional combat identities survive the units' removal; legacy events may omit them.
+        if e.defenderUnitId~=nil and (not id(e.defenderUnitId) or e.defenderUnitId>=s.nextUnit or (e.kind~="Attack" and e.kind~="Capture" and e.kind~="CityStrike")) then return false end
+        if e.civilianUnitId~=nil and (not id(e.civilianUnitId) or e.civilianUnitId>=s.nextUnit or (e.kind~="Attack" and e.kind~="Capture")) then return false end
         -- The barbarian owner (0) appears only in a match with barbarians: as the owner of a barbarian's Attack or
         -- UnitLost, and as the civilization-unit loser's byOwnerId of a UnitLost.
         local barbarianEvent=barbarians~=nil and (e.kind=="Attack" or e.kind=="UnitLost")
